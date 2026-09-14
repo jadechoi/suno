@@ -242,6 +242,10 @@
     </div>
     <div class="section-body">
       <div class="chip-grid" id="hh-melody"></div>
+      <div id="hh-melody-roles" hidden style="font-size:11px;color:var(--text-2);margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        🎹 리드: <strong class="mr-lead"></strong> · 배경: <strong class="mr-bg"></strong>
+        <span onclick="swapMelodyRoles()" style="cursor:pointer;color:var(--accent-text);margin-left:4px" title="리드/배경 바꾸기">⇄ 바꾸기</span>
+      </div>
     </div>
   </div>
 
@@ -289,10 +293,22 @@
     </div>
   </div>
 
+  <!-- 10 전환 효과 -->
+  <div class="section">
+    <div class="section-header open" onclick="toggleSection(this)">
+      <div class="section-title"><span class="section-num">10</span> 전환 효과 <span style="font-size:10px;color:var(--text-3);margin-left:4px">브릿지·드롭 전환 · max 2 · 장르 고르면 자동 추천</span></div>
+      <span class="caret">▼</span>
+    </div>
+    <div class="section-body">
+      <div id="hh-fx-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
+      <div class="chip-grid" id="hh-fx"></div>
+    </div>
+  </div>
+
   <!-- NARRATIVE DIRECTING -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">10</span> 🎬 NARRATIVE DIRECTING</div>
+      <div class="section-title"><span class="section-num">11</span> 🎬 NARRATIVE DIRECTING</div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -303,7 +319,7 @@
   <!-- STRUCTURE BUILDER -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">11</span> 🏗 STRUCTURE BUILDER</div>
+      <div class="section-title"><span class="section-num">12</span> 🏗 STRUCTURE BUILDER</div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -342,7 +358,7 @@
   <!-- ADVANCED -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">12</span> ⚙ ADVANCED</div>
+      <div class="section-title"><span class="section-num">13</span> ⚙ ADVANCED</div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -370,7 +386,7 @@
   <!-- 생성 기록 -->
   <div class="section">
     <div class="section-header" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">13</span> 📜 생성 기록 <span style="font-size:10px;color:var(--text-3);margin-left:4px">Generate 누를 때마다 자동 저장 · 이 브라우저에만 저장됨</span></div>
+      <div class="section-title"><span class="section-num">14</span> 📜 생성 기록 <span style="font-size:10px;color:var(--text-3);margin-left:4px">Generate 누를 때마다 자동 저장 · 이 브라우저에만 저장됨</span></div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">

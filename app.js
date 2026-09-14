@@ -428,7 +428,7 @@ const st={
   _808:'Balanced',drums:[],melody:[],mood:null,vocal:'No Vocal',
   refs:[],texture:[],era:null,region:null,density:null,length:null,
   narrSt:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
-  extraTags:[],
+  extraTags:[],transitionFx:[],melodyLeadIdx:0,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},refAf:null,
 };
 
@@ -528,11 +528,13 @@ function hhInit(){
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,null);
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,renderMelodyRoleUI);
+  renderMelodyRoleUI();
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,null);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,null);
+  chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
   chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
@@ -569,25 +571,60 @@ const HH_GENRE_SONGS=[
 // 장르별 808·드럼 자동 추천 (프로덕션 가이드 리서치 기반)
 // Sources: emastered.com, attackmagazine.com, beatkey.app, melodigging.com, orphiq.com, routenote, wikipedia/phonk/plugg
 const GENRE_AUTO=[
-  {a808:'Heavy',    aDrums:['Trap rolls','Crisp hi-hats']},           // 0 Trap      — hi-hats "most defining feature", 808 heavy support (emastered)
-  {a808:'Dominant', aDrums:['Trap rolls','Sub-bass punch']},          // 1 Dark Trap  — distorted dominant 808, dense trap rolls
-  {a808:'Balanced', aDrums:['Trap rolls','Crisp hi-hats']},           // 2 Melodic Trap — softer trap pattern, emotional focus
-  {a808:'Heavy',    aDrums:['Rolling triplets','Crisp hi-hats']},     // 3 NY Drill  — hard-hitting, sliding 808, rolling hi-hat triplets
-  {a808:'Heavy',    aDrums:['Rolling triplets','Crisp hi-hats']},     // 4 UK Drill  — "sharper hi-hat triplets", sliding 808 basslines (attackmagazine)
-  {a808:'Heavy',    aDrums:['Boom Bap kick','Sub-bass punch']},       // 5 Phonk     — TR-808 cowbell+boom bap roots, distorted 808 (wikipedia)
-  {a808:'Minimal',  aDrums:['Boom Bap kick','Crisp hi-hats']},        // 6 Boom Bap  — "swung drums off the grid", sampled breakbeats, no 808 (orphiq)
-  {a808:'Balanced', aDrums:['Crisp hi-hats']},                        // 7 Cloud Rap — "808s present but not overpowering", minimal drums (routenote)
-  {a808:'Minimal',  aDrums:['Boom Bap kick']},                        // 8 Lo-fi     — warm analog, dusty boom bap drums, minimal bass
-  {a808:'Balanced', aDrums:['Rolling triplets','Crisp hi-hats']},     // 9 Jersey Club — syncopated ghost kicks + eighth-note hats, sidechained 808 (beatkey)
-  {a808:'Dominant', aDrums:['Trap rolls','Glitchy breaks']},          // 10 Rage/Plugg — "heavy distorted sliding 808", 1/16–1/32 hi-hat rolls (melodigging)
-  {a808:'Balanced', aDrums:['Rolling triplets','Crisp hi-hats']},     // 11 Afrotrap  — afro rolling percussion, balanced bass
-  {a808:'None',     aDrums:['Boom Bap kick','Crisp hi-hats']},        // 12 Conscious — organic soulful samples, no 808 (orphiq)
-  {a808:'Heavy',    aDrums:['Sub-bass punch','Crisp hi-hats']},       // 13 Trap Soul — "808 IS the melody", sparse slow 8th hi-hats (beatkey)
-  {a808:'Heavy',    aDrums:['Glitchy breaks','Rolling triplets']},    // 14 Hyperpop  — four-on-floor kick + glitchy chaotic elements
-  {a808:'Balanced', aDrums:['Glitchy breaks','Crisp hi-hats']},       // 15 Digicore  — bedroom digital aesthetic, lo-fi glitch texture
-  {a808:'Dominant', aDrums:['Sub-bass punch']},                       // 16 Pluggnb   — Zaytoven: "808 bumping, everything else is just extra" (wikipedia)
-  {a808:'Minimal',  aDrums:['Boom Bap kick','Crisp hi-hats']},        // 17 Westwood  — jazz-influenced live drums, quirky organic feel
+  {a808:'Heavy',    aDrums:['Trap rolls','Crisp hi-hats'],           fx:['임팩트/크래시','라이저']},          // 0 Trap      — hi-hats "most defining feature", 808 heavy support (emastered)
+  {a808:'Dominant', aDrums:['Trap rolls','Sub-bass punch'],          fx:['리버스 심벌','순간 정적']},          // 1 Dark Trap  — distorted dominant 808, dense trap rolls
+  {a808:'Balanced', aDrums:['Trap rolls','Crisp hi-hats'],           fx:['라이저','필터 스윕다운']},           // 2 Melodic Trap — softer trap pattern, emotional focus
+  {a808:'Heavy',    aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['순간 정적','필터 스윕다운']},        // 3 NY Drill  — hard-hitting, sliding 808, rolling hi-hat triplets
+  {a808:'Heavy',    aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['스네어 롤','임팩트/크래시']},        // 4 UK Drill  — "sharper hi-hat triplets", sliding 808 basslines (attackmagazine)
+  {a808:'Heavy',    aDrums:['Boom Bap kick','Sub-bass punch'],       fx:['테이프 스탑','필터 스윕다운']},      // 5 Phonk     — TR-808 cowbell+boom bap roots, distorted 808 (wikipedia)
+  {a808:'Minimal',  aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['테이프 스탑','스네어 롤']},          // 6 Boom Bap  — "swung drums off the grid", sampled breakbeats, no 808 (orphiq)
+  {a808:'Balanced', aDrums:['Crisp hi-hats'],                        fx:['화이트노이즈 스윕','순간 정적']},    // 7 Cloud Rap — "808s present but not overpowering", minimal drums (routenote)
+  {a808:'Minimal',  aDrums:['Boom Bap kick'],                        fx:['테이프 스탑','순간 정적']},          // 8 Lo-fi     — warm analog, dusty boom bap drums, minimal bass
+  {a808:'Balanced', aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['임팩트/크래시','스네어 롤']},        // 9 Jersey Club — syncopated ghost kicks + eighth-note hats, sidechained 808 (beatkey)
+  {a808:'Dominant', aDrums:['Trap rolls','Glitchy breaks'],          fx:['필터 스윕다운','임팩트/크래시']},    // 10 Rage/Plugg — "heavy distorted sliding 808", 1/16–1/32 hi-hat rolls (melodigging)
+  {a808:'Balanced', aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['스네어 롤','임팩트/크래시']},        // 11 Afrotrap  — afro rolling percussion, balanced bass
+  {a808:'None',     aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['순간 정적','테이프 스탑']},          // 12 Conscious — organic soulful samples, no 808 (orphiq)
+  {a808:'Heavy',    aDrums:['Sub-bass punch','Crisp hi-hats'],       fx:['필터 스윕다운','라이저']},           // 13 Trap Soul — "808 IS the melody", sparse slow 8th hi-hats (beatkey)
+  {a808:'Heavy',    aDrums:['Glitchy breaks','Rolling triplets'],    fx:['화이트노이즈 스윕','임팩트/크래시']}, // 14 Hyperpop  — four-on-floor kick + glitchy chaotic elements
+  {a808:'Balanced', aDrums:['Glitchy breaks','Crisp hi-hats'],       fx:['화이트노이즈 스윕','순간 정적']},    // 15 Digicore  — bedroom digital aesthetic, lo-fi glitch texture
+  {a808:'Dominant', aDrums:['Sub-bass punch'],                       fx:['필터 스윕다운','순간 정적']},        // 16 Pluggnb   — Zaytoven: "808 bumping, everything else is just extra" (wikipedia)
+  {a808:'Minimal',  aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['테이프 스탑','스네어 롤']},          // 17 Westwood  — jazz-influenced live drums, quirky organic feel
 ];
+
+// 전환 효과(브릿지/드롭 전환) — 장르 고르면 GENRE_AUTO.fx로 자동 선택, 직접 바꿀 수도 있음
+const HH_TRANSITION_FX=['라이저','리버스 심벌','화이트노이즈 스윕','임팩트/크래시','필터 스윕다운','순간 정적','스네어 롤','테이프 스탑'];
+const TRANSITION_FX_TAG={
+  '라이저':'riser sweep up','리버스 심벌':'reverse cymbal swell','화이트노이즈 스윕':'white noise sweep',
+  '임팩트/크래시':'impact crash hit','필터 스윕다운':'low-pass filter sweep down','순간 정적':'brief silence break',
+  '스네어 롤':'rising snare roll','테이프 스탑':'tape stop effect',
+};
+
+// 멜로디 악기 리드/배경 기본 역할 — 2개 골랐을 때 어느 게 리드인지 자동 판단 (⇄로 바꿀 수 있음)
+const MELODY_ROLE={
+  'Dark synth':'lead','Emotional piano':'lead','Guitar loop':'lead','Sample chop':'lead','Brass stab':'lead',
+  'Ambient pad':'background','Strings':'background','Psychedelic FX':'background',
+};
+// 멜로디 2개 선택 시 리드/배경 자동 배정 — st.melodyLeadIdx로 사용자가 ⇄ 바꾼 상태 반영
+function computeMelodyRoles(arr){
+  if(!arr||arr.length!==2)return null;
+  let leadIdx=(MELODY_ROLE[arr[0]]!=='lead'&&MELODY_ROLE[arr[1]]==='lead')?1:0;
+  if(st.melodyLeadIdx===1)leadIdx=1-leadIdx;
+  return {lead:arr[leadIdx],bg:arr[1-leadIdx]};
+}
+function renderMelodyRoleUI(){
+  const box=document.getElementById('hh-melody-roles');
+  if(!box)return;
+  const roles=computeMelodyRoles(st.melody);
+  box.hidden=!roles;
+  if(roles){
+    box.querySelector('.mr-lead').textContent=roles.lead;
+    box.querySelector('.mr-bg').textContent=roles.bg;
+  }
+}
+function swapMelodyRoles(){
+  st.melodyLeadIdx=st.melodyLeadIdx?0:1;
+  renderMelodyRoleUI();
+}
 
 // 장르별 기본 무드 (큐레이션 아티스트 곡 클릭 시 — 실제 오디오 분석 없이도 무드를 채워주기 위한 장르 기반 추정)
 const GENRE_DEFAULT_MOOD=[
@@ -626,15 +663,18 @@ function selectGenre(i){
     st.bpm=GENRES[i].bpm;
     document.getElementById('hh-bpm').value=st.bpm;
     renderGenreRefSuggestions(i);
-    // 808·드럼 자동 추천 적용
+    // 808·드럼·전환효과 자동 추천 적용
     const auto=GENRE_AUTO[i];
     if(auto){
       st._808=auto.a808;
       st.drums=[...auto.aDrums];
+      st.transitionFx=[...auto.fx];
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
+      setAutoHint('hh-fx-hint',auto.fx.join(', '));
     }
   } else {
     _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
@@ -642,6 +682,7 @@ function selectGenre(i){
     if(sg)sg.innerHTML='';
     clearAutoHint('hh-808-hint');
     clearAutoHint('hh-drums-hint');
+    clearAutoHint('hh-fx-hint');
   }
   renderHhGenres();
   const trendEl=document.getElementById('hh-genre-trends');
@@ -782,15 +823,18 @@ function applyArtistSong(tabKey,song,artist){
     // 레퍼런스 곡 자동 입력
     const refEl=document.getElementById('hh-ref-song');
     if(refEl&&artist&&song.title)refEl.value=`${artist.name} - ${song.title}`;
-    // 808·드럼 자동 추천 (곡 장르 기반)
+    // 808·드럼·전환효과 자동 추천 (곡 장르 기반)
     const auto=GENRE_AUTO[song.genre];
     if(auto){
       st._808=auto.a808;
       st.drums=[...auto.aDrums];
+      st.transitionFx=[...auto.fx];
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
+      setAutoHint('hh-fx-hint',auto.fx.join(', '));
     }
     // 무드 자동 추천 (실제 오디오 분석은 없으므로 장르 기반 추정치)
     const defMood=GENRE_DEFAULT_MOOD[song.genre];
@@ -1290,10 +1334,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const lines=[];
 
   // 멜로디 악기명은 처음 2번(Intro·첫 Hook)만 명시하고, 이후엔 "같은 악기" 콜백으로 순환 — 섹션마다 문구 그대로 반복되는 것 방지
+  // 멜로디 2개 선택 시 맨 처음 등장은 리드/배경 역할까지 명시해서 입체감 부여
+  const melodyRoles=computeMelodyRoles(melody);
+  const mDescFull=melodyRoles?`${melodyRoles.lead} lead melody, ${melodyRoles.bg} layered softly beneath`:mDesc;
   const mDescCallbacks=['matching synth layers','consistent instrumentation','the same tonal palette'];
   let mDescUses=0;
   const melodyRef=()=>{
-    const ref=mDescUses<2?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length];
+    const ref=mDescUses===0?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length]);
     mDescUses++;
     return ref;
   };
@@ -1301,7 +1348,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   segs.forEach(type=>{
     if(type==='intro'){
       lines.push('[Intro]');
-      lines.push(`(Warm ${melodyRef()} opening in ${keyName}, low-pass filter smoothly rising, subtle hi-hats creeping in, no bass yet)`);
+      lines.push(`(Warm opening in ${keyName} — ${melodyRef()}, low-pass filter smoothly rising, subtle hi-hats creeping in, no bass yet)`);
     } else if(type==='hook'){
       cnt.hook++;
       const isLast=cnt.hook===totalHooks;
@@ -1323,9 +1370,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
       const sub=isLastB?'Fast Build-up':'Tension Build';
+      // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값
+      const fxPhrase=(st.transitionFx&&st.transitionFx.length)
+        ?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f).join(', ')
+        :'reverse cymbal swell, low-pass filter sweep down';
       const desc=isLastB
-        ?`Quick break, isolated ${melodyRef()} chord echoing, reverse crash cymbal pulling into final drop, maximum tension`
-        :`Heavy low-pass filter muffles the beat, rising snare roll, ${melodyRef()} building anticipation, brief silence before drop`;
+        ?`Quick break, isolated ${melodyRef()} chord echoing, ${fxPhrase}, maximum tension`
+        :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef()} building anticipation`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${sAE.bridge?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
     } else if(type==='outro'){
@@ -2035,6 +2086,7 @@ function applyAdvMelody(melStr){
   const parts=melStr.split(' + ');
   st.melody=[...parts];
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',null,null);
+  renderMelodyRoleUI();
   hhGenerate();
 }
 function applyAdvMood(moodKr){
@@ -2138,7 +2190,11 @@ function hhGenerate(){
     tags.push(refEns.join(', '));
   }
   if(mood)tags.push(mood.tag);
-  if(st.melody.length)tags.push(...st.melody.map(m=>m.toLowerCase()));
+  if(st.melody.length){
+    const roles=computeMelodyRoles(st.melody);
+    if(roles)tags.push(`${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
+    else tags.push(...st.melody.map(m=>m.toLowerCase()));
+  }
   if(st._808&&st._808!=='None')tags.push(`${st._808} 808`);
   // g.drum은 드럼 칩 미선택 시 fallback으로만 사용
   if(st.drums.length)tags.push(...st.drums.map(d=>d.toLowerCase()));
@@ -2336,11 +2392,13 @@ function hhReset(){
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,null);
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,renderMelodyRoleUI);
+  renderMelodyRoleUI();
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,null);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,null);
+  chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
   chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
@@ -2636,11 +2694,13 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
     st.genre=genreIdx;renderHhGenres();
     const auto=GENRE_AUTO[genreIdx];
     if(auto){
-      st._808=auto.a808;st.drums=[...auto.aDrums];
+      st._808=auto.a808;st.drums=[...auto.aDrums];st.transitionFx=[...auto.fx];
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
+      setAutoHint('hh-fx-hint',auto.fx.join(', '));
     }
   }
   // 레퍼런스 곡
