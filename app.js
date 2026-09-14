@@ -1898,6 +1898,102 @@ function saveRapidApiKey(){
   try{localStorage.setItem('rapidapi_key',val);}catch(_){}
   if(msgEl){msgEl.textContent='✅ 저장됨 — 다음 곡 클릭부터 자동으로 사용됩니다';msgEl.hidden=false;msgEl.style.color='var(--success)';}
 }
+
+// ---- AI 추천 (Anthropic API — 고른 요소를 보고 멜로디·믹스 텍스처 추천) ----
+function getAnthropicKey(){
+  try{return localStorage.getItem('anthropic_api_key')||'';}catch(_){return'';}
+}
+function saveAnthropicKey(){
+  const val=document.getElementById('anthropic-key')?.value.trim()||'';
+  const msgEl=document.getElementById('anthropic-key-status');
+  if(!val){
+    if(msgEl){msgEl.textContent='❌ Key를 입력하세요';msgEl.hidden=false;msgEl.style.color='var(--danger)';}
+    return;
+  }
+  try{localStorage.setItem('anthropic_api_key',val);}catch(_){}
+  if(msgEl){msgEl.textContent='✅ 저장됨 — MELODY 섹션의 🤖 AI 추천받기 버튼을 눌러보세요';msgEl.hidden=false;msgEl.style.color='var(--success)';}
+}
+async function aiRecommendMelodyTexture(){
+  const key=getAnthropicKey();
+  const statusEl=document.getElementById('ai-reco-status');
+  const btn=document.getElementById('ai-reco-btn');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
+
+  btn.disabled=true;btn.textContent='🤖 추천 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const g=GENRES[st.genre];
+    const mood=HH_MOODS.find(m=>m.kr===st.mood);
+    const ctx=[
+      `장르: ${g.kr} (${g.sound}, 에너지 ${g.energy})`,
+      mood?`무드: ${mood.kr}`:null,
+      `808: ${st._808}`,
+      st.drums.length?`드럼: ${st.drums.join(', ')}`:null,
+      st.era?`시대감: ${st.era}`:null,
+      st.region?`지역색: ${st.region}`:null,
+      st.density?`밀도: ${st.density}`:null,
+      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
+    ].filter(Boolean).join('\n');
+    const prompt=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개를 추천해줘. 매번 똑같이 고르지 말고 맥락에 맞게 창의적으로 — 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+
+[현재 선택]
+${ctx}
+
+[멜로디 악기 목록]
+${HH_MELODY.join(', ')}
+
+[믹스 텍스처 목록]
+${HH_TEXTURE.join(', ')}
+
+다른 텍스트 없이 아래 JSON 형식으로만 답해:
+{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"reason":"한 문장 한국어 이유"}`;
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:300,
+        messages:[{role:'user',content:prompt}],
+      }),
+    });
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'');
+      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+    }
+    const data=await res.json();
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const lead=parsed.melodyLead,bg=parsed.melodyBackground;
+    if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
+    const tex=(parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)).slice(0,2);
+    if(!tex.length)throw new Error('AI가 목록에 없는 텍스처를 반환했습니다');
+
+    st.melody=[lead,bg];
+    st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
+    st.texture=tex;
+    chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,renderMelodyRoleUI);
+    renderMelodyRoleUI();
+    chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,null);
+
+    if(statusEl){
+      statusEl.hidden=false;statusEl.style.color='var(--success)';
+      statusEl.textContent='✅ '+(parsed.reason||'추천 완료');
+    }
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 AI 추천받기';
+  }
+}
+
 async function getAudioFeaturesViaRapidAPI(trackId){
   const key=getRapidApiKey();
   if(!key)return null;
