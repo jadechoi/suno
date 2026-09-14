@@ -2406,6 +2406,23 @@ async function resolveArtistIdByName(name,tok){
   }catch(e){return null;}
 }
 
+// Spotify가 이 앱 등급에서 genres 필드도 지워버려서(popularity와 동일 증상, 실측 확인됨)
+// Musicae 배치 조회로 genres만 복구 — "요즘 뜨는 서브장르" 집계에 필요
+async function fetchArtistGenresViaRapidAPI(ids){
+  const key=getRapidApiKey();
+  if(!key||!ids.length)return{};
+  try{
+    const r=await fetch(`https://spotify-extended-audio-features-api.p.rapidapi.com/v1/artists?ids=${ids.slice(0,50).join(',')}`,{
+      headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'spotify-extended-audio-features-api.p.rapidapi.com'}
+    });
+    if(!r.ok){console.warn('Musicae artists batch HTTP',r.status);return{};}
+    const d=await r.json();
+    const map={};
+    (d.artists||[]).forEach(a=>{if(a&&a.id)map[a.id]=a.genres||[];});
+    return map;
+  }catch(e){console.warn('fetchArtistGenresViaRapidAPI error',e);return{};}
+}
+
 // native Spotify /v1/artists/{id}/top-tracks도 이 앱 등급에서 403 — Musicae RapidAPI의 동일 엔드포인트로 대체
 async function fetchArtistTopTracksRaw(artistId){
   const key=getRapidApiKey();
@@ -2598,6 +2615,10 @@ async function fetchTrendingArtists(){
     return;
   }
   if(statusEl)statusEl.textContent=`Billboard Hip-Hop/R&B 차트 기준 ${scoredTop.length}명 (실제 이번 주 순위)`;
+
+  // genres 채워넣기 — 서브장르 집계용 (Spotify가 안 주니 Musicae로)
+  const genreMap=await fetchArtistGenresViaRapidAPI(scoredTop.map(a=>a.id));
+  scoredTop.forEach(a=>{if(genreMap[a.id]&&genreMap[a.id].length)a.genres=genreMap[a.id];});
 
   // 세션 캐시
   try{sessionStorage.setItem('sp_trending',JSON.stringify(scoredTop));
