@@ -139,6 +139,12 @@ const HH_MOODS=[
   {kr:'내성적·사색',tag:'introspective thoughtful'},
   {kr:'축제·환희',tag:'euphoric festival energy'},
   {kr:'승리감·웅장',tag:'triumphant anthemic'},
+  {kr:'슬프고·멜랑콜리',tag:'sad melancholic'},
+  {kr:'자신감·플렉스',tag:'confident flexing braggadocio'},
+  {kr:'로맨틱·달콤한',tag:'romantic sweet'},
+  {kr:'긴장감·서스펜스',tag:'tense suspenseful'},
+  {kr:'노스탤직·향수',tag:'nostalgic wistful'},
+  {kr:'미스터리·신비',tag:'mysterious enigmatic'},
 ];
 const HH_VOCAL=['No Vocal','Light ad-libs','Heavy hooks','Full rap feature'];
 // en 필드는 실제 Suno 프롬프트에 그대로 들어감 — 실존 아티스트/프로듀서 이름을 직접 넣으면
@@ -1340,9 +1346,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const grooveTag=GROOVE_TAG[st.groove]||'consistent rhythmic pocket';
   const mDesc=(melody&&melody.length)?melody.join(', '):'dark synthesizers';
 
-  const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus','Euphoric Anthem','Triumphant Peak'];
-  const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak','euphoric explosive','triumphant anthemic'];
-  const verseSubMap=['Grimy Pocket','Melodic Pocket','Hard Pocket','Deep Pocket','Energetic Verse','Chill Pocket','Cinematic Build','Conscious Flow','Building Hype','Rising Anthem'];
+  const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus','Euphoric Anthem','Triumphant Peak','Melancholic Peak','Flex Anthem','Romantic Chorus','Suspense Peak','Nostalgic Chorus','Mysterious Drop'];
+  const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak','euphoric explosive','triumphant anthemic','melancholic emotional','confident flexing','romantic sweet','tense suspenseful','nostalgic wistful','mysterious enigmatic'];
+  const verseSubMap=['Grimy Pocket','Melodic Pocket','Hard Pocket','Deep Pocket','Energetic Verse','Chill Pocket','Cinematic Build','Conscious Flow','Building Hype','Rising Anthem','Sorrowful Pocket','Cocky Pocket','Tender Pocket','Anxious Pocket','Wistful Pocket','Enigmatic Pocket'];
   const hookSub=moodIdx>=0?hookSubMap[moodIdx%hookSubMap.length]:'Euphoric Drop';
   const hookEng=moodIdx>=0?hookEngMap[moodIdx%hookEngMap.length]:'euphoric';
   const verseSub=moodIdx>=0?verseSubMap[moodIdx%verseSubMap.length]:'Stripped Pocket';
@@ -1466,7 +1472,7 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   // 4. 무드 vs 장르 에너지 충돌
   if(mood){
     const mIdx=HH_MOODS.findIndex(m=>m.kr===st.mood);
-    const mellowMoods=[2,4,5,7]; // melodic, psychedelic, chill, introspective
+    const mellowMoods=[2,4,5,7,10,12,14]; // melodic, psychedelic, chill, introspective, sad, romantic, nostalgic
     const aggressiveMoods=[0,6]; // dark menacing, aggressive angry
     const hardGenres=[0,1,3,4,10,14];
     const mellowGenres=[7,8,16,6,12];
@@ -1557,10 +1563,10 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   }
 
   // 8. 무드+멜로디 일관성
-  const emotionalMoods=[2,5,7];
+  const emotionalMoods=[2,5,7,10,12,14];
   const mIdx2=HH_MOODS.findIndex(m=>m.kr===st.mood);
   if(emotionalMoods.includes(mIdx2)&&!st.melody.length){
-    const moodMelMap={2:'Dark synth + Guitar loop',5:'Mellow keys + Flute',7:'Soft piano + Ambient pad'};
+    const moodMelMap={2:'Dark synth + Guitar loop',5:'Mellow keys + Flute',7:'Soft piano + Ambient pad',10:'Emotional piano + Ambient pad',12:'Emotional piano + Strings',14:'Guitar loop + Ambient pad'};
     const sugMelody2=moodMelMap[mIdx2]||'Dark synth + Guitar loop';
     warns.push({html:`⚠️ <strong>${st.mood}</strong> 무드를 선택했지만 멜로디 악기가 없습니다. 감성이 제대로 전달되지 않습니다.`,btnLabel:'멜로디 악기 적용',btnFn:`applyAdvMelody('${sugMelody2}')`});
   }
