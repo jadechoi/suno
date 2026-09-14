@@ -2378,33 +2378,32 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // genre:"tag" 아티스트 검색 — popularity 붙은 아티스트 객체를 바로 돌려줌 (플레이리스트 스크래핑 불필요)
 // genre: 필드 필터는 이 앱 등급에서 사실상 무의미한(popularity 0, 무명 아티스트) 결과만 줘서
 // 평문 키워드 검색으로 대체 — Spotify 자체 relevance 랭킹이 훨씬 낫다 (실측 확인됨).
-// market으로 로케일(Accept-Language) 편향을 조절하고, 한글 이름 여부로 해외/국내를 나눠 받는다.
 const isKoreanName=name=>/[가-힣]/.test(name);
-async function searchArtistsByGenre(keyword,tok,{market='US',onlyKorean=false}={}){
+
+// 실제 Billboard 주간 Hip-Hop/R&B 차트 — RapidAPI billboard-charts-api. 순위 자체가 진짜 트렌드 신호.
+// id="r-b-hip-hop-songs" 는 실측으로 확인된 값 (카테고리 목록이 주는 id는 도메인 접두사가 깨져있어 못 씀)
+async function fetchBillboardHipHopChart(){
+  const key=getRapidApiKey();
+  if(!key)return[];
   try{
-    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(keyword)}&type=artist&market=${market}&limit=10`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok){console.warn(`artist search "${keyword}" HTTP ${r.status}`);return[];}
+    const r=await fetch('https://billboard-charts-api.p.rapidapi.com/chart.php?id=r-b-hip-hop-songs',{
+      headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'billboard-charts-api.p.rapidapi.com'}
+    });
+    if(!r.ok){console.warn('Billboard chart HTTP',r.status);return[];}
     const d=await r.json();
-    // "HIP HOP" 같이 검색어 자체가 아티스트명으로 등록된 쓰레기 엔트리 제거
-    const items=(d.artists?.items||[]).filter(a=>a.id&&a.name&&a.name.trim().toLowerCase()!==keyword.trim().toLowerCase());
-    return items.filter(a=>onlyKorean?isKoreanName(a.name):!isKoreanName(a.name));
-  }catch(e){console.warn('searchArtistsByGenre error',e);return[];}
+    return d.songs||[];
+  }catch(e){console.warn('fetchBillboardHipHopChart error',e);return[];}
 }
 
-// Spotify가 이 앱 등급에서 지운 popularity를 Musicae RapidAPI의 아티스트 배치 조회로 복구
-async function fetchArtistsPopularityViaRapidAPI(ids){
-  const key=getRapidApiKey();
-  if(!key||!ids.length)return{};
+// Billboard 차트엔 Spotify ID가 없어서 아티스트 이름으로 정확히 검색해 ID를 리졸브
+async function resolveArtistIdByName(name,tok){
   try{
-    const r=await fetch(`https://spotify-extended-audio-features-api.p.rapidapi.com/v1/artists?ids=${ids.slice(0,50).join(',')}`,{
-      headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'spotify-extended-audio-features-api.p.rapidapi.com'}
-    });
-    if(!r.ok){console.warn('Musicae artists batch HTTP',r.status);return{};}
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(name)}&type=artist&market=US&limit=1`,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok)return null;
     const d=await r.json();
-    const map={};
-    (d.artists||[]).forEach(a=>{if(a&&a.id)map[a.id]={popularity:a.popularity,genres:a.genres};});
-    return map;
-  }catch(e){console.warn('fetchArtistsPopularityViaRapidAPI error',e);return{};}
+    const a=(d.artists?.items||[])[0];
+    return a&&a.id?{id:a.id,name:a.name,genres:a.genres||[]}:null;
+  }catch(e){return null;}
 }
 
 // native Spotify /v1/artists/{id}/top-tracks도 이 앱 등급에서 403 — Musicae RapidAPI의 동일 엔드포인트로 대체
@@ -2557,7 +2556,7 @@ async function fetchTrendingArtists(){
   const chipsEl=document.getElementById('hh-trending-chips');
   const lastEl=document.getElementById('trending-last-update');
   if(btn)btn.textContent='로딩 중...';
-  if(statusEl){statusEl.textContent='🔍 "hip hop" 아티스트 검색 중…';statusEl.hidden=false;}
+  if(statusEl){statusEl.textContent='📊 Billboard Hip-Hop/R&B 차트 조회 중…';statusEl.hidden=false;}
 
   const tok=await getSpotifyToken();
   if(!tok){
@@ -2569,29 +2568,36 @@ async function fetchTrendingArtists(){
     return;
   }
 
-  // 한국 아티스트는 제외하고 해외 아티스트만
-  const found=await searchArtistsByGenre('hip hop',tok,{market:'US',onlyKorean:false});
-  if(!found.length){
-    if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ 아티스트 검색 결과가 없습니다. 브라우저 콘솔(F12)에서 오류를 확인하세요.</span>';
-    if(statusEl){statusEl.textContent='아티스트 검색 실패';statusEl.hidden=false;}
+  const chart=await fetchBillboardHipHopChart();
+  if(!chart.length){
+    if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ Billboard 차트를 가져오지 못했습니다. RapidAPI에 billboard-charts-api를 구독했는지 확인하세요.</span>';
+    if(statusEl){statusEl.textContent='Billboard 차트 조회 실패';statusEl.hidden=false;}
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
-  // Spotify가 안 주는 popularity를 Musicae로 복구해서 진짜 "핫한 순"으로 정렬
-  const popMap=await fetchArtistsPopularityViaRapidAPI(found.map(a=>a.id));
-  const hasRealPop=Object.values(popMap).some(v=>typeof v.popularity==='number');
-  if(statusEl)statusEl.textContent=hasRealPop
-    ?`검색 결과: ${found.length}명 (Musicae 인기도순)`
-    :`검색 결과: ${found.length}명 (Spotify 검색 순위순 · 인기도 데이터 없음 — RapidAPI 키 확인)`;
 
-  const scored=found.map(a=>({
-    id:a.id,name:a.name,
-    genres:(popMap[a.id]?.genres&&popMap[a.id].genres.length?popMap[a.id].genres:a.genres)||[],
-    popularity:popMap[a.id]?.popularity,
-    img:(a.images||[])[2]?.url||(a.images||[])[0]?.url||null
-  }));
-  if(hasRealPop)scored.sort((a,b)=>(b.popularity??-1)-(a.popularity??-1));
-  const scoredTop=scored.slice(0,24);
+  // 차트 순위 그대로 유니크 아티스트 추출 (이미 진짜 트렌드 순서라 재정렬 불필요), 한국 아티스트 제외
+  const seen=new Set();
+  const chartArtists=[];
+  chart.forEach(s=>{
+    if(!s.artist||seen.has(s.artist)||isKoreanName(s.artist))return;
+    seen.add(s.artist);
+    chartArtists.push(s.artist);
+  });
+
+  if(statusEl)statusEl.textContent=`Billboard 순위 아티스트 ${Math.min(chartArtists.length,15)}명 Spotify ID 조회 중…`;
+  // Billboard엔 Spotify ID가 없어서 이름으로 리졸브 (병렬)
+  const resolved=(await Promise.all(chartArtists.slice(0,15).map(n=>resolveArtistIdByName(n,tok))))
+    .filter(Boolean);
+  const scoredTop=resolved.filter(a=>!isKoreanName(a.name)).slice(0,15);
+
+  if(!scoredTop.length){
+    if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ Billboard 아티스트를 Spotify에서 찾지 못했습니다.</span>';
+    if(statusEl){statusEl.textContent='아티스트 리졸브 실패';statusEl.hidden=false;}
+    if(btn)btn.textContent='↻ 새로고침';
+    return;
+  }
+  if(statusEl)statusEl.textContent=`Billboard Hip-Hop/R&B 차트 기준 ${scoredTop.length}명 (실제 이번 주 순위)`;
 
   // 세션 캐시
   try{sessionStorage.setItem('sp_trending',JSON.stringify(scoredTop));
