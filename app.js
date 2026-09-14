@@ -166,6 +166,15 @@ const HH_REF=[
   {kr:'Just Blaze',    en:'soulful orchestral samples, golden era boom bap horns, triumphant energy',    artists:'Jay-Z · Kanye West',          vibes:'소울 · 오케스트라 · 골든에라'},
   {kr:'Boi-1da',       en:'hard cinematic beats, dramatic orchestral hits, lyrical trap drum patterns',             artists:'Kendrick · Drake · Eminem',   vibes:'하드 · 시네마틱 · 라이리컬'},
 ];
+// 장르별 프로듀서 레퍼런스 자동 추천 (HH_REF.kr 참조) — 808/드럼/전환효과처럼 장르 고르면 바로 채워지고, 수동으로 바꿀 수도 있음
+const GENRE_REF={
+  0:['Southside','Wheezy'], 1:['Metro Boomin','Southside'], 2:['Wheezy',"Pi'erre Bourne"],
+  3:['Tay Keith','Southside'], 4:['Tay Keith','Metro Boomin'], 5:['The Alchemist','Southside'],
+  6:['J Dilla','The Alchemist'], 7:["Pi'erre Bourne",'Harry Fraud'], 8:['J Dilla','Harry Fraud'],
+  9:['Timbaland','Pharrell Williams'], 10:["Pi'erre Bourne",'Wheezy'], 11:['Pharrell Williams','Timbaland'],
+  12:['J Dilla','Just Blaze'], 13:['Zaytoven','Timbaland'], 14:['Timbaland',"Pi'erre Bourne"],
+  15:["Pi'erre Bourne",'Timbaland'], 16:["Pi'erre Bourne",'Wheezy'], 17:['J Dilla','Harry Fraud'],
+};
 const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb','Dry intimate','Sidechain pump','Stereo wide','Bass-heavy','Punchy mix','Polished production','Raw sound'];
 const HH_ERA=['90s','2000s','2010s','2020s','Timeless'];
 const HH_REGION=['Atlanta','New York','LA','UK','Seoul','Miami','Chicago'];
@@ -876,6 +885,7 @@ function selectGenre(i){
       setAutoHint('hh-groove-hint',auto.groove);
     }
     recommendMelodyTexture();
+    recommendProducerRef();
   } else {
     _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
     const sg=document.getElementById('hh-ref-suggestions');
@@ -886,6 +896,8 @@ function selectGenre(i){
     clearAutoHint('hh-groove-hint');
     clearAutoHint('hh-melody-hint');
     clearAutoHint('hh-texture-hint');
+    clearAutoHint('hh-ref-hint');
+    st.refs=[];renderProducerRef();
   }
   renderHhGenres();
   const trendEl=document.getElementById('hh-genre-trends');
@@ -1006,6 +1018,15 @@ function renderProducerRef(){
     container.appendChild(el);
   });
 }
+// 장르 고르면 GENRE_REF로 프로듀서 레퍼런스 자동 채움 — 수동으로 클릭해서 언제든 바꿀 수 있음
+function recommendProducerRef(){
+  if(st.genre===null)return;
+  const refs=GENRE_REF[st.genre];
+  if(!refs)return;
+  st.refs=[...refs];
+  renderProducerRef();
+  setAutoHint('hh-ref-hint',refs.join(', '));
+}
 
 // HH mode toggle: 'genre' = 장르 기반, 'typeBeat' = 아티스트 타입비트
 let hhMode='genre';
@@ -1049,6 +1070,7 @@ function applyArtistSong(tabKey,song,artist){
       moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
     }
     recommendMelodyTexture();
+    recommendProducerRef();
     renderHhGenres();
     showToast(`🎵 <b>${artist?.name||''} — ${song.title||''}</b><br>Key: ${KEYS[st.key]||'?'} · ${st.bpm}BPM · 무드: ${defMood||'-'} (장르 추정) 적용됨`);
     updateFloatSummary();
@@ -2724,6 +2746,7 @@ function hhReset(){
   clearAutoHint('hh-texture-hint');
   clearAutoHint('hh-fx-hint');
   clearAutoHint('hh-groove-hint');
+  clearAutoHint('hh-ref-hint');
   const vcBox=document.getElementById('hh-vocal-char-box');
   if(vcBox)vcBox.hidden=true;
   const vsBox=document.getElementById('hh-vocal-style-box');
@@ -3045,6 +3068,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
       setAutoHint('hh-groove-hint',auto.groove);
     }
     recommendMelodyTexture();
+    recommendProducerRef();
   }
   // 레퍼런스 곡
   const refEl=document.getElementById('hh-ref-song');
