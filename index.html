@@ -252,13 +252,14 @@
   <!-- 05 MELODY -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">05</span> MELODY <span style="font-size:10px;color:var(--text-3);margin-left:4px">max 2</span></div>
+      <div class="section-title"><span class="section-num">05</span> MELODY <span style="font-size:10px;color:var(--text-3);margin-left:4px">max 2 · 장르+무드 고르면 자동 추천</span></div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
+      <div id="hh-melody-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <button onclick="aiRecommendMelodyTexture()" id="ai-reco-btn" style="padding:6px 14px;border-radius:var(--r-sm);border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 AI 추천받기</button>
-        <span style="font-size:10px;color:var(--text-3)">지금까지 고른 장르·무드 등을 보고 멜로디 + 믹스 텍스처(09번)를 같이 추천 · 🎧 SPOTIFY 연동 패널에서 API Key 설정 필요</span>
+        <button onclick="aiRecommendMelodyTexture()" id="ai-reco-btn" style="padding:6px 14px;border-radius:var(--r-sm);border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 AI로 다시 추천</button>
+        <span style="font-size:10px;color:var(--text-3)">기본 추천은 자동으로 채워짐 · 이 버튼은 API Key 설정 시 매번 다른 창의적 조합을 추천 (선택사항)</span>
       </div>
       <div id="ai-reco-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-bottom:10px"></div>
       <div class="chip-grid" id="hh-melody"></div>
@@ -305,10 +306,11 @@
   <!-- 09 MIX TEXTURE -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">09</span> MIX TEXTURE <span style="font-size:10px;color:var(--text-3);margin-left:4px">max 2</span></div>
+      <div class="section-title"><span class="section-num">09</span> MIX TEXTURE <span style="font-size:10px;color:var(--text-3);margin-left:4px">max 2 · 장르+무드 고르면 자동 추천</span></div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
+      <div id="hh-texture-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
       <div class="chip-grid" id="hh-texture"></div>
     </div>
   </div>

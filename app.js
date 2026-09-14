@@ -438,6 +438,7 @@ const st={
   narrSt:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},refAf:null,
+  _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
 };
 
 // Vocal tab states
@@ -536,12 +537,12 @@ function hhInit(){
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,renderMelodyRoleUI);
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
+  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,null);
   renderProducerRef();
-  chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,null);
+  chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
@@ -652,6 +653,96 @@ const GENRE_DEFAULT_MOOD=[
   '내성적·사색','감각적·관능적','에너제틱·하입','에너제틱·하입','사이키델릭·몽환','내성적·사색',
 ];
 
+// ============================================================
+// 멜로디·믹스 텍스처 추천 스코어링 — 장르 하나만 보는 고정 룰이 아니라
+// 장르(1순위) + 무드(2순위) + 시대감(보정) 신호를 합산해서 매번 조합에 맞게 상위 2개를 고름
+// ============================================================
+const GENRE_MELODY_TIPS={
+  0:'Dark synth + Guitar loop', 1:'Dark synth + Ambient pad',
+  2:'Emotional piano + Ambient pad', 3:'Dark synth + Strings',
+  4:'Strings + Dark synth', 5:'Dark synth + Psychedelic FX',
+  6:'Sample chop + Brass stab', 7:'Ambient pad + Emotional piano',
+  8:'Emotional piano + Guitar loop', 9:'Sample chop + Guitar loop',
+  10:'Dark synth + Psychedelic FX', 11:'Guitar loop + Ambient pad',
+  12:'Sample chop + Emotional piano', 13:'Emotional piano + Ambient pad',
+  14:'Psychedelic FX + Dark synth', 15:'Psychedelic FX + Dark synth',
+  16:'Ambient pad + Emotional piano', 17:'Guitar loop + Sample chop',
+};
+const MOOD_MELODY_FIT={
+  '어둡고 위압적':['Dark synth','Strings'], '감각적·관능적':['Emotional piano','Guitar loop'],
+  '멜로딕·감성':['Emotional piano','Guitar loop'], '에너제틱·하입':['Brass stab','Sample chop'],
+  '사이키델릭·몽환':['Psychedelic FX','Ambient pad'], '칠·그루비':['Ambient pad','Guitar loop'],
+  '분노·공격적':['Dark synth','Sample chop'], '내성적·사색':['Ambient pad','Emotional piano'],
+  '축제·환희':['Brass stab','Sample chop'], '승리감·웅장':['Strings','Brass stab'],
+  '슬프고·멜랑콜리':['Emotional piano','Ambient pad'], '자신감·플렉스':['Sample chop','Brass stab'],
+  '로맨틱·달콤한':['Emotional piano','Strings'], '긴장감·서스펜스':['Strings','Psychedelic FX'],
+  '노스탤직·향수':['Guitar loop','Ambient pad'], '미스터리·신비':['Psychedelic FX','Strings'],
+};
+const GENRE_TEXTURE_TIPS={
+  0:'Sidechain pump + Bass-heavy', 1:'Heavy reverb + Bass-heavy',
+  2:'Stereo wide + Heavy reverb', 3:'Dry intimate + Bass-heavy',
+  4:'Dry intimate + Bass-heavy', 5:'Lo-fi grain + Vintage tape',
+  6:'Vintage tape + Lo-fi grain', 7:'Heavy reverb + Stereo wide',
+  8:'Lo-fi grain + Vintage tape', 9:'Sidechain pump + Bass-heavy',
+  10:'Pristine digital + Bass-heavy', 11:'Stereo wide + Sidechain pump',
+  12:'Vintage tape + Dry intimate', 13:'Heavy reverb + Dry intimate',
+  14:'Pristine digital + Stereo wide', 15:'Lo-fi grain + Pristine digital',
+  16:'Heavy reverb + Bass-heavy', 17:'Vintage tape + Dry intimate',
+};
+const MOOD_TEXTURE_FIT={
+  '어둡고 위압적':['Heavy reverb','Bass-heavy'], '감각적·관능적':['Dry intimate','Heavy reverb'],
+  '멜로딕·감성':['Stereo wide','Heavy reverb'], '에너제틱·하입':['Sidechain pump','Bass-heavy'],
+  '사이키델릭·몽환':['Heavy reverb','Stereo wide'], '칠·그루비':['Vintage tape','Dry intimate'],
+  '분노·공격적':['Bass-heavy','Dry intimate'], '내성적·사색':['Dry intimate','Vintage tape'],
+  '축제·환희':['Sidechain pump','Stereo wide'], '승리감·웅장':['Stereo wide','Heavy reverb'],
+  '슬프고·멜랑콜리':['Dry intimate','Heavy reverb'], '자신감·플렉스':['Bass-heavy','Sidechain pump'],
+  '로맨틱·달콤한':['Dry intimate','Heavy reverb'], '긴장감·서스펜스':['Dry intimate','Heavy reverb'],
+  '노스탤직·향수':['Vintage tape','Lo-fi grain'], '미스터리·신비':['Heavy reverb','Lo-fi grain'],
+};
+// 시대감(era) 축 — 빈티지(테이프/로파이) vs 디지털(프리스틴/스테레오) 보정용, 텍스처 채점에만 사용
+const ERA_TEXTURE_BOOST={
+  '90s':['Vintage tape','Lo-fi grain'], '2000s':['Vintage tape','Dry intimate'],
+  '2010s':['Stereo wide','Sidechain pump'], '2020s':['Pristine digital','Stereo wide'],
+};
+
+// 장르 3점/2점 + 무드 2점/1점 + (있으면) 보너스 1점씩 합산 → 점수 내림차순 정렬. 조합이 다르면 결과도 다름
+function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
+  const scores={};
+  options.forEach(o=>scores[o]=0);
+  const gc=genreTips[genreIdx];
+  if(gc)gc.split(' + ').forEach((o,i)=>{if(o in scores)scores[o]+=(i===0?3:2);});
+  const mf=moodFit[moodKr];
+  if(mf)mf.forEach((o,i)=>{if(o in scores)scores[o]+=(i===0?2:1);});
+  if(bonus)bonus.forEach(o=>{if(o in scores)scores[o]+=1;});
+  return options.slice().sort((a,b)=>scores[b]-scores[a]||options.indexOf(a)-options.indexOf(b));
+}
+
+// 장르·무드(+시대감)를 보고 멜로디 리드/배경 + 믹스 텍스처 2개를 자동 추천 — 음악 지식 없이도 기본값이 채워지도록
+function recommendMelodyTexture(){
+  if(st.genre===null)return;
+  const rankedMelody=scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null);
+  const lead=rankedMelody[0],bg=rankedMelody[1];
+  st.melody=[lead,bg];
+  st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
+
+  const rankedTexture=scorePick(HH_TEXTURE,GENRE_TEXTURE_TIPS,MOOD_TEXTURE_FIT,st.genre,st.mood,ERA_TEXTURE_BOOST[st.era]);
+  st.texture=rankedTexture.slice(0,2);
+
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
+  renderMelodyRoleUI();
+  chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
+  setAutoHint('hh-melody-hint',`${lead} + ${bg}`);
+  setAutoHint('hh-texture-hint',st.texture.join(', '));
+  st._mtAutoManaged=true;
+}
+function onMelodyManualChange(){
+  st._mtAutoManaged=false;
+  renderMelodyRoleUI();
+}
+function onTextureManualChange(){
+  st._mtAutoManaged=false;
+}
+
 function setAutoHint(id,text){
   const el=document.getElementById(id);
   if(!el)return;
@@ -698,6 +789,7 @@ function selectGenre(i){
       setAutoHint('hh-fx-hint',auto.fx.join(', '));
       setAutoHint('hh-groove-hint',auto.groove);
     }
+    recommendMelodyTexture();
   } else {
     _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
     const sg=document.getElementById('hh-ref-suggestions');
@@ -706,6 +798,8 @@ function selectGenre(i){
     clearAutoHint('hh-drums-hint');
     clearAutoHint('hh-fx-hint');
     clearAutoHint('hh-groove-hint');
+    clearAutoHint('hh-melody-hint');
+    clearAutoHint('hh-texture-hint');
   }
   renderHhGenres();
   const trendEl=document.getElementById('hh-genre-trends');
@@ -868,6 +962,7 @@ function applyArtistSong(tabKey,song,artist){
       st.mood=defMood;
       moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
     }
+    recommendMelodyTexture();
     renderHhGenres();
     showToast(`🎵 <b>${artist?.name||''} — ${song.title||''}</b><br>Key: ${KEYS[st.key]||'?'} · ${st.bpm}BPM · 무드: ${defMood||'-'} (장르 추정) 적용됨`);
     updateFloatSummary();
@@ -1485,17 +1580,7 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   }
 
   // 5. 멜로디 악기 추천 (장르별 프로덕션 가이드 기반)
-  const melodyTips={
-    0:'Dark synth + Guitar loop', 1:'Dark synth + Ambient pad',
-    2:'Emotional piano + Ambient pad', 3:'Dark synth + Strings',
-    4:'Strings + Dark synth', 5:'Dark synth + Psychedelic FX',
-    6:'Sample chop + Brass stab', 7:'Ambient pad + Emotional piano',
-    8:'Emotional piano + Guitar loop', 9:'Sample chop + Guitar loop',
-    10:'Dark synth + Psychedelic FX', 11:'Guitar loop + Ambient pad',
-    12:'Sample chop + Emotional piano', 13:'Emotional piano + Ambient pad',
-    14:'Psychedelic FX + Dark synth', 15:'Psychedelic FX + Dark synth',
-    16:'Ambient pad + Emotional piano', 17:'Guitar loop + Sample chop',
-  };
+  const melodyTips=GENRE_MELODY_TIPS;
   const sugMelody=melodyTips[st.genre];
   if(sugMelody){
     if(!st.melody.length){
@@ -1987,9 +2072,12 @@ ${HH_TEXTURE.join(', ')}
     st.melody=[lead,bg];
     st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
     st.texture=tex;
-    chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,renderMelodyRoleUI);
+    st._mtAutoManaged=true;
+    chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
     renderMelodyRoleUI();
-    chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,null);
+    chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
+    clearAutoHint('hh-melody-hint');
+    clearAutoHint('hh-texture-hint');
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';
@@ -2178,6 +2266,7 @@ async function applySpotifyTrack(trackId,label){
   const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
+  if(st._mtAutoManaged)recommendMelodyTexture();
   if(statusEl){
     const keyStr=KEYS[st.key]||'?';
     const sfx=_spAudioFeaturesBlocked?' (장르 기반 추정)':'';
@@ -2208,13 +2297,15 @@ function applyAdvKey(){
 function applyAdvMelody(melStr){
   const parts=melStr.split(' + ');
   st.melody=[...parts];
-  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',null,null);
+  st._mtAutoManaged=false;
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',null,onMelodyManualChange);
   renderMelodyRoleUI();
   hhGenerate();
 }
 function applyAdvMood(moodKr){
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
+  if(st._mtAutoManaged)recommendMelodyTexture();
   hhGenerate();
 }
 function applyAdvTagsIdx(idx){
@@ -2507,21 +2598,26 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
   st.narrSt={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
+  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   document.getElementById('hh-bpm').value=140;
   document.getElementById('hh-key').value=7;
   const outBlocks=document.getElementById('hh-out-blocks');
   if(outBlocks){outBlocks.style.display='none';outBlocks.innerHTML='';}
+  clearAutoHint('hh-melody-hint');
+  clearAutoHint('hh-texture-hint');
+  clearAutoHint('hh-fx-hint');
+  clearAutoHint('hh-groove-hint');
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,renderMelodyRoleUI);
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
+  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,null);
   renderProducerRef();
-  chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,null);
+  chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
@@ -2829,6 +2925,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
       setAutoHint('hh-fx-hint',auto.fx.join(', '));
       setAutoHint('hh-groove-hint',auto.groove);
     }
+    recommendMelodyTexture();
   }
   // 레퍼런스 곡
   const refEl=document.getElementById('hh-ref-song');
