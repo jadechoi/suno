@@ -2385,9 +2385,26 @@ async function searchArtistsByGenre(keyword,tok,{market='US',onlyKorean=false}={
     const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(keyword)}&type=artist&market=${market}&limit=10`,{headers:{Authorization:'Bearer '+tok}});
     if(!r.ok){console.warn(`artist search "${keyword}" HTTP ${r.status}`);return[];}
     const d=await r.json();
-    const items=(d.artists?.items||[]).filter(a=>a.id&&a.name);
+    // "HIP HOP" 같이 검색어 자체가 아티스트명으로 등록된 쓰레기 엔트리 제거
+    const items=(d.artists?.items||[]).filter(a=>a.id&&a.name&&a.name.trim().toLowerCase()!==keyword.trim().toLowerCase());
     return items.filter(a=>onlyKorean?isKoreanName(a.name):!isKoreanName(a.name));
   }catch(e){console.warn('searchArtistsByGenre error',e);return[];}
+}
+
+// Spotify가 이 앱 등급에서 지운 popularity를 Musicae RapidAPI의 아티스트 배치 조회로 복구
+async function fetchArtistsPopularityViaRapidAPI(ids){
+  const key=getRapidApiKey();
+  if(!key||!ids.length)return{};
+  try{
+    const r=await fetch(`https://spotify-extended-audio-features-api.p.rapidapi.com/v1/artists?ids=${ids.slice(0,50).join(',')}`,{
+      headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'spotify-extended-audio-features-api.p.rapidapi.com'}
+    });
+    if(!r.ok){console.warn('Musicae artists batch HTTP',r.status);return{};}
+    const d=await r.json();
+    const map={};
+    (d.artists||[]).forEach(a=>{if(a&&a.id)map[a.id]={popularity:a.popularity,genres:a.genres};});
+    return map;
+  }catch(e){console.warn('fetchArtistsPopularityViaRapidAPI error',e);return{};}
 }
 
 // native Spotify /v1/artists/{id}/top-tracks도 이 앱 등급에서 403 — Musicae RapidAPI의 동일 엔드포인트로 대체
@@ -2488,7 +2505,8 @@ async function buildTrendingArtistAccordion(artists,tok){
       row.className='artist-row';
       const header=document.createElement('div');
       header.className='artist-header';
-      header.innerHTML=`<div class="artist-pill" style="background:${color}20;border:1px solid ${color}50;color:${color}">${a.name}</div><span class="artist-caret" style="margin-left:auto">▼</span>`;
+      const popBadge=typeof a.popularity==='number'?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:${a.popularity>=70?'#22c55e':a.popularity>=40?'#f59e0b':'var(--border)'};color:${a.popularity>=40?'#000':'var(--text-2)'};margin-left:4px">🔥${a.popularity}</span>`:'';
+      header.innerHTML=`<div class="artist-pill" style="background:${color}20;border:1px solid ${color}50;color:${color}">${a.name}</div>${popBadge}<span class="artist-caret" style="margin-left:auto">▼</span>`;
       header.onclick=()=>row.classList.toggle('open');
       const songsDiv=document.createElement('div');
       songsDiv.className='artist-songs';
@@ -2557,26 +2575,33 @@ async function fetchTrendingArtists(){
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
-  if(statusEl)statusEl.textContent=`검색 결과: ${found.length}명 (Spotify 검색 순위순 · popularity 수치는 이 앱 등급에서 제공 안 됨)`;
+  // Spotify가 안 주는 popularity를 Musicae로 복구해서 진짜 "핫한 순"으로 정렬
+  const popMap=await fetchArtistsPopularityViaRapidAPI(found.map(a=>a.id));
+  const hasRealPop=Object.values(popMap).some(v=>typeof v.popularity==='number');
+  if(statusEl)statusEl.textContent=hasRealPop
+    ?`검색 결과: ${found.length}명 (Musicae 인기도순)`
+    :`검색 결과: ${found.length}명 (Spotify 검색 순위순 · 인기도 데이터 없음 — RapidAPI 키 확인)`;
 
-  // popularity 필드가 이 앱 등급에선 내려오지 않아서(undefined) 별도 정렬 없이 Spotify 자체 relevance 순서를 그대로 신뢰한다
   const scored=found.map(a=>({
     id:a.id,name:a.name,
-    genres:a.genres||[],
+    genres:(popMap[a.id]?.genres&&popMap[a.id].genres.length?popMap[a.id].genres:a.genres)||[],
+    popularity:popMap[a.id]?.popularity,
     img:(a.images||[])[2]?.url||(a.images||[])[0]?.url||null
-  })).slice(0,24);
+  }));
+  if(hasRealPop)scored.sort((a,b)=>(b.popularity??-1)-(a.popularity??-1));
+  const scoredTop=scored.slice(0,24);
 
   // 세션 캐시
-  try{sessionStorage.setItem('sp_trending',JSON.stringify(scored));
+  try{sessionStorage.setItem('sp_trending',JSON.stringify(scoredTop));
     sessionStorage.setItem('sp_trending_ts',Date.now());}catch(e){}
 
-  renderTrendingChips(scored);
-  buildTrendingArtistAccordion(scored,tok);
+  renderTrendingChips(scoredTop);
+  buildTrendingArtistAccordion(scoredTop,tok);
   if(lastEl){const now=new Date();lastEl.textContent=`업데이트: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;}
   if(btn)btn.textContent='↻ 새로고침';
 
   // 요즘 뜨는 서브장르 — 검색으로 받은 아티스트들의 genres 태그를 우리 GENRES 인덱스로 집계 (추가 API 호출 없음)
-  const trends=computeGenreTrends(found);
+  const trends=computeGenreTrends(scoredTop);
   renderGenreTrends(trends);
   const gtLastEl=document.getElementById('genre-trend-last-update');
   if(gtLastEl){const now=new Date();gtLastEl.textContent=`업데이트: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;}
@@ -2625,6 +2650,12 @@ function renderTrendingChips(artists){
     const chip=document.createElement('div');
     chip.className='chip';
     chip.style.cssText='display:flex;align-items:center;gap:5px;padding:5px 10px 5px 6px';
+    if(typeof a.popularity==='number'){
+      const pop=document.createElement('span');
+      pop.style.cssText=`font-size:9px;font-weight:700;padding:1px 4px;border-radius:4px;background:${a.popularity>=70?'#22c55e':a.popularity>=40?'#f59e0b':'var(--border)'};color:${a.popularity>=40?'#000':'var(--text-2)'}`;
+      pop.textContent=a.popularity;
+      chip.appendChild(pop);
+    }
     const name=document.createElement('span');
     name.textContent=a.name;
     chip.appendChild(name);
