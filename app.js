@@ -1339,6 +1339,27 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
 // ============================================================
 // PRODUCER ADVICE ENGINE
 // ============================================================
+// 장르별 훅 적정 마디 수 · 편곡 밀도 선호 (🎼 편곡 포인트를 실제 설정값 기준 동적 피드백으로 만드는 데 씀)
+const GENRE_ARRANGE_PROFILE=[
+  {bars:[4,8],  density:'balanced'}, // 0 Trap
+  {bars:[4,8],  density:'dense'},    // 1 Dark Trap
+  {bars:[6,10], density:'balanced'}, // 2 Melodic Trap
+  {bars:[4,8],  density:'sparse'},   // 3 NY Drill
+  {bars:[4,8],  density:'balanced'}, // 4 UK Drill
+  {bars:[2,4],  density:'sparse'},   // 5 Phonk
+  {bars:[8,16], density:'balanced'}, // 6 Boom Bap
+  {bars:[8,16], density:'sparse'},   // 7 Cloud Rap
+  {bars:[4,8],  density:'sparse'},   // 8 Lo-fi
+  {bars:[4,8],  density:'balanced'}, // 9 Jersey Club
+  {bars:[2,4],  density:'dense'},    // 10 Rage/Plugg
+  {bars:[4,8],  density:'balanced'}, // 11 Afro Trap
+  {bars:[8,16], density:'sparse'},   // 12 Conscious
+  {bars:[6,12], density:'sparse'},   // 13 Trap Soul
+  {bars:[4,8],  density:'dense'},    // 14 Hyperpop
+  {bars:[4,8],  density:'dense'},    // 15 Digicore
+  {bars:[8,16], density:'sparse'},   // 16 Pluggnb
+  {bars:[8,16], density:'balanced'}, // 17 Westwood
+];
 function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   if(!g)return{warns:[],tips:[]};
   const warns=[];const tips=[];
@@ -1517,6 +1538,19 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
     16:'느린 BPM에서 808의 긴 서스테인이 멜로디가 됩니다. 최소한의 요소로 최대한의 공간을 만드세요.',
     17:'의외성이 매력입니다. 예상치 못한 코드 전환과 독특한 샘플 조합이 Westwood 스타일을 완성합니다.',
   };
+  // 실제 설정(훅 마디 수·멜로디·텍스처 개수)을 보고 편곡 포인트에 구체적인 진단 문장을 덧붙임
+  const dynamicArrangeFeedback=(genreIdx,bars,melodyN,textureN)=>{
+    const profile=GENRE_ARRANGE_PROFILE[genreIdx];
+    if(!profile)return'';
+    const [lo,hi]=profile.bars;
+    const parts=[];
+    if(bars<lo)parts.push(`지금 훅이 ${bars}마디로 이 장르 기준(${lo}-${hi}마디)보다 짧아요 — 늘려보세요`);
+    else if(bars>hi)parts.push(`지금 훅이 ${bars}마디로 이 장르 기준(${lo}-${hi}마디)보다 길어요 — 줄여보세요`);
+    const fill=melodyN+textureN;
+    if(profile.density==='sparse'&&fill>=3)parts.push(`멜로디+텍스처가 ${fill}개나 켜져 있어 이 장르 특유의 여백이 줄어듭니다 — 1~2개로 줄이는 걸 권장`);
+    if(profile.density==='dense'&&fill===0)parts.push(`멜로디·텍스처가 하나도 없어 허전할 수 있어요 — 이 장르는 레이어를 쌓는 게 어울림`);
+    return parts.length?` → ${parts.join(', ')}`:'';
+  };
   if(st.genre!=null&&arrangeQualityTips[st.genre]&&st._appliedArrangeTipGenre!==st.genre){
     const uniqueSegs=[...new Set(segs)].filter(s=>s!=='intro'&&s!=='outro');
     const sBtnStyle=`padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);font-size:11px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap;`;
@@ -1526,7 +1560,8 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
       return `<button onclick="applyArrangeTipToSection('${s}')" style="${sBtnStyle}background:${applied?'var(--accent-dim)':'var(--surface-3)'};color:${applied?'var(--accent-text)':'var(--text-2)'};">${applied?'✓ ':''} ${label}</button>`;
     }).join('');
     const dimBtn=`<button onclick="dismissArrangeTip()" style="${sBtnStyle}background:transparent;color:var(--text-3);border-color:var(--border)">✕</button>`;
-    tips.push({html:`🎼 <strong>편곡 포인트</strong> — ${arrangeQualityTips[st.genre]}`,btnHtml:`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-left:8px;flex-shrink:0">${secBtns}${dimBtn}</div>`});
+    const feedback=dynamicArrangeFeedback(st.genre,bH,st.melody.length,st.texture.length);
+    tips.push({html:`🎼 <strong>편곡 포인트</strong> — ${arrangeQualityTips[st.genre]}${feedback}`,btnHtml:`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-left:8px;flex-shrink:0">${secBtns}${dimBtn}</div>`});
   }
 
   return{warns,tips};
