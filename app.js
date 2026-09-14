@@ -659,23 +659,21 @@ function suggestionChip(text,onClick){
   return btn;
 }
 
-// Spotify genre 필드 검색으로 해당 장르 인기곡 Top 5를 실시간으로 가져옴 (매칭 실패 시 null)
+// Spotify 평문 검색으로 해당 장르 인기곡 Top 5를 실시간으로 가져옴 (매칭 실패 시 null)
+// genre:"tag" 필드 필터는 이 앱 등급에서 무명 아티스트만 주는 게 확인돼서(아티스트 검색과 동일 원인) 평문 검색으로 통일
 async function fetchGenreHotTracks(tag){
   const tok=await getSpotifyToken();
   if(!tok)return null;
   try{
-    const fetchQ=async q=>{
-      const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=US&limit=10`,{headers:{Authorization:'Bearer '+tok}});
-      if(!r.ok){console.warn(`track search "${q}" HTTP ${r.status}`);return[];}
-      const d=await r.json();
-      return d.tracks?.items||[];
-    };
-    let items=await fetchQ(`genre:"${tag}"`);
-    if(!items.length)items=await fetchQ(tag);
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(tag)}&type=track&market=US&limit=10`,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok){console.warn(`track search "${tag}" HTTP ${r.status}`);return[];}
+    const d=await r.json();
+    const items=d.tracks?.items||[];
     if(!items.length)return[];
+    // popularity 필드가 이 앱 등급에선 없을 수 있어 Spotify 자체 relevance 순서를 우선 신뢰, 있으면 보조로만 정렬
     return items.sort((a,b)=>(b.popularity||0)-(a.popularity||0)).slice(0,5)
-      .map(t=>({id:t.id,name:t.name,artist:t.artists.map(a=>a.name).join(', '),popularity:t.popularity||0}));
-  }catch(e){return null;}
+      .map(t=>({id:t.id,name:t.name,artist:t.artists.map(a=>a.name).join(', '),popularity:t.popularity}));
+  }catch(e){console.warn('fetchGenreHotTracks error',e);return null;}
 }
 
 let _grsToken=0;
