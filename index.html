@@ -2713,13 +2713,14 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // TRENDING ARTISTS
 // ============================================================
 const TRENDING_PLAYLISTS=[
-  {id:'37i9dQZEVXbHmHZV7zeB0N',name:'Rap Caviar'},
-  {id:'37i9dQZEVXbKCF6dqVpDkS',name:'Most Necessary'},
+  {id:'37i9dQZEVXbMDoHDwVN2tF',name:'Global Top 50'},
+  {id:'37i9dQZEVXbLiURsqIUVvmx',name:"Today's Top Hits"},
+  {id:'37i9dQZEVXbHmHZV7zeB0N',name:'RapCaviar'},
 ];
 
 async function fetchPlaylistArtistIds(playlistId,tok){
   try{
-    const r=await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`,{headers:{Authorization:'Bearer '+tok}});
+    const r=await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&market=US`,{headers:{Authorization:'Bearer '+tok}});
     if(!r.ok){console.warn(`playlist ${playlistId} HTTP ${r.status}`);return[];}
     const d=await r.json();
     const artists=[];
