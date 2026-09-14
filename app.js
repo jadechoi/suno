@@ -567,6 +567,13 @@ function hhInit(){
   keyEl.onchange=()=>{st.key=parseInt(keyEl.value);};
   document.getElementById('hh-bpm').oninput=e=>{st.bpm=parseInt(e.target.value)||140;};
 
+  renderHhChips();
+  renderArtists('hh-artists-typeBeat',HH_ARTISTS,'hh');
+  renderPromptHistory();
+}
+
+// hhInit·hhReset이 공통으로 쓰는 칩/그리드 렌더 블록 — 한쪽만 고치고 잊어버리는 걸 방지
+function renderHhChips(){
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
@@ -583,10 +590,8 @@ function hhInit(){
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
   chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
   chipGrid(document.getElementById('hh-length'),HH_LENGTH,st,'length',1,null);
-  renderArtists('hh-artists-typeBeat',HH_ARTISTS,'hh');
   renderHhNarr();
   renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
-  renderPromptHistory();
 }
 
 // 장르별 레퍼런스 곡 추천 (인덱스 = GENRES 인덱스)
@@ -1967,28 +1972,6 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   }
 
   // 10. 편곡 퀄리티 팁 🎼
-  // English Suno-compatible arrange directives per genre × section
-  const ARRANGE_SEC_TAGS={
-    0:{hook:'massive 808 explosion, all layers activated, maximum bass impact trap drop',verse:'808 pulls back, stripped minimal drums, sparse clean arrangement',bridge:'layers stripping, tension rising into next 808 drop'},
-    1:{hook:'full dense atmospheric layers, heavy 808 wall, dramatic dark drop',verse:'ultra sparse, single hi-hat, ghostly atmospheric bed only, extreme empty space',bridge:'dark atmospheric swell, eerie reverb build, tension cresting'},
-    2:{hook:'lead melodic hook dominant, emotional melody line prominent, heartfelt melodic drop',verse:'melodic motif softly hinted, stripped bed supporting hook melody, intimate feel',bridge:'emotional melodic tension rising, melodic theme intensifying, peak before resolution'},
-    3:{hook:'808 slide melody dominant, monotone chromatic slide repeating, hard drill drop',verse:'808 slide continuous, sparse hi-hat only, hypnotic monotone repetition',bridge:'808 slide chromatic tension, drill pattern tightening before hook'},
-    4:{hook:'heavy offbeat snare dominant, UK drill drop, syncopated snare pattern full intensity',verse:'drum pattern variation, lighter offbeat snare, spacious dark atmospheric bed',bridge:'snare roll building, offbeat pattern intensifying, tension before hook return'},
-    5:{hook:'2 bar loop repeating hard, hypnotic Memphis phonk loop cycling, distorted 808 grunt',verse:'same 2 bar loop stripped back, lighter elements only, loop cycling sparse',bridge:'loop half-time filtered down, tension before loop resets full'},
-    6:{hook:'sample groove driving full, punchy boom bap drums prominent, soulful sample up front',verse:'deep sample pocket, classic boom bap groove, verse-centered structure',bridge:'sample chop rhythmic variation, groove shift, building back into verse pocket'},
-    7:{hook:'maximum wide space, sparse minimal drums, dreamy warm lo-fi atmosphere',verse:'drums nearly absent, pure spacious ambient texture, extreme breathing room',bridge:'quiet ambient swell, soft texture shift, gentle dreamlike transition'},
-    8:{hook:'consistent lo-fi loop mood maintained, gentle groove, warm tape texture steady',verse:'same consistent lo-fi feel, very subtle variation, calm unbroken mood',bridge:'soft mood continuation, slight texture shift, seamless smooth flow'},
-    9:{hook:'syncopated club kick bounce driving hard, chopped sample stabs cutting through, high energy club drop',verse:'kick pattern thinned out, sample chops pulled back, light club bounce, spacious pocket',bridge:'kick pattern stuttering, chopped sample echo fading out, tension building before drop'},
-    10:{hook:'1 bar loop repeated relentlessly, distorted pitched synths blaring, addictive hypnotic hook',verse:'same loop driving, slightly stripped kit, continuous minimal energy',bridge:'loop filter sweep down, brief break, tension before loop drops back full'},
-    11:{hook:'afro percussion locked in, tropical syncopated groove driving, bouncy energetic drop',verse:'afro percussion lighter, tropical melody softly layered, groove simplified',bridge:'percussion stripping then rebuilding, tropical tension rising before hook return'},
-    12:{hook:'simple sparse beat, wide open space for expression, soulful sample breathing room',verse:'minimal minimal minimal, beat stays completely out of the way, clean open pocket',bridge:'brief instrumental breath, soul sample swell, resolves cleanly before verse'},
-    13:{hook:'808 pitch-matched to chords, 808 melody prominent, harmonic melodic trap drop',verse:'808 chord melody continuing, lighter kit, melodic 808 carries the track alone',bridge:'808 chromatic tension, 808 pitch bending, harmonic build before chorus'},
-    14:{hook:'extreme maximum energy explosion, industrial hard-hitting drop, every element at peak',verse:'near silence contrast, extremely stripped, dramatic stark emptiness after hook',bridge:'sudden aggressive energy surge, industrial tension build, explosion imminent'},
-    15:{hook:'raw bedroom texture intentional, lo-fi DIY recording feel, imperfect organic drop',verse:'rawer intimate feel, bedroom recording aesthetic, unpolished intentional grain',bridge:'raw texture shifting, imperfect chord swell, DIY emotional transition'},
-    16:{hook:'long slow 808 sustain melody, cloud rap drift, extreme minimal elements, pure space',verse:'ultra slow held 808 notes, hazy dreamy bed only, maximum empty space',bridge:'sustained 808 fading into silence, airy texture drift, slow cloud transition'},
-    17:{hook:'unexpected chord stab, gritty jazz sample flipped hard, cinematic boom bap drop',verse:'unique sample chopped, dusty grimy pocket, unconventional syncopated groove',bridge:'sample chop pivot, unexpected harmonic shift, hard cinematic transition'},
-  };
-  window.ARRANGE_SEC_TAGS=ARRANGE_SEC_TAGS;
   const arrangeQualityTips={
     0:'훅에서 808을 최대로 폭발시키고 벌스에서 줄이는 대비가 임팩트의 핵심입니다.',
     1:'공간이 무기입니다. 벌스를 최대한 Sparse하게 만들어 훅의 무게감을 극대화하세요.',
@@ -2422,26 +2405,6 @@ async function getAudioFeaturesViaRapidAPI(trackId){
   return null;
 }
 
-// Fallback: derive pseudo audio-features from genre index
-function genreFallbackFeatures(genreIdx){
-  // [energy, valence, danceability, tempo, key, mode, 808level]
-  const tbl={
-    0:[0.85,0.35,0.80,140,5,0,'Heavy'],    // Trap
-    1:[0.75,0.50,0.78,90,0,0,'Deep'],      // Boom Bap
-    2:[0.80,0.60,0.82,95,2,1,'Balanced'],  // Drill
-    3:[0.78,0.42,0.75,145,7,0,'Heavy'],    // Rage/Plugg
-    4:[0.65,0.55,0.80,130,9,0,'Punchy'],   // Cloud
-    5:[0.70,0.48,0.77,140,5,1,'Balanced'], // Phonk
-    6:[0.60,0.65,0.72,85,0,1,'Light'],     // Jazz Rap
-    7:[0.68,0.58,0.82,140,7,1,'Balanced'], // Afrobeats
-    8:[0.72,0.62,0.83,120,5,1,'Balanced'], // Latin Trap
-    9:[0.75,0.55,0.79,145,9,0,'Heavy'],    // Melodic Drill
-   10:[0.80,0.40,0.76,138,2,0,'Heavy'],    // Detroit/Flint
-   11:[0.65,0.60,0.75,95,7,1,'Light'],     // Lo-fi
-  };
-  const row=tbl[genreIdx]||[0.72,0.50,0.78,140,7,0,'Balanced'];
-  return{energy:row[0],valence:row[1],danceability:row[2],tempo:row[3],key:row[4],mode:row[5],_808:row[6]};
-}
 let _spAudioFeaturesBlocked=false;
 
 function spMoodFromFeatures(energy,valence,danceability){
@@ -2947,24 +2910,7 @@ function hhReset(){
   if(vcBox)vcBox.hidden=true;
   const vsBox=document.getElementById('hh-vocal-style-box');
   if(vsBox)vsBox.hidden=true;
-  renderHhGenres();
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
-  renderMelodyRoleUI();
-  chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();if(st._structAutoManaged)recommendStructure();});
-  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
-  renderProducerRef();
-  chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
-  chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
-  chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
-  chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
-  chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
-  chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
-  chipGrid(document.getElementById('hh-length'),HH_LENGTH,st,'length',1,null);
-  renderHhNarr();
-  renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+  renderHhChips();
   window.scrollTo({top:0,behavior:'smooth'});
   updateFloatSummary();
 }
@@ -3190,11 +3136,6 @@ async function fetchArtistTopTracksRaw(artistId){
     // top-tracks는 역대 최고 인기곡 순이라 옛날 히트곡이 앞에 올 수 있음 — 최신 발매순으로 재정렬해서 "요즘 사운드"에 가깝게
     return tracks.slice().sort((a,b)=>(b.album?.release_date||'0')>(a.album?.release_date||'0')?1:-1);
   }catch(e){console.warn('fetchArtistTopTracksRaw error',e);return[];}
-}
-
-async function fetchArtistTopTrack(artistId,tok){
-  const tracks=await fetchArtistTopTracksRaw(artistId);
-  return tracks[0]||null;
 }
 
 async function fetchArtistTopTracks(artistId,tok,limit=5){
