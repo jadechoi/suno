@@ -540,6 +540,7 @@ function hhInit(){
   renderArtists('hh-artists-typeBeat',HH_ARTISTS,'hh');
   renderHhNarr();
   renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+  renderPromptHistory();
 }
 
 // 장르별 레퍼런스 곡 추천 (인덱스 = GENRES 인덱스)
@@ -2233,6 +2234,88 @@ function hhGenerate(){
   container.appendChild(resetWrap);
   setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);
   updateFloatSummary();
+  savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText});
+}
+
+// ============================================================
+// PROMPT HISTORY — Generate 누를 때마다 이 브라우저에 자동 기록
+// ============================================================
+const PROMPT_HISTORY_KEY='hh_prompt_history';
+const PROMPT_HISTORY_MAX=50;
+function loadPromptHistory(){
+  try{return JSON.parse(localStorage.getItem(PROMPT_HISTORY_KEY)||'[]');}catch(e){return[];}
+}
+function savePromptHistoryEntry(entry){
+  const list=loadPromptHistory();
+  list.unshift({id:Date.now()+'-'+Math.random().toString(36).slice(2,7),ts:Date.now(),label:'',...entry});
+  if(list.length>PROMPT_HISTORY_MAX)list.length=PROMPT_HISTORY_MAX;
+  try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(e){}
+  renderPromptHistory();
+}
+function deletePromptHistoryEntry(id){
+  const list=loadPromptHistory().filter(e=>e.id!==id);
+  try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(e){}
+  renderPromptHistory();
+}
+function clearPromptHistory(){
+  if(!confirm('생성 기록을 전부 삭제할까요?'))return;
+  try{localStorage.removeItem(PROMPT_HISTORY_KEY);}catch(e){}
+  renderPromptHistory();
+}
+function updatePromptHistoryLabel(id,label){
+  const list=loadPromptHistory();
+  const e=list.find(x=>x.id===id);
+  if(e){e.label=label;try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}}
+}
+function renderPromptHistory(){
+  const el=document.getElementById('hh-prompt-history');
+  if(!el)return;
+  const list=loadPromptHistory();
+  if(!list.length){
+    el.innerHTML='<span style="font-size:11px;color:var(--text-3)">아직 기록 없음 — Generate 누르면 여기 쌓임</span>';
+    return;
+  }
+  el.innerHTML='';
+  list.forEach(e=>{
+    const d=new Date(e.ts);
+    const dateStr=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const row=document.createElement('div');
+    row.style.cssText='border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;background:var(--surface-2)';
+    row.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer" class="ph-header">
+        <span style="font-size:10px;color:var(--text-3);font-family:'Space Mono',monospace">${dateStr}</span>
+        <span style="font-size:12px;font-weight:600">${e.genre} · ${e.bpm}BPM · ${e.key}</span>
+        <span style="font-size:11px;color:var(--text-3);margin-left:auto">▼</span>
+      </div>
+      <div class="ph-body" hidden style="margin-top:8px;flex-direction:column;gap:6px">
+        <input type="text" placeholder="메모 (예: Cinematic Drop 곡)" value="${escHtml(e.label||'')}" style="width:100%;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-1);color:var(--text-1);font-size:11px" class="ph-label-input">
+        <table style="width:100%;border-collapse:collapse">
+          ${(e.summaryRows||[]).map(([k,v],i)=>`<tr style="background:${i%2===0?'rgba(255,255,255,0.035)':'transparent'}"><td style="padding:4px 8px;color:var(--text-3);font-size:11px;white-space:nowrap;width:42%">${k}</td><td style="padding:4px 8px;color:var(--text-1);font-size:11px">${escHtml(v)}</td></tr>`).join('')}
+        </table>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--accent-text);cursor:pointer;text-decoration:underline" class="ph-prompt-toggle">프롬프트 보기 ▾</span>
+          <button style="padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-3);font-size:10px;cursor:pointer" class="ph-delete">삭제</button>
+        </div>
+        <div class="ph-prompt" hidden style="flex-direction:column;gap:6px">
+          <textarea readonly rows="6" style="width:100%;font-size:11px;padding:6px 8px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-1);color:var(--text-1);font-family:'Space Mono',monospace">${escHtml(e.section)}</textarea>
+          <textarea readonly rows="3" style="width:100%;font-size:11px;padding:6px 8px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-1);color:var(--text-1);font-family:'Space Mono',monospace">${escHtml(e.style)}</textarea>
+        </div>
+      </div>`;
+    row.querySelector('.ph-header').onclick=()=>{
+      const b=row.querySelector('.ph-body');
+      b.hidden=!b.hidden;
+      b.style.display=b.hidden?'none':'flex';
+    };
+    row.querySelector('.ph-label-input').onchange=ev=>updatePromptHistoryLabel(e.id,ev.target.value);
+    row.querySelector('.ph-prompt-toggle').onclick=(ev)=>{
+      const p=row.querySelector('.ph-prompt');
+      p.hidden=!p.hidden;
+      p.style.display=p.hidden?'none':'flex';
+      ev.target.textContent=p.hidden?'프롬프트 보기 ▾':'프롬프트 숨기기 ▴';
+    };
+    row.querySelector('.ph-delete').onclick=()=>deletePromptHistoryEntry(e.id);
+    el.appendChild(row);
+  });
 }
 
 function hhReset(){
