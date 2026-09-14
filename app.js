@@ -2417,7 +2417,9 @@ async function fetchArtistTopTracksRaw(artistId){
     });
     if(!r.ok){console.warn(`artist top-tracks "${artistId}" HTTP ${r.status}`);return[];}
     const d=await r.json();
-    return d.tracks||d.items||[];
+    const tracks=d.tracks||d.items||[];
+    // top-tracks는 역대 최고 인기곡 순이라 옛날 히트곡이 앞에 올 수 있음 — 최신 발매순으로 재정렬해서 "요즘 사운드"에 가깝게
+    return tracks.slice().sort((a,b)=>(b.album?.release_date||'0')>(a.album?.release_date||'0')?1:-1);
   }catch(e){console.warn('fetchArtistTopTracksRaw error',e);return[];}
 }
 
