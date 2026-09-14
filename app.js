@@ -2390,26 +2390,32 @@ async function searchArtistsByGenre(keyword,tok,{market='US',onlyKorean=false}={
   }catch(e){console.warn('searchArtistsByGenre error',e);return[];}
 }
 
-async function fetchArtistTopTrack(artistId,tok){
+// native Spotify /v1/artists/{id}/top-tracks도 이 앱 등급에서 403 — Musicae RapidAPI의 동일 엔드포인트로 대체
+async function fetchArtistTopTracksRaw(artistId){
+  const key=getRapidApiKey();
+  if(!key)return[];
   try{
-    const r=await fetch(`https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok)return null;
+    const r=await fetch(`https://spotify-extended-audio-features-api.p.rapidapi.com/v1/artists/${artistId}/top-tracks`,{
+      headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'spotify-extended-audio-features-api.p.rapidapi.com'}
+    });
+    if(!r.ok){console.warn(`artist top-tracks "${artistId}" HTTP ${r.status}`);return[];}
     const d=await r.json();
-    return(d.tracks||[])[0]||null;
-  }catch(e){return null;}
+    return d.tracks||d.items||[];
+  }catch(e){console.warn('fetchArtistTopTracksRaw error',e);return[];}
+}
+
+async function fetchArtistTopTrack(artistId,tok){
+  const tracks=await fetchArtistTopTracksRaw(artistId);
+  return tracks[0]||null;
 }
 
 async function fetchArtistTopTracks(artistId,tok,limit=5){
-  try{
-    const r=await fetch(`https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok)return[];
-    const d=await r.json();
-    return(d.tracks||[]).slice(0,limit).map(t=>({
-      id:t.id,name:t.name,
-      popularity:t.popularity||0,
-      year:(t.album?.release_date||'').slice(0,4)
-    }));
-  }catch(e){return[];}
+  const tracks=await fetchArtistTopTracksRaw(artistId);
+  return tracks.slice(0,limit).map(t=>({
+    id:t.id,name:t.name,
+    popularity:t.popularity||0,
+    year:(t.album?.release_date||'').slice(0,4)
+  }));
 }
 
 async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackName){
@@ -2482,8 +2488,7 @@ async function buildTrendingArtistAccordion(artists,tok){
       row.className='artist-row';
       const header=document.createElement('div');
       header.className='artist-header';
-      const flagEmoji=isKoreanName(a.name)?'🇰🇷':'🌍';
-      header.innerHTML=`<div class="artist-pill" style="background:${color}20;border:1px solid ${color}50;color:${color}">${a.name}</div><span style="font-size:11px;margin-left:4px">${flagEmoji}</span><span class="artist-caret" style="margin-left:auto">▼</span>`;
+      header.innerHTML=`<div class="artist-pill" style="background:${color}20;border:1px solid ${color}50;color:${color}">${a.name}</div><span class="artist-caret" style="margin-left:auto">▼</span>`;
       header.onclick=()=>row.classList.toggle('open');
       const songsDiv=document.createElement('div');
       songsDiv.className='artist-songs';
@@ -2544,19 +2549,15 @@ async function fetchTrendingArtists(){
     return;
   }
 
-  // 해외 7명 + 한국 3명 고정 비율로 따로 검색해서 합침
-  const [intl,kr]=await Promise.all([
-    searchArtistsByGenre('hip hop',tok,{market:'US',onlyKorean:false}),
-    searchArtistsByGenre('hip hop',tok,{market:'KR',onlyKorean:true}),
-  ]);
-  const found=[...intl.slice(0,7),...kr.slice(0,3)];
+  // 한국 아티스트는 제외하고 해외 아티스트만
+  const found=await searchArtistsByGenre('hip hop',tok,{market:'US',onlyKorean:false});
   if(!found.length){
     if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ 아티스트 검색 결과가 없습니다. 브라우저 콘솔(F12)에서 오류를 확인하세요.</span>';
     if(statusEl){statusEl.textContent='아티스트 검색 실패';statusEl.hidden=false;}
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
-  if(statusEl)statusEl.textContent=`검색 결과: 해외 ${Math.min(intl.length,7)}명 · 한국 ${Math.min(kr.length,3)}명 (Spotify 검색 순위순 · popularity 수치는 이 앱 등급에서 제공 안 됨)`;
+  if(statusEl)statusEl.textContent=`검색 결과: ${found.length}명 (Spotify 검색 순위순 · popularity 수치는 이 앱 등급에서 제공 안 됨)`;
 
   // popularity 필드가 이 앱 등급에선 내려오지 않아서(undefined) 별도 정렬 없이 Spotify 자체 relevance 순서를 그대로 신뢰한다
   const scored=found.map(a=>({
@@ -2624,10 +2625,6 @@ function renderTrendingChips(artists){
     const chip=document.createElement('div');
     chip.className='chip';
     chip.style.cssText='display:flex;align-items:center;gap:5px;padding:5px 10px 5px 6px';
-    const flag=document.createElement('span');
-    flag.style.cssText='font-size:11px';
-    flag.textContent=isKoreanName(a.name)?'🇰🇷':'🌍';
-    chip.appendChild(flag);
     const name=document.createElement('span');
     name.textContent=a.name;
     chip.appendChild(name);
