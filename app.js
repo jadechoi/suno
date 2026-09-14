@@ -2164,9 +2164,14 @@ function hhGenerate(){
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
 
-  // ④ BPM & 템포
+  // ④ BPM & 템포 — 장르를 골랐으면 그 장르 기준으로, 아니면 일반 BPM대 설명으로
   let tempoDesc='';
-  if(bpmVal<100)tempoDesc='< 100: 헤드노딩에 최적화된 슬로우 템포';
+  if(g){
+    const[lo,hi]=g.bpmR;
+    tempoDesc=(bpmVal>=lo&&bpmVal<=hi)
+      ?`${g.kr} 권장 범위(${lo}–${hi}) 안`
+      :`${g.kr} 권장 범위는 ${lo}–${hi}`;
+  } else if(bpmVal<100)tempoDesc='< 100: 헤드노딩에 최적화된 슬로우 템포';
   else if(bpmVal<120)tempoDesc='100–119: 클래식 붐뱁 · 그루비 템포';
   else if(bpmVal<140)tempoDesc='120–139: 클라우드랩 · 멜로딕 트랩 템포';
   else if(bpmVal<155)tempoDesc='140–154: 표준 트랩 · 드릴 템포';
