@@ -2010,7 +2010,6 @@ async function applySpotifyTrack(trackId,label){
     statusEl.textContent=`✅ Key: ${keyStr} · BPM: ${st.bpm} · 무드: ${moodKr} · 808: ${level}${sfx}`;
     statusEl.hidden=false;
   }
-  hhGenerate();
 }
 
 // ============================================================
@@ -2654,7 +2653,6 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
   }
   showToast(`🎧 <b>${artistName} — ${trackName}</b><br>Key: ${keyStr} · ${st.bpm}BPM · ${moodKr} 적용됨`);
   updateFloatSummary();
-  hhGenerate();
 }
 
 const TREND_COLORS=['#FF4D6D','#9D4EDD','#00C6FF','#FF6B35','#4DC886','#C77DFF','#FF9EC8','#F59E0B','#06B6D4','#22C55E'];
