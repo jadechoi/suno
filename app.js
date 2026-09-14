@@ -732,13 +732,60 @@ const MOOD_MELODY_TONE={
   '미스터리·신비':['소프트·머플드'],
 };
 // 편곡 포인트에 무드 보정 문구를 덧붙였던 것과 같은 패턴 — 톤 카테고리(5개)는 그대로 쓰되, 무드별 뉘앙스를 한 겹 더 얹어서 스타일 태그를 더 구체적으로 만듦
+// 각 무드당 2개씩 — Generate 누를 때마다 pick()으로 무작위 하나 골라서 같은 설정이어도 문구가 조금씩 달라지게 함
 const MOOD_TONE_NUANCE={
-  '어둡고 위압적':'heavily saturated','감각적·관능적':'softly rounded','멜로딕·감성':'gently breathing',
-  '에너제틱·하입':'crisp and forward','사이키델릭·몽환':'swirling and hazy','칠·그루비':'loose and relaxed',
-  '분노·공격적':'harsh and biting','내성적·사색':'delicately fragile','축제·환희':'bright and shimmering',
-  '승리감·웅장':'thick and towering','슬프고·멜랑콜리':'thin and fragile','자신감·플렉스':'bold and present',
-  '로맨틱·달콤한':'silky and smooth','긴장감·서스펜스':'tightly wound','노스탤직·향수':'faded and worn',
-  '미스터리·신비':'distant and veiled',
+  '어둡고 위압적':['heavily saturated','ominously thick'],'감각적·관능적':['softly rounded','smoothly sensual'],
+  '멜로딕·감성':['gently breathing','tenderly emotive'],'에너제틱·하입':['crisp and forward','punchy and alive'],
+  '사이키델릭·몽환':['swirling and hazy','dreamily blurred'],'칠·그루비':['loose and relaxed','easygoing and warm'],
+  '분노·공격적':['harsh and biting','raw and violent'],'내성적·사색':['delicately fragile','quietly restrained'],
+  '축제·환희':['bright and shimmering','joyfully vivid'],'승리감·웅장':['thick and towering','epically massive'],
+  '슬프고·멜랑콜리':['thin and fragile','mournfully faint'],'자신감·플렉스':['bold and present','swaggering and confident'],
+  '로맨틱·달콤한':['silky and smooth','tenderly warm'],'긴장감·서스펜스':['tightly wound','nervously coiled'],
+  '노스탤직·향수':['faded and worn','sepia-toned and warm'],'미스터리·신비':['distant and veiled','cryptically hushed'],
+};
+// 808 베이스 톤 뉘앙스 — {레벨} 808 태그 뒤에 무드별로 한 번 더 붙임
+const MOOD_808_NUANCE={
+  '어둡고 위압적':['deep and menacing','ominously rumbling'],'감각적·관능적':['warm and rounded','smoothly rolling'],
+  '멜로딕·감성':['melodically tuned','emotionally resonant'],'에너제틱·하입':['punchy and forward','tight and snappy'],
+  '사이키델릭·몽환':['woozy and detuned','hazy and floating'],'칠·그루비':['loose and bouncy','relaxed and round'],
+  '분노·공격적':['distorted and gritty','aggressively driving'],'내성적·사색':['soft and distant','subdued and quiet'],
+  '축제·환희':['bright and bouncy','festival-ready punchy'],'승리감·웅장':['massive and towering','epic and booming'],
+  '슬프고·멜랑콜리':['fragile and thin','mournfully sustained'],'자신감·플렉스':['confidently punchy','bold and present'],
+  '로맨틱·달콤한':['soft and silky','gently rounded'],'긴장감·서스펜스':['tightly wound','ominously pulsing'],
+  '노스탤직·향수':['warm vintage tone','faded and worn'],'미스터리·신비':['distant and veiled','mysteriously muted'],
+};
+// 드럼 연주 뉘앙스 — 드럼 태그 리스트 뒤에 한 번만 붙는 연주 형용사
+const MOOD_DRUMS_NUANCE={
+  '어둡고 위압적':['menacingly tight','ominously precise'],'감각적·관능적':['smoothly swung','sensually loose'],
+  '멜로딕·감성':['gently played','emotionally restrained'],'에너제틱·하입':['energetically driving','relentlessly pushing'],
+  '사이키델릭·몽환':['loosely hazy','dreamily swung'],'칠·그루비':['laid-back groovy','loosely relaxed'],
+  '분노·공격적':['aggressively pounding','violently driving'],'내성적·사색':['minimally restrained','quietly sparse'],
+  '축제·환희':['energetically bouncy','festival-driving'],'승리감·웅장':['powerfully marching','epically driving'],
+  '슬프고·멜랑콜리':['softly subdued','fragile and sparse'],'자신감·플렉스':['confidently swaggering','boldly strutting'],
+  '로맨틱·달콤한':['gently swaying','softly tender'],'긴장감·서스펜스':['tightly wound','anxiously ticking'],
+  '노스탤직·향수':['loosely vintage','warmly worn'],'미스터리·신비':['sparsely mysterious','quietly cryptic'],
+};
+// 그루브 태그 뒤에 붙는 무드 뉘앙스
+const MOOD_GROOVE_NUANCE={
+  '어둡고 위압적':['with ominous weight','with menacing restraint'],'감각적·관능적':['with sensual sway','with smooth undulation'],
+  '멜로딕·감성':['with emotional breathing room','with gentle rubato'],'에너제틱·하입':['with relentless drive','with forward momentum'],
+  '사이키델릭·몽환':['with woozy drift','with hazy sway'],'칠·그루비':['with laid-back ease','with relaxed bounce'],
+  '분노·공격적':['with aggressive push','with violent drive'],'내성적·사색':['with quiet restraint','with sparse hesitation'],
+  '축제·환희':['with festival bounce','with joyful lift'],'승리감·웅장':['with triumphant march','with epic weight'],
+  '슬프고·멜랑콜리':['with mournful drag','with fragile hesitation'],'자신감·플렉스':['with confident swagger','with bold strut'],
+  '로맨틱·달콤한':['with tender sway','with gentle lilt'],'긴장감·서스펜스':['with anxious tension','with tightly coiled energy'],
+  '노스탤직·향수':['with vintage looseness','with warm nostalgia'],'미스터리·신비':['with cryptic hesitation','with veiled restraint'],
+};
+// 믹스 텍스처 태그 뒤에 붙는 무드 뉘앙스
+const MOOD_TEXTURE_NUANCE={
+  '어둡고 위압적':['with an ominous sheen','with menacing depth'],'감각적·관능적':['with a sensual glow','with smooth warmth'],
+  '멜로딕·감성':['with emotional clarity','with gentle warmth'],'에너제틱·하입':['with forward energy','with punchy presence'],
+  '사이키델릭·몽환':['with a hazy shimmer','with woozy blur'],'칠·그루비':['with a relaxed glow','with laid-back warmth'],
+  '분노·공격적':['with a gritty edge','with aggressive bite'],'내성적·사색':['with quiet subtlety','with understated depth'],
+  '축제·환희':['with a bright shimmer','with festive sparkle'],'승리감·웅장':['with epic scale','with towering presence'],
+  '슬프고·멜랑콜리':['with a fragile haze','with mournful thinness'],'자신감·플렉스':['with bold presence','with confident sheen'],
+  '로맨틱·달콤한':['with a silky glow','with tender warmth'],'긴장감·서스펜스':['with a tense edge','with anxious clarity'],
+  '노스탤직·향수':['with a faded warmth','with vintage haze'],'미스터리·신비':['with a veiled shimmer','with cryptic depth'],
 };
 const GENRE_TEXTURE_TIPS={
   0:'Sidechain pump + Bass-heavy', 1:'Heavy reverb + Bass-heavy',
@@ -766,6 +813,9 @@ const ERA_TEXTURE_BOOST={
   '90s':['Vintage tape','Lo-fi grain'], '2000s':['Vintage tape','Dry intimate'],
   '2010s':['Stereo wide','Sidechain pump'], '2020s':['Pristine digital','Stereo wide'],
 };
+
+// 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
+function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
 
 // 장르 3점/2점 + 무드 2점/1점 + (있으면) 보너스 1점씩 합산 → 점수 내림차순 정렬. 조합이 다르면 결과도 다름
 function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
@@ -1616,12 +1666,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const vocalStyleTag=VOCAL_STYLE_TAG[st.vocalStyle];
   const vocalDesc=vocalStyleTag?`${vocalStyleTag}, ${vocalCharTag}`:vocalCharTag;
 
-  const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus','Euphoric Anthem','Triumphant Peak','Melancholic Peak','Flex Anthem','Romantic Chorus','Suspense Peak','Nostalgic Chorus','Mysterious Drop'];
-  const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak','euphoric explosive','triumphant anthemic','melancholic emotional','confident flexing','romantic sweet','tense suspenseful','nostalgic wistful','mysterious enigmatic'];
-  const verseSubMap=['Grimy Pocket','Melodic Pocket','Hard Pocket','Deep Pocket','Energetic Verse','Chill Pocket','Cinematic Build','Conscious Flow','Building Hype','Rising Anthem','Sorrowful Pocket','Cocky Pocket','Tender Pocket','Anxious Pocket','Wistful Pocket','Enigmatic Pocket'];
-  const hookSub=moodIdx>=0?hookSubMap[moodIdx%hookSubMap.length]:'Euphoric Drop';
-  const hookEng=moodIdx>=0?hookEngMap[moodIdx%hookEngMap.length]:'euphoric';
-  const verseSub=moodIdx>=0?verseSubMap[moodIdx%verseSubMap.length]:'Stripped Pocket';
+  // 각 무드당 2개씩 — pick()으로 Generate할 때마다 무작위 하나 골라서 같은 무드라도 훅/벌스 이름이 매번 조금씩 달라짐
+  const hookSubMap=[['Dark Drop','Shadow Drop'],['Melodic Chorus','Emotional Chorus'],['Hard Drop','Aggressive Drop'],['Conscious Peak','Lyrical Peak'],['Hype Drop','Maximum Hype'],['Chill Peak','Smooth Peak'],['Cinematic Drop','Epic Drop'],['Soulful Chorus','Golden Chorus'],['Euphoric Anthem','Festival Anthem'],['Triumphant Peak','Victory Peak'],['Melancholic Peak','Sorrowful Peak'],['Flex Anthem','Cocky Chorus'],['Romantic Chorus','Tender Chorus'],['Suspense Peak','Anxious Peak'],['Nostalgic Chorus','Wistful Chorus'],['Mysterious Drop','Enigmatic Drop']];
+  const hookEngMap=[['dark explosive','ominous explosive'],['melodic euphoric','melodic blissful'],['aggressive hard','aggressive hard-hitting'],['conscious peak','lyrical peak'],['maximum hype','peak hype'],['smooth peak','laid-back peak'],['cinematic climax','epic climax'],['soulful peak','golden-era peak'],['euphoric explosive','festival explosive'],['triumphant anthemic','victorious anthemic'],['melancholic emotional','sorrowful emotional'],['confident flexing','cocky flexing'],['romantic sweet','tender sweet'],['tense suspenseful','anxious suspenseful'],['nostalgic wistful','sentimental wistful'],['mysterious enigmatic','cryptic enigmatic']];
+  const verseSubMap=[['Grimy Pocket','Shadowy Pocket'],['Melodic Pocket','Sensual Pocket'],['Hard Pocket','Emotional Pocket'],['Deep Pocket','Lyrical Pocket'],['Energetic Verse','Hype Verse'],['Chill Pocket','Groovy Pocket'],['Cinematic Build','Epic Build'],['Conscious Flow','Soulful Flow'],['Building Hype','Festival Flow'],['Rising Anthem','Victory Build'],['Sorrowful Pocket','Melancholic Pocket'],['Cocky Pocket','Flexing Pocket'],['Tender Pocket','Romantic Pocket'],['Anxious Pocket','Suspense Pocket'],['Wistful Pocket','Nostalgic Pocket'],['Enigmatic Pocket','Mysterious Pocket']];
+  const hookSub=moodIdx>=0?pick(hookSubMap[moodIdx%hookSubMap.length]):'Euphoric Drop';
+  const hookEng=moodIdx>=0?pick(hookEngMap[moodIdx%hookEngMap.length]):'euphoric';
+  const verseSub=moodIdx>=0?pick(verseSubMap[moodIdx%verseSubMap.length]):'Stripped Pocket';
 
   const cnt={hook:0,verse:0,bridge:0};
   const totalHooks=segs.filter(s=>s==='hook').length;
@@ -1636,16 +1687,17 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const leadInstrument=melodyRoles?melodyRoles.lead:(melody&&melody[0]);
   const mDescFull=melodyRoles?`${melodyRoles.lead} lead melody, ${melodyRoles.bg} layered softly beneath`:mDesc;
   const mDescCallbacks=['matching synth layers','consistent instrumentation','the same tonal palette'];
+  const mDescCallbackOffset=Math.floor(Math.random()*mDescCallbacks.length); // Generate마다 시작점을 섞어서 반복 문구 순서도 달라지게
   let mDescUses=0;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
   // + 리드 악기 자체의 톤(웜·아날로그 등)을 이름 앞에 붙임 — 믹스 전체 텍스처(grooveTag 등)와는 별개로 그 악기만의 질감
   // + 첫 등장(인트로)에서만 무드별 뉘앙스까지 얹어서 더 구체적으로 — 이후엔 톤 카테고리만 (반복 방지)
   const toneTag=MELODY_TONE_TAG[st.melodyTone]||'';
-  const toneNuance=MOOD_TONE_NUANCE[st.mood];
+  const toneNuance=pick(MOOD_TONE_NUANCE[st.mood]);
   const toneTagFull=toneTag&&toneNuance?`${toneTag}, ${toneNuance}`:toneTag;
   const melodyRef=(section)=>{
     const isFirst=mDescUses===0;
-    const ref=isFirst?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length]);
+    const ref=isFirst?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2+mDescCallbackOffset)%mDescCallbacks.length]);
     mDescUses++;
     const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
     const tone=isFirst?toneTagFull:toneTag;
@@ -1697,10 +1749,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
       const sub=isLastB?'Fast Build-up':'Tension Build';
-      // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값
-      const fxPhrase=(st.transitionFx&&st.transitionFx.length)
-        ?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f).join(', ')
-        :'reverse cymbal swell, low-pass filter sweep down';
+      // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값. 2개면 순서를 섞어서 Generate마다 문구가 조금 달라지게
+      const fxList=(st.transitionFx&&st.transitionFx.length)?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f):['reverse cymbal swell','low-pass filter sweep down'];
+      const fxPhrase=(fxList.length===2&&Math.random()<0.5?[fxList[1],fxList[0]]:fxList).join(', ');
       const desc=isLastB
         ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
         :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation`;
@@ -2616,16 +2667,21 @@ function hhGenerate(){
   if(st.melody.length){
     const roles=computeMelodyRoles(st.melody);
     const toneTagStyle=MELODY_TONE_TAG[st.melodyTone];
-    const toneNuanceStyle=mood&&MOOD_TONE_NUANCE[mood.kr];
+    const toneNuanceStyle=mood&&pick(MOOD_TONE_NUANCE[mood.kr]);
     const toneCombinedStyle=toneTagStyle&&toneNuanceStyle?`${toneTagStyle}, ${toneNuanceStyle}`:toneTagStyle;
     if(roles)tags.push(`${toneCombinedStyle?toneCombinedStyle+' ':''}${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
     else tags.push(...st.melody.map(m=>m.toLowerCase()));
   }
-  if(st._808&&st._808!=='None')tags.push(`${st._808} 808`);
-  if(st.groove)tags.push(GROOVE_TAG[st.groove]);
+  const nuance808=mood&&pick(MOOD_808_NUANCE[mood.kr]);
+  if(st._808&&st._808!=='None')tags.push(`${st._808} 808${nuance808?', '+nuance808:''}`);
+  const nuanceGroove=mood&&pick(MOOD_GROOVE_NUANCE[mood.kr]);
+  if(st.groove)tags.push(`${GROOVE_TAG[st.groove]}${nuanceGroove?' '+nuanceGroove:''}`);
   // g.drum은 드럼 칩 미선택 시 fallback으로만 사용
-  if(st.drums.length)tags.push(...st.drums.map(d=>d.toLowerCase()));
-  else if(g)tags.push(g.drum);
+  if(st.drums.length){
+    tags.push(...st.drums.map(d=>d.toLowerCase()));
+    const nuanceDrums=mood&&pick(MOOD_DRUMS_NUANCE[mood.kr]);
+    if(nuanceDrums)tags.push(`${nuanceDrums} drums`);
+  } else if(g)tags.push(g.drum);
   if(st.vocal&&st.vocal!=='No Vocal'){
     tags.push(st.vocal.toLowerCase());
     if(st.vocalStyle)tags.push(VOCAL_STYLE_TAG[st.vocalStyle]);
@@ -2633,7 +2689,11 @@ function hhGenerate(){
   }
   tags.push(`Key of ${keyStr}`);
   tags.push(`${bpmVal} BPM`);
-  if(st.texture.length)tags.push(...st.texture.map(t=>t.toLowerCase()));
+  if(st.texture.length){
+    tags.push(...st.texture.map(t=>t.toLowerCase()));
+    const nuanceTexture=mood&&pick(MOOD_TEXTURE_NUANCE[mood.kr]);
+    if(nuanceTexture)tags.push(nuanceTexture);
+  }
   if(st.era)tags.push(st.era+' era');
   if(st.region)tags.push(st.region+' sound');
   if(st.density)tags.push(st.density.toLowerCase()+' arrangement');
