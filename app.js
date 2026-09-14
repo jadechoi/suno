@@ -665,7 +665,7 @@ async function fetchGenreHotTracks(tag){
   if(!tok)return null;
   try{
     const fetchQ=async q=>{
-      const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=US&limit=20`,{headers:{Authorization:'Bearer '+tok}});
+      const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=US&limit=10`,{headers:{Authorization:'Bearer '+tok}});
       if(!r.ok){console.warn(`track search "${q}" HTTP ${r.status}`);return[];}
       const d=await r.json();
       return d.tracks?.items||[];
@@ -2380,7 +2380,7 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // genre:"tag" 아티스트 검색 — popularity 붙은 아티스트 객체를 바로 돌려줌 (플레이리스트 스크래핑 불필요)
 async function searchArtistsByGenre(tag,tok){
   try{
-    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`genre:"${tag}"`)}&type=artist&market=US&limit=20`,{headers:{Authorization:'Bearer '+tok}});
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`genre:"${tag}"`)}&type=artist&market=US&limit=10`,{headers:{Authorization:'Bearer '+tok}});
     if(!r.ok){console.warn(`artist search "${tag}" HTTP ${r.status}`);return[];}
     const d=await r.json();
     return(d.artists?.items||[]).filter(a=>a.id&&a.name);
