@@ -2534,6 +2534,7 @@ async function buildTrendingArtistAccordion(artists,tok){
       const color=TREND_COLORS[i%TREND_COLORS.length];
       const row=document.createElement('div');
       row.className='artist-row';
+      row.dataset.artistId=a.id;
       const header=document.createElement('div');
       header.className='artist-header';
       const popBadge=typeof a.popularity==='number'?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:${a.popularity>=70?'#22c55e':a.popularity>=40?'#f59e0b':'var(--border)'};color:${a.popularity>=40?'#000':'var(--text-2)'};margin-left:4px">🔥${a.popularity}</span>`:'';
@@ -2717,78 +2718,19 @@ function renderTrendingChips(artists){
     name.textContent=a.name;
     chip.appendChild(name);
     chip.title=a.genres.slice(0,2).join(', ')||'hip-hop';
-    chip.onclick=()=>applyTrendingArtist(a.id,a.name,a.genres);
+    // 칩 클릭으로 곡을 자동 적용하지 않음 — 아래 아코디언을 펼쳐서 "곡을 직접 골라야" mood/bpm이 적용되게 함
+    chip.onclick=()=>openArtistRow(a.id);
     el.appendChild(chip);
   });
 }
 
-async function applyTrendingArtist(artistId,artistName,genres){
-  const statusEl=document.getElementById('trending-status');
-  if(statusEl){statusEl.textContent=`🎧 ${artistName} 탑트랙 분석 중...`;statusEl.hidden=false;}
-
-  const tok=await getSpotifyToken();
-  if(!tok)return;
-
-  const topTrack=await fetchArtistTopTrack(artistId,tok);
-  if(!topTrack){
-    if(statusEl)statusEl.textContent='❌ 탑트랙 조회 실패';
-    return;
-  }
-
-  const af=await getAudioFeatures(topTrack.id);
-  if(!af){
-    const code=_spAudioFeaturesStatus;
-    let msg=code===403
-      ?`❌ HTTP 403 — Spotify가 2024년 11월부터 일반 앱의 BPM/Key API를 차단했습니다. Extended quota mode 신청 필요`
-      :`❌ Audio Features 조회 실패 (HTTP ${code||'?'})`;
-    if(statusEl){statusEl.textContent=msg;statusEl.hidden=false;}
-    return;
-  }
-  st.refAf=af; // store for arrange direction generation
-
-  // Key
-  const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
-  if(keyIdx!=null){st.key=keyIdx;document.getElementById('hh-key').value=keyIdx;}
-  // BPM
-  let bpm=Math.round(af.tempo);
-  if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
-  if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  st.bpm=Math.min(220,Math.max(60,bpm));
-  document.getElementById('hh-bpm').value=st.bpm;
-  // 808
-  const level=sp808FromEnergy(af.energy);
-  st._808=level;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-  setAutoHint('hh-808-hint','Spotify: '+level);
-  // Mood
-  const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
-  st.mood=moodKr;moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
-  // 장르 자동 감지
-  const genreIdxT=detectGenreFromSpotify(genres);
-  if(genreIdxT!==null&&st.genre===null){
-    st.genre=genreIdxT;
-    renderHhGenres();
-    const auto=GENRE_AUTO[genreIdxT];
-    if(auto){
-      st._808=auto.a808;st.drums=[...auto.aDrums];
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-      setAutoHint('hh-808-hint','808: '+auto.a808);
-      setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
-    }
-  }
-  // 레퍼런스 곡 표시
-  const refEl=document.getElementById('hh-ref-song');
-  if(refEl)refEl.value=`${artistName} - ${topTrack.name}`;
-
-  const keyStr=KEYS[st.key]||'?';
-  if(statusEl){
-    statusEl.textContent=`✅ ${artistName} — ${topTrack.name} · Key: ${keyStr} · ${st.bpm}BPM · 무드: ${moodKr} · 808: ${level}`;
-    statusEl.hidden=false;
-  }
-  showToast(`🎧 <b>${artistName} — ${topTrack.name}</b><br>Key: ${keyStr} · ${st.bpm}BPM · ${moodKr} 적용됨`);
-  updateFloatSummary();
-  hhGenerate();
+function openArtistRow(artistId){
+  const row=document.querySelector(`#hh-artists-typeBeat [data-artist-id="${artistId}"]`);
+  if(!row)return;
+  row.classList.add('open');
+  row.scrollIntoView({behavior:'smooth',block:'center'});
 }
+
 
 // 세션 캐시 복원
 (function restoreTrendingCache(){
