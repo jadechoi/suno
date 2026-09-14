@@ -861,6 +861,25 @@ const MOOD_VOCAL_STYLE={
   '로맨틱·달콤한':['브리시·위스퍼'],'긴장감·서스펜스':['감성적'],'노스탤직·향수':['소울풀'],
   '미스터리·신비':['브리시·위스퍼'],
 };
+// 편곡 포인트 조언에 무드별 보정 문구를 덧붙임 — 장르만으로는 무드가 다른 두 곡이 똑같은 조언을 받는 문제 보완
+const MOOD_ARRANGE_TIP={
+  '어둡고 위압적':'긴장감을 유지하려면 급격한 다이내믹 변화보다 낮게 깔린 텐션을 끌고 가세요.',
+  '감각적·관능적':'느린 그루브와 여백을 살려서 관능적인 무드가 숨쉴 공간을 주세요.',
+  '멜로딕·감성':'멜로디 라인이 감정을 전달하는 주인공이니 다른 악기는 최대한 자리를 비켜주세요.',
+  '에너제틱·하입':'에너지가 계속 상승하는 느낌을 주려면 섹션마다 레이어를 하나씩 더 쌓아보세요.',
+  '사이키델릭·몽환':'몽환적인 느낌을 살리려면 리듬보다 텍스처와 공간감에 집중하세요.',
+  '칠·그루비':'그루브만 살짝 바꾸면서 전체적으로 여백과 일관된 무드를 유지하세요.',
+  '분노·공격적':'공격성을 유지하려면 드럼을 절대 비우지 말고 훅마다 임팩트를 더 세게 주세요.',
+  '내성적·사색':'요소를 최소로 줄이고 정적인 순간을 충분히 남겨서 사색적인 느낌을 주세요.',
+  '축제·환희':'훅마다 텐션을 더 크게 터뜨려서 축제 같은 고조감을 계속 갱신하세요.',
+  '승리감·웅장':'레이어를 점점 쌓아 올려서 마지막 훅에서 가장 웅장한 순간을 만드세요.',
+  '슬프고·멜랑콜리':'악기 수를 줄이고 멜로디의 여운을 길게 남겨서 감정을 짙게 만드세요.',
+  '자신감·플렉스':'훅의 그루브를 자신감 있게 반복해서 각인시키고, 벌스에서도 에너지를 크게 낮추지 마세요.',
+  '로맨틱·달콤한':'멜로디와 보컬(있다면)이 대화하듯 서로 자리를 비켜주며 부드럽게 흘러가게 하세요.',
+  '긴장감·서스펜스':'다음에 무슨 일이 벌어질지 궁금하게 만들도록 브릿지에서 긴장을 최대한 늦게 풀어주세요.',
+  '노스탤직·향수':'빈티지한 질감을 살리며 구조를 단순하게 유지해서 옛날 느낌을 흐트러뜨리지 마세요.',
+  '미스터리·신비':'갑자기 드러내기보다 조금씩 정보를 흘리듯 악기를 하나씩 등장시키세요.',
+};
 function recommendVocalStyle(){
   const box=document.getElementById('hh-vocal-style-box');
   if(!box)return;
@@ -1908,7 +1927,8 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
     }).join('');
     const dimBtn=`<button onclick="dismissArrangeTip()" style="${sBtnStyle}background:transparent;color:var(--text-3);border-color:var(--border)">✕</button>`;
     const feedback=dynamicArrangeFeedback(st.genre,bH,st.melody.length,st.texture.length);
-    tips.push({html:`🎼 <strong>편곡 포인트</strong> — ${arrangeQualityTips[st.genre]}${feedback}`,btnHtml:`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-left:8px;flex-shrink:0">${secBtns}${dimBtn}</div>`});
+    const moodTip=mood&&MOOD_ARRANGE_TIP[mood.kr]?` ${MOOD_ARRANGE_TIP[mood.kr]}`:'';
+    tips.push({html:`🎼 <strong>편곡 포인트</strong> — ${arrangeQualityTips[st.genre]}${moodTip}${feedback}`,btnHtml:`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-left:8px;flex-shrink:0">${secBtns}${dimBtn}</div>`});
   }
 
   return{warns,tips};
