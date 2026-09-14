@@ -127,7 +127,7 @@ const HH_ARTISTS=[
 
 const HH_808=['None','Minimal','Balanced','Heavy','Dominant'];
 const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks'];
-const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX'];
+const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth'];
 const HH_MOODS=[
   {kr:'어둡고 위압적',tag:'dark menacing'},
   {kr:'감각적·관능적',tag:'sensual smooth'},
@@ -166,7 +166,7 @@ const HH_REF=[
   {kr:'Just Blaze',    en:'soulful orchestral samples, golden era boom bap horns, triumphant energy',    artists:'Jay-Z · Kanye West',          vibes:'소울 · 오케스트라 · 골든에라'},
   {kr:'Boi-1da',       en:'hard cinematic beats, dramatic orchestral hits, lyrical trap drum patterns',             artists:'Kendrick · Drake · Eminem',   vibes:'하드 · 시네마틱 · 라이리컬'},
 ];
-const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb','Dry intimate','Sidechain pump','Stereo wide','Bass-heavy'];
+const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb','Dry intimate','Sidechain pump','Stereo wide','Bass-heavy','Punchy mix','Polished production','Raw sound'];
 const HH_ERA=['90s','2000s','2010s','2020s','Timeless'];
 const HH_REGION=['Atlanta','New York','LA','UK','Seoul','Miami','Chicago'];
 const HH_DENSITY=['Minimalist','Sparse','Balanced','Dense','Maximalist'];
@@ -433,7 +433,7 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 // ============================================================
 const st={
   genre:null,key:7,bpm:140,
-  _808:'Balanced',drums:[],melody:[],mood:null,vocal:'No Vocal',vocalChar:null,
+  _808:'Balanced',drums:[],melody:[],mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,
   narrSt:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
@@ -623,6 +623,7 @@ const GROOVE_TAG={
 const MELODY_ROLE={
   'Dark synth':'lead','Emotional piano':'lead','Guitar loop':'lead','Sample chop':'lead','Brass stab':'lead',
   'Ambient pad':'background','Strings':'background','Psychedelic FX':'background',
+  'Rhodes keys':'lead','Saxophone':'lead','Supersaw synth':'lead',
 };
 // 리드 멜로디 악기가 섹션마다 어떤 느낌으로 연주되면 좋을지 — 같은 악기라도 인트로/훅/벌스/브릿지/아웃트로마다 다르게
 const MELODY_ARTICULATION={
@@ -634,6 +635,9 @@ const MELODY_ARTICULATION={
   'Brass stab':{intro:'single soft stab',hook:'short punchy stabs',verse:'restrained single stabs',bridge:'sustained rising swell',outro:'held fading stab'},
   'Strings':{intro:'soft legato sustain',hook:'staccato rhythmic hits',verse:'legato sustained bed',bridge:'rising tremolo swell',outro:'slow legato fade'},
   'Psychedelic FX':{intro:'slow sweeping texture',hook:'glitchy stutter bursts',verse:'sparse sweeping texture',bridge:'sweeping rising FX',outro:'fading sweeping texture'},
+  'Rhodes keys':{intro:'soft sustained chord',hook:'rhythmic chord stabs',verse:'sparse warm chords',bridge:'flowing chord progression',outro:'slow fading chord'},
+  'Saxophone':{intro:'soft held note',hook:'melodic lead line',verse:'sparse improvised phrase',bridge:'rising melodic run',outro:'slow fading phrase'},
+  'Supersaw synth':{intro:'soft rising pad',hook:'wide detuned stabs',verse:'thin sustained layer',bridge:'rising detuned swell',outro:'fading detuned pad'},
 };
 // 멜로디 2개 선택 시 리드/배경 자동 배정 — st.melodyLeadIdx로 사용자가 ⇄ 바꾼 상태 반영
 function computeMelodyRoles(arr){
@@ -672,22 +676,22 @@ const GENRE_MELODY_TIPS={
   0:'Dark synth + Guitar loop', 1:'Dark synth + Ambient pad',
   2:'Emotional piano + Ambient pad', 3:'Dark synth + Strings',
   4:'Strings + Dark synth', 5:'Dark synth + Psychedelic FX',
-  6:'Sample chop + Brass stab', 7:'Ambient pad + Emotional piano',
-  8:'Emotional piano + Guitar loop', 9:'Sample chop + Guitar loop',
+  6:'Sample chop + Saxophone', 7:'Ambient pad + Emotional piano',
+  8:'Rhodes keys + Guitar loop', 9:'Sample chop + Guitar loop',
   10:'Dark synth + Psychedelic FX', 11:'Guitar loop + Ambient pad',
-  12:'Sample chop + Emotional piano', 13:'Emotional piano + Ambient pad',
-  14:'Psychedelic FX + Dark synth', 15:'Psychedelic FX + Dark synth',
-  16:'Ambient pad + Emotional piano', 17:'Guitar loop + Sample chop',
+  12:'Saxophone + Emotional piano', 13:'Rhodes keys + Ambient pad',
+  14:'Psychedelic FX + Supersaw synth', 15:'Supersaw synth + Psychedelic FX',
+  16:'Ambient pad + Emotional piano', 17:'Saxophone + Guitar loop',
 };
 const MOOD_MELODY_FIT={
-  '어둡고 위압적':['Dark synth','Strings'], '감각적·관능적':['Emotional piano','Guitar loop'],
+  '어둡고 위압적':['Dark synth','Strings'], '감각적·관능적':['Rhodes keys','Guitar loop'],
   '멜로딕·감성':['Emotional piano','Guitar loop'], '에너제틱·하입':['Brass stab','Sample chop'],
-  '사이키델릭·몽환':['Psychedelic FX','Ambient pad'], '칠·그루비':['Ambient pad','Guitar loop'],
+  '사이키델릭·몽환':['Psychedelic FX','Ambient pad'], '칠·그루비':['Rhodes keys','Ambient pad'],
   '분노·공격적':['Dark synth','Sample chop'], '내성적·사색':['Ambient pad','Emotional piano'],
   '축제·환희':['Brass stab','Sample chop'], '승리감·웅장':['Strings','Brass stab'],
   '슬프고·멜랑콜리':['Emotional piano','Ambient pad'], '자신감·플렉스':['Sample chop','Brass stab'],
   '로맨틱·달콤한':['Emotional piano','Strings'], '긴장감·서스펜스':['Strings','Psychedelic FX'],
-  '노스탤직·향수':['Guitar loop','Ambient pad'], '미스터리·신비':['Psychedelic FX','Strings'],
+  '노스탤직·향수':['Saxophone','Guitar loop'], '미스터리·신비':['Psychedelic FX','Strings'],
 };
 const GENRE_TEXTURE_TIPS={
   0:'Sidechain pump + Bass-heavy', 1:'Heavy reverb + Bass-heavy',
@@ -704,9 +708,9 @@ const MOOD_TEXTURE_FIT={
   '어둡고 위압적':['Heavy reverb','Bass-heavy'], '감각적·관능적':['Dry intimate','Heavy reverb'],
   '멜로딕·감성':['Stereo wide','Heavy reverb'], '에너제틱·하입':['Sidechain pump','Bass-heavy'],
   '사이키델릭·몽환':['Heavy reverb','Stereo wide'], '칠·그루비':['Vintage tape','Dry intimate'],
-  '분노·공격적':['Bass-heavy','Dry intimate'], '내성적·사색':['Dry intimate','Vintage tape'],
-  '축제·환희':['Sidechain pump','Stereo wide'], '승리감·웅장':['Stereo wide','Heavy reverb'],
-  '슬프고·멜랑콜리':['Dry intimate','Heavy reverb'], '자신감·플렉스':['Bass-heavy','Sidechain pump'],
+  '분노·공격적':['Punchy mix','Bass-heavy'], '내성적·사색':['Raw sound','Dry intimate'],
+  '축제·환희':['Sidechain pump','Stereo wide'], '승리감·웅장':['Polished production','Stereo wide'],
+  '슬프고·멜랑콜리':['Dry intimate','Heavy reverb'], '자신감·플렉스':['Punchy mix','Bass-heavy'],
   '로맨틱·달콤한':['Dry intimate','Heavy reverb'], '긴장감·서스펜스':['Dry intimate','Heavy reverb'],
   '노스탤직·향수':['Vintage tape','Lo-fi grain'], '미스터리·신비':['Heavy reverb','Lo-fi grain'],
 };
@@ -791,6 +795,38 @@ function recommendVocalChar(){
   st.vocalChar=ranked[0];
   chipGrid(document.getElementById('hh-vocal-char'),HH_VOCAL_CHAR,st,'vocalChar',1,null);
   setAutoHint('hh-vocal-char-hint',st.vocalChar);
+  recommendVocalStyle();
+}
+
+// 보컬 "스타일"(톤·감정 전달 방식) — 녹음 질감(마이크 거리감)과는 다른 축. vocal이 켜져 있을 때만 표시
+const HH_VOCAL_STYLE=['소울풀','파워풀','브리시·위스퍼','감성적','클린'];
+const VOCAL_STYLE_TAG={
+  '소울풀':'soulful voice','파워풀':'powerful voice','브리시·위스퍼':'breathy whisper vocal',
+  '감성적':'emotional vocal','클린':'clean vocal tone',
+};
+const GENRE_VOCAL_STYLE={
+  0:'파워풀',1:'파워풀',2:'감성적',3:'파워풀',4:'파워풀',
+  5:'소울풀',6:'소울풀',7:'브리시·위스퍼',8:'브리시·위스퍼',9:'파워풀',
+  10:'파워풀',11:'소울풀',12:'소울풀',13:'감성적',14:'파워풀',
+  15:'브리시·위스퍼',16:'브리시·위스퍼',17:'소울풀',
+};
+const MOOD_VOCAL_STYLE={
+  '어둡고 위압적':['파워풀'],'감각적·관능적':['브리시·위스퍼'],'멜로딕·감성':['감성적'],
+  '에너제틱·하입':['파워풀'],'사이키델릭·몽환':['브리시·위스퍼'],'칠·그루비':['소울풀'],
+  '분노·공격적':['파워풀'],'내성적·사색':['감성적'],'축제·환희':['파워풀'],
+  '승리감·웅장':['파워풀'],'슬프고·멜랑콜리':['감성적'],'자신감·플렉스':['소울풀'],
+  '로맨틱·달콤한':['브리시·위스퍼'],'긴장감·서스펜스':['감성적'],'노스탤직·향수':['소울풀'],
+  '미스터리·신비':['브리시·위스퍼'],
+};
+function recommendVocalStyle(){
+  const box=document.getElementById('hh-vocal-style-box');
+  if(!box)return;
+  if(!st.vocal||st.vocal==='No Vocal'){box.hidden=true;st.vocalStyle=null;return;}
+  box.hidden=false;
+  const ranked=st.genre!==null?scorePick(HH_VOCAL_STYLE,GENRE_VOCAL_STYLE,MOOD_VOCAL_STYLE,st.genre,st.mood,null):HH_VOCAL_STYLE;
+  st.vocalStyle=ranked[0];
+  chipGrid(document.getElementById('hh-vocal-style'),HH_VOCAL_STYLE,st,'vocalStyle',1,null);
+  setAutoHint('hh-vocal-style-hint',st.vocalStyle);
 }
 
 function setAutoHint(id,text){
@@ -1492,6 +1528,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const mDesc=(melody&&melody.length)?melody.join(', '):'dark synthesizers';
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   const vocalCharTag=VOCAL_CHAR_TAG[st.vocalChar]||'clean vocal recording';
+  const vocalStyleTag=VOCAL_STYLE_TAG[st.vocalStyle];
+  const vocalDesc=vocalStyleTag?`${vocalStyleTag}, ${vocalCharTag}`:vocalCharTag;
 
   const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus','Euphoric Anthem','Triumphant Peak','Melancholic Peak','Flex Anthem','Romantic Chorus','Suspense Peak','Nostalgic Chorus','Mysterious Drop'];
   const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak','euphoric explosive','triumphant anthemic','melancholic emotional','confident flexing','romantic sweet','tense suspenseful','nostalgic wistful','mysterious enigmatic'];
@@ -1533,7 +1571,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const lowEnergy=gEnergy==='low'||gEnergy==='low-mid';
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalCharTag}, no build-up)`);
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up)`);
       } else if(lowEnergy){
         lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar)`);
       } else {
@@ -1546,7 +1584,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const energy=isLast
         ?`Maximum ${hookEng} energy, all layers activated, heaviest impact`
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, full energy`;
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalCharTag}`:'completely instrumental, ZERO vocal chops';
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
       lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''})`);
     } else if(type==='verse'){
@@ -1555,7 +1593,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const desc=cnt.verse===1
         ?`Beat strips back, sparse 808s, lighter drum pattern, ${melodyRef('verse')} softened, spacious and clean arrangement`
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalCharTag}`:'purely instrumental pocket';
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
       lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''})`);
     } else if(type==='bridge'){
@@ -2489,6 +2527,7 @@ function hhGenerate(){
   else if(g)tags.push(g.drum);
   if(st.vocal&&st.vocal!=='No Vocal'){
     tags.push(st.vocal.toLowerCase());
+    if(st.vocalStyle)tags.push(VOCAL_STYLE_TAG[st.vocalStyle]);
     if(st.vocalChar)tags.push(VOCAL_CHAR_TAG[st.vocalChar]);
   }
   tags.push(`Key of ${keyStr}`);
@@ -2674,7 +2713,7 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
   st.narrSt={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;
+  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   document.getElementById('hh-bpm').value=140;
@@ -2687,6 +2726,8 @@ function hhReset(){
   clearAutoHint('hh-groove-hint');
   const vcBox=document.getElementById('hh-vocal-char-box');
   if(vcBox)vcBox.hidden=true;
+  const vsBox=document.getElementById('hh-vocal-style-box');
+  if(vsBox)vsBox.hidden=true;
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
