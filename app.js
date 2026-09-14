@@ -659,20 +659,22 @@ function suggestionChip(text,onClick){
   return btn;
 }
 
-// Spotify 평문 검색으로 해당 장르 인기곡 Top 5를 실시간으로 가져옴 (매칭 실패 시 null)
-// genre:"tag" 필드 필터는 이 앱 등급에서 무명 아티스트만 주는 게 확인돼서(아티스트 검색과 동일 원인) 평문 검색으로 통일
-async function fetchGenreHotTracks(tag){
+// 장르명으로 트랙 검색하면 "DARK TRAP 2016" 같은 컴필레이션/비트팩만 잡히고 popularity도 안 내려옴(실측 확인).
+// 대신 HH_GENRE_SONGS에 큐레이션된 "대표 아티스트"들을 실제로 검색해서 그들의 최신곡을 라이브로 가져온다
+// (트렌딩 아티스트에서 검증된 이름검색→Musicae top-tracks 파이프라인 재사용, 1 아티스트 = 1곡으로 5명분)
+async function fetchGenreHotTracks(genreIdx){
   const tok=await getSpotifyToken();
   if(!tok)return null;
+  const seedNames=(HH_GENRE_SONGS[genreIdx]||[]).map(s=>s.split(' - ')[0].trim()).filter(Boolean);
+  if(!seedNames.length)return null;
   try{
-    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(tag)}&type=track&market=US&limit=10`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok){console.warn(`track search "${tag}" HTTP ${r.status}`);return[];}
-    const d=await r.json();
-    const items=d.tracks?.items||[];
-    if(!items.length)return[];
-    // popularity 필드가 이 앱 등급에선 없을 수 있어 Spotify 자체 relevance 순서를 우선 신뢰, 있으면 보조로만 정렬
-    return items.sort((a,b)=>(b.popularity||0)-(a.popularity||0)).slice(0,5)
-      .map(t=>({id:t.id,name:t.name,artist:t.artists.map(a=>a.name).join(', '),popularity:t.popularity}));
+    const resolved=(await Promise.all(seedNames.map(n=>resolveArtistIdByName(n,tok)))).filter(Boolean);
+    if(!resolved.length)return[];
+    const withTrack=await Promise.all(resolved.map(async a=>{
+      const tracks=await fetchArtistTopTracksRaw(a.id);
+      return tracks[0]?{id:tracks[0].id,name:tracks[0].name,artist:a.name}:null;
+    }));
+    return withTrack.filter(Boolean).slice(0,5);
   }catch(e){console.warn('fetchGenreHotTracks error',e);return null;}
 }
 
@@ -683,7 +685,7 @@ async function renderGenreRefSuggestions(genreIdx){
   const myToken=++_grsToken;
   sg.innerHTML='<div style="width:100%;font-size:10px;color:var(--text-3)">🔥 실시간 인기곡 불러오는 중…</div>';
 
-  const tracks=await fetchGenreHotTracks(GENRES[genreIdx].tag);
+  const tracks=await fetchGenreHotTracks(genreIdx);
   if(myToken!==_grsToken)return;// 그 사이 다른 장르를 클릭했으면 버림
 
   sg.innerHTML='';
@@ -692,7 +694,7 @@ async function renderGenreRefSuggestions(genreIdx){
   sg.appendChild(label);
 
   if(tracks&&tracks.length){
-    label.textContent='🔥 실시간 인기곡 · 클릭 시 Key·BPM·무드 자동 적용';
+    label.textContent='🔥 대표 아티스트 최신곡 · 클릭 시 Key·BPM·무드 자동 적용';
     tracks.forEach(t=>{
       sg.appendChild(suggestionChip(`${t.artist} - ${t.name}`,()=>applySpotifyTrack(t.id,`${t.artist} - ${t.name}`)));
     });
