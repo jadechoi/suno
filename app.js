@@ -223,6 +223,21 @@ const HH_STRUCT_PRESETS=[
   {name:'Extended',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','verse','bridge','hook','outro']},
 ];
 const HH_SEG_PALETTE=['intro','hook','verse','bridge','outro'];
+// 장르별 구조 프리셋 자동 추천 (HH_STRUCT_PRESETS.name 참조) — 훅 반복이 잦은 장르는 Hook Heavy, 루프 중심 장르는 Minimal 등
+const GENRE_STRUCTURE={
+  0:'Hook Heavy',1:'Hook Heavy',2:'Standard',3:'Hook Heavy',4:'Hook Heavy',
+  5:'Minimal',6:'Minimal',7:'Minimal',8:'Minimal',9:'Hook Heavy',
+  10:'Minimal',11:'Standard',12:'Standard',13:'Standard',14:'Extended',
+  15:'Hook Heavy',16:'Minimal',17:'Standard',
+};
+const MOOD_STRUCTURE={
+  '어둡고 위압적':['Hook Heavy'],'감각적·관능적':['Standard'],'멜로딕·감성':['Standard'],
+  '에너제틱·하입':['Hook Heavy'],'사이키델릭·몽환':['Minimal'],'칠·그루비':['Minimal'],
+  '분노·공격적':['Hook Heavy'],'내성적·사색':['Minimal'],'축제·환희':['Hook Heavy'],
+  '승리감·웅장':['Extended'],'슬프고·멜랑콜리':['Standard'],'자신감·플렉스':['Hook Heavy'],
+  '로맨틱·달콤한':['Standard'],'긴장감·서스펜스':['Extended'],'노스탤직·향수':['Standard'],
+  '미스터리·신비':['Minimal'],
+};
 
 // ---- POP/R&B DATA ----
 const POP_GENRES=[
@@ -456,6 +471,7 @@ const st={
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},refAf:null,
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
+  _structAutoManaged:true, // 구조(STRUCTURE BUILDER)가 아직 자동 추천 상태인지 — 프리셋 클릭·세그먼트 추가/삭제하면 false
 };
 
 // Vocal tab states
@@ -557,7 +573,7 @@ function hhInit(){
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
+  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();if(st._structAutoManaged)recommendStructure();});
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
@@ -998,6 +1014,7 @@ function selectGenre(i){
     }
     recommendMelodyTexture();
     recommendProducerRef();
+    recommendStructure();
   } else {
     _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
     const sg=document.getElementById('hh-ref-suggestions');
@@ -1010,6 +1027,7 @@ function selectGenre(i){
     clearAutoHint('hh-texture-hint');
     clearAutoHint('hh-ref-hint');
     clearAutoHint('hh-melody-tone-hint');
+    clearAutoHint('hh-struct-hint');
     st.refs=[];renderProducerRef();
   }
   renderHhGenres();
@@ -1140,6 +1158,20 @@ function recommendProducerRef(){
   renderProducerRef();
   setAutoHint('hh-ref-hint',refs.join(', '));
 }
+// 장르+무드 보고 구조 프리셋(Standard/Hook Heavy/Minimal/Extended) 자동 추천
+// 장르 선택 시엔 무조건 덮어씀(808/드럼 등과 동일 패턴), 무드 변경 시엔 호출하는 쪽에서 _structAutoManaged 체크 후 호출
+function recommendStructure(){
+  if(st.genre===null)return;
+  const presetNames=HH_STRUCT_PRESETS.map(p=>p.name);
+  const ranked=scorePick(presetNames,GENRE_STRUCTURE,MOOD_STRUCTURE,st.genre,st.mood,null);
+  const idx=HH_STRUCT_PRESETS.findIndex(p=>p.name===ranked[0]);
+  if(idx<0)return;
+  st.structSegs=[...HH_STRUCT_PRESETS[idx].segs];
+  st.structIdx=idx;
+  renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+  setAutoHint('hh-struct-hint',ranked[0]);
+  st._structAutoManaged=true;
+}
 
 // HH mode toggle: 'genre' = 장르 기반, 'typeBeat' = 아티스트 타입비트
 let hhMode='genre';
@@ -1184,6 +1216,7 @@ function applyArtistSong(tabKey,song,artist){
     }
     recommendMelodyTexture();
     recommendProducerRef();
+    recommendStructure();
     renderHhGenres();
     showToast(`🎵 <b>${artist?.name||''} — ${song.title||''}</b><br>Key: ${KEYS[st.key]||'?'} · ${st.bpm}BPM · 무드: ${defMood||'-'} (장르 추정) 적용됨`);
     updateFloatSummary();
@@ -1242,7 +1275,7 @@ function renderStructBuilder(prefix,presets,palette,state){
       btn.className='struct-preset-btn';
       btn.textContent=p.name;
       btn.onclick=()=>{
-        state.structSegs=[...p.segs];state.structIdx=i;
+        state.structSegs=[...p.segs];state.structIdx=i;state._structAutoManaged=false;
         presetsEl.querySelectorAll('.struct-preset-btn').forEach((b,bi)=>b.classList.toggle('active',bi===i));
         renderSeq(prefix,state,seqEl);
       };
@@ -1257,7 +1290,7 @@ function renderStructBuilder(prefix,presets,palette,state){
       const btn=document.createElement('button');
       btn.className='struct-seg-btn';
       btn.textContent=seg;
-      btn.onclick=()=>{state.structSegs.push(seg);state.structIdx=null;if(presetsEl)presetsEl.querySelectorAll('.struct-preset-btn').forEach(b=>b.classList.remove('active'));renderSeq(prefix,state,seqEl);};
+      btn.onclick=()=>{state.structSegs.push(seg);state.structIdx=null;state._structAutoManaged=false;if(presetsEl)presetsEl.querySelectorAll('.struct-preset-btn').forEach(b=>b.classList.remove('active'));renderSeq(prefix,state,seqEl);};
       palEl.appendChild(btn);
     });
   }
@@ -1280,6 +1313,7 @@ function removeStructSeg(prefix,idx){
   const stRef=prefix==='hh'?st:VTS[prefix];
   stRef.structSegs.splice(idx,1);
   stRef.structIdx=null;
+  stRef._structAutoManaged=false;
   const presetsEl=document.getElementById(`${prefix}-struct-presets`);
   if(presetsEl)presetsEl.querySelectorAll('.struct-preset-btn').forEach(b=>b.classList.remove('active'));
   renderSeq(prefix,stRef,null);
@@ -2525,6 +2559,7 @@ async function applySpotifyTrack(trackId,label){
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   if(st._mtAutoManaged)recommendMelodyTexture();
+  if(st._structAutoManaged)recommendStructure();
   if(statusEl){
     const keyStr=KEYS[st.key]||'?';
     const sfx=_spAudioFeaturesBlocked?' (장르 기반 추정)':'';
@@ -2564,6 +2599,7 @@ function applyAdvMood(moodKr){
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   if(st._mtAutoManaged)recommendMelodyTexture();
+  if(st._structAutoManaged)recommendStructure();
   hhGenerate();
 }
 function applyAdvTagsIdx(idx){
@@ -2875,7 +2911,7 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
   st.narrSt={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;
+  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   document.getElementById('hh-bpm').value=140;
@@ -2888,6 +2924,7 @@ function hhReset(){
   clearAutoHint('hh-groove-hint');
   clearAutoHint('hh-ref-hint');
   clearAutoHint('hh-melody-tone-hint');
+  clearAutoHint('hh-struct-hint');
   const vcBox=document.getElementById('hh-vocal-char-box');
   if(vcBox)vcBox.hidden=true;
   const vsBox=document.getElementById('hh-vocal-style-box');
@@ -2898,7 +2935,7 @@ function hhReset(){
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
+  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();if(st._structAutoManaged)recommendStructure();});
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
@@ -3211,6 +3248,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
     }
     recommendMelodyTexture();
     recommendProducerRef();
+    recommendStructure();
   }
   // 레퍼런스 곡
   const refEl=document.getElementById('hh-ref-song');
