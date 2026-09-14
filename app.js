@@ -139,21 +139,24 @@ const HH_MOODS=[
   {kr:'내성적·사색',tag:'introspective thoughtful'},
 ];
 const HH_VOCAL=['No Vocal','Light ad-libs','Heavy hooks','Full rap feature'];
+// en 필드는 실제 Suno 프롬프트에 그대로 들어감 — 실존 아티스트/프로듀서 이름을 직접 넣으면
+// Suno의 임퍼스네이션 정책(2025년 말 Warner 합의 이후 강화)에 걸릴 수 있어 이름 대신 사운드 특징만 서술한다.
+// kr 필드는 화면에만 표시되는 라벨이라 이름을 남겨둬도 무방함.
 const HH_REF=[
-  {kr:'Metro Boomin',  en:'in the style of Metro Boomin, dark orchestral trap',        artists:'Travis Scott · 21 Savage',    vibes:'다크 · 오케스트라 · 영화적'},
-  {kr:"Pi'erre Bourne",en:"in the style of Pi'erre Bourne, melodic plugg production",  artists:'Playboi Carti · SoFaygo',     vibes:'몽환 · 플러그 · 미니멀'},
-  {kr:'Pharrell Williams',en:'in the style of Pharrell, unique snare, funky grooves',  artists:'Kendrick · Jay-Z · Snoop',    vibes:'펑키 · 유니크 스네어 · 그루비'},
-  {kr:'J Dilla',       en:'in the style of J Dilla, soulful off-beat boom bap',        artists:'Common · De La Soul',         vibes:'소울 · 오프비트 · 빈티지'},
-  {kr:'The Alchemist', en:'in the style of The Alchemist, sample-based grimy beats',   artists:'Freddie Gibbs · Boldy James', vibes:'그라이미 · 샘플 · 언더그라운드'},
-  {kr:'Wheezy',        en:'in the style of Wheezy, melodic trap bangers',              artists:'Future · Gunna · Young Thug', vibes:'멜로딕 · 스페이시 · 트랩'},
-  {kr:'Hit-Boy',       en:'in the style of Hit-Boy, polished grand scale production',  artists:'Kendrick · Jay-Z · Big Sean', vibes:'폴리쉬드 · 그랜드 · 파워풀'},
-  {kr:'Southside',     en:'in the style of Southside, hard knocking trap beats',       artists:'Future · Gunna · Young Thug', vibes:'하드 · ATL · 킥하드'},
-  {kr:'Tay Keith',     en:'in the style of Tay Keith, hard 808 stomping beats',        artists:'Drake · BlocBoy JB',          vibes:'하드 · 808 스토핑 · 에너지'},
-  {kr:'Harry Fraud',   en:'in the style of Harry Fraud, atmospheric sample beats',     artists:'Curren$y · Wiz Khalifa',      vibes:'시네마틱 · 웨스트코스트 · 스모키'},
-  {kr:'Zaytoven',      en:'in the style of Zaytoven, ivory keys piano trap',           artists:'Gucci Mane · Future',         vibes:'피아노 · ATL · 트랩클래식'},
-  {kr:'Timbaland',     en:'in the style of Timbaland, rhythmic experimental R&B trap', artists:'Missy Elliott · Justin T.',   vibes:'리드믹 · 익스페리멘탈 · 팝R&B'},
-  {kr:'Just Blaze',    en:'in the style of Just Blaze, soulful orchestral samples',    artists:'Jay-Z · Kanye West',          vibes:'소울 · 오케스트라 · 골든에라'},
-  {kr:'Boi-1da',       en:'in the style of Boi-1da, hard cinematic beats',             artists:'Kendrick · Drake · Eminem',   vibes:'하드 · 시네마틱 · 라이리컬'},
+  {kr:'Metro Boomin',  en:'cinematic orchestral trap production, dark brass stabs, ominous strings, big drum halls',        artists:'Travis Scott · 21 Savage',    vibes:'다크 · 오케스트라 · 영화적'},
+  {kr:"Pi'erre Bourne",en:'melodic plugg production, bouncy chiptune-esque synth leads, minimal spacey drums',  artists:'Playboi Carti · SoFaygo',     vibes:'몽환 · 플러그 · 미니멀'},
+  {kr:'Pharrell Williams',en:'funky unique snare choice, syncopated grooves, playful percussive bounce',  artists:'Kendrick · Jay-Z · Snoop',    vibes:'펑키 · 유니크 스네어 · 그루비'},
+  {kr:'J Dilla',       en:'soulful off-beat boom bap, dusty sample chops, swung MPC drum groove',        artists:'Common · De La Soul',         vibes:'소울 · 오프비트 · 빈티지'},
+  {kr:'The Alchemist', en:'sample-based grimy beats, dusty vinyl texture, understated boom bap drums',   artists:'Freddie Gibbs · Boldy James', vibes:'그라이미 · 샘플 · 언더그라운드'},
+  {kr:'Wheezy',        en:'melodic trap bangers, spacey atmospheric synth leads, rolling layered 808s',              artists:'Future · Gunna · Young Thug', vibes:'멜로딕 · 스페이시 · 트랩'},
+  {kr:'Hit-Boy',       en:'polished grand scale production, cinematic orchestral layers, powerful drums',  artists:'Kendrick · Jay-Z · Big Sean', vibes:'폴리쉬드 · 그랜드 · 파워풀'},
+  {kr:'Southside',     en:'hard knocking trap beats, aggressive sliding 808s, dark ATL trap drums',       artists:'Future · Gunna · Young Thug', vibes:'하드 · ATL · 킥하드'},
+  {kr:'Tay Keith',     en:'hard 808 stomping beats, aggressive triplet hi-hat rolls, dark energetic trap',        artists:'Drake · BlocBoy JB',          vibes:'하드 · 808 스토핑 · 에너지'},
+  {kr:'Harry Fraud',   en:'atmospheric sample-based beats, smoky West Coast vibe, cinematic loop textures',     artists:'Curren$y · Wiz Khalifa',      vibes:'시네마틱 · 웨스트코스트 · 스모키'},
+  {kr:'Zaytoven',      en:'ivory keys piano trap, bright melodic piano loops, classic ATL trap drums',           artists:'Gucci Mane · Future',         vibes:'피아노 · ATL · 트랩클래식'},
+  {kr:'Timbaland',     en:'rhythmic experimental R&B trap, syncopated futuristic percussion',                   artists:'Missy Elliott · Justin T.',   vibes:'리드믹 · 익스페리멘탈 · 팝R&B'},
+  {kr:'Just Blaze',    en:'soulful orchestral samples, golden era boom bap horns, triumphant energy',    artists:'Jay-Z · Kanye West',          vibes:'소울 · 오케스트라 · 골든에라'},
+  {kr:'Boi-1da',       en:'hard cinematic beats, dramatic orchestral hits, lyrical trap drum patterns',             artists:'Kendrick · Drake · Eminem',   vibes:'하드 · 시네마틱 · 라이리컬'},
 ];
 const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb','Dry intimate','Sidechain pump','Stereo wide','Bass-heavy'];
 const HH_ERA=['90s','2000s','2010s','2020s','Timeless'];
@@ -1285,25 +1288,34 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const _ctx={eDesc,dDesc,mDesc,hookEng,bpmNum};
   const lines=[];
 
+  // 멜로디 악기명은 처음 2번(Intro·첫 Hook)만 명시하고, 이후엔 "같은 악기" 콜백으로 순환 — 섹션마다 문구 그대로 반복되는 것 방지
+  const mDescCallbacks=['matching synth layers','consistent instrumentation','the same tonal palette'];
+  let mDescUses=0;
+  const melodyRef=()=>{
+    const ref=mDescUses<2?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length];
+    mDescUses++;
+    return ref;
+  };
+
   segs.forEach(type=>{
     if(type==='intro'){
       lines.push('[Intro]');
-      lines.push(`(Warm ${mDesc} opening in ${keyName}, low-pass filter smoothly rising, subtle hi-hats creeping in, no bass yet)`);
+      lines.push(`(Warm ${melodyRef()} opening in ${keyName}, low-pass filter smoothly rising, subtle hi-hats creeping in, no bass yet)`);
     } else if(type==='hook'){
       cnt.hook++;
       const isLast=cnt.hook===totalHooks;
       const sub=isLast?'Maximum Anthemic Climax':hookSub;
       const energy=isLast
-        ?`Maximum ${hookEng} energy, all layers activated, heaviest ${eDesc} impact`
+        ?`Maximum ${hookEng} energy, all layers activated, heaviest impact`
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, full energy`;
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${mDesc}, completely instrumental, ZERO vocal chops${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef()}, completely instrumental, ZERO vocal chops${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
       const desc=cnt.verse===1
-        ?`Beat strips back, sparse 808s, lighter drum pattern, ${mDesc} softened, spacious and clean arrangement`
-        :`Slightly varied drum bounce, deeper continuous sub-bass, ${mDesc} layered in background, intimate groove`;
+        ?`Beat strips back, sparse 808s, lighter drum pattern, ${melodyRef()} softened, spacious and clean arrangement`
+        :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef()} layered in background, intimate groove`;
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
       lines.push(`(${bV} Bars: ${desc}, purely instrumental pocket${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''})`);
     } else if(type==='bridge'){
@@ -1311,13 +1323,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const isLastB=cnt.bridge===totalBridges;
       const sub=isLastB?'Fast Build-up':'Tension Build';
       const desc=isLastB
-        ?`Quick break, isolated ${mDesc} chord echoing, reverse crash cymbal pulling into final drop, maximum tension`
-        :`Heavy low-pass filter muffles the beat, rising snare roll, ${mDesc} building anticipation, brief silence before drop`;
+        ?`Quick break, isolated ${melodyRef()} chord echoing, reverse crash cymbal pulling into final drop, maximum tension`
+        :`Heavy low-pass filter muffles the beat, rising snare roll, ${melodyRef()} building anticipation, brief silence before drop`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${sAE.bridge?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
-      lines.push(`(Beat resolves cleanly, warm ${mDesc} chords echoing out in ${keyName}, smooth fade out)`);
+      lines.push(`(Beat resolves cleanly, warm ${melodyRef()} chords echoing out in ${keyName}, smooth fade out)`);
     }
     lines.push('');
   });
@@ -2096,13 +2108,13 @@ function hhGenerate(){
   if(antiAI)tags.push('organic, warm, human-feel, analog imperfections, natural dynamics');
   const styleText=tags.join(', ');
   const charCount=styleText.length;
-  const charColor=charCount>200?'var(--danger)':charCount>160?'#F59E0B':'var(--success)';
+  const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
   // 적용된 extraTags 칩
   const extraChipsHtml=st.extraTags.length
     ?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">${st.extraTags.map(t=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(157,78,221,0.12);border:1px solid rgba(157,78,221,0.35);color:var(--accent-text);font-size:11px">${escHtml(t)}<span onclick="removeAdvTag('${t.replace(/'/g,"\\'")}')" style="cursor:pointer;opacity:.7;font-size:10px;line-height:1" title="제거">✕</span></span>`).join('')}</div>`
     :'';
   container.appendChild(makeOutBlock('③ 스타일 프롬프트',
-    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/200자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
+    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
 
   // ④ BPM & 템포
