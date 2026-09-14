@@ -731,6 +731,15 @@ const MOOD_MELODY_TONE={
   '로맨틱·달콤한':['웜·아날로그'],'긴장감·서스펜스':['디스토티드·그릿'],'노스탤직·향수':['빈티지·러프'],
   '미스터리·신비':['소프트·머플드'],
 };
+// 편곡 포인트에 무드 보정 문구를 덧붙였던 것과 같은 패턴 — 톤 카테고리(5개)는 그대로 쓰되, 무드별 뉘앙스를 한 겹 더 얹어서 스타일 태그를 더 구체적으로 만듦
+const MOOD_TONE_NUANCE={
+  '어둡고 위압적':'heavily saturated','감각적·관능적':'softly rounded','멜로딕·감성':'gently breathing',
+  '에너제틱·하입':'crisp and forward','사이키델릭·몽환':'swirling and hazy','칠·그루비':'loose and relaxed',
+  '분노·공격적':'harsh and biting','내성적·사색':'delicately fragile','축제·환희':'bright and shimmering',
+  '승리감·웅장':'thick and towering','슬프고·멜랑콜리':'thin and fragile','자신감·플렉스':'bold and present',
+  '로맨틱·달콤한':'silky and smooth','긴장감·서스펜스':'tightly wound','노스탤직·향수':'faded and worn',
+  '미스터리·신비':'distant and veiled',
+};
 const GENRE_TEXTURE_TIPS={
   0:'Sidechain pump + Bass-heavy', 1:'Heavy reverb + Bass-heavy',
   2:'Stereo wide + Heavy reverb', 3:'Dry intimate + Bass-heavy',
@@ -1630,18 +1639,23 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   let mDescUses=0;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
   // + 리드 악기 자체의 톤(웜·아날로그 등)을 이름 앞에 붙임 — 믹스 전체 텍스처(grooveTag 등)와는 별개로 그 악기만의 질감
+  // + 첫 등장(인트로)에서만 무드별 뉘앙스까지 얹어서 더 구체적으로 — 이후엔 톤 카테고리만 (반복 방지)
   const toneTag=MELODY_TONE_TAG[st.melodyTone]||'';
+  const toneNuance=MOOD_TONE_NUANCE[st.mood];
+  const toneTagFull=toneTag&&toneNuance?`${toneTag}, ${toneNuance}`:toneTag;
   const melodyRef=(section)=>{
-    const ref=mDescUses===0?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length]);
+    const isFirst=mDescUses===0;
+    const ref=isFirst?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length]);
     mDescUses++;
     const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
+    const tone=isFirst?toneTagFull:toneTag;
     // 악기 이름이 문구 안에 있으면 그 이름 앞뒤에 톤/연주법을 붙여서 "어느 악기"에 대한 설명인지 명확하게 (2개 악기 나열 시 오해 방지)
     if(leadInstrument&&ref.includes(leadInstrument)){
-      const toned=toneTag?`${toneTag} ${leadInstrument}`:leadInstrument;
+      const toned=tone?`${tone} ${leadInstrument}`:leadInstrument;
       return ref.replace(leadInstrument,art?`${toned} (${art})`:toned);
     }
-    if(toneTag&&art)return `${toneTag} ${ref} (${art})`;
-    if(toneTag)return `${toneTag} ${ref}`;
+    if(tone&&art)return `${tone} ${ref} (${art})`;
+    if(tone)return `${tone} ${ref}`;
     return art?`${ref} (${art})`:ref;
   };
 
@@ -2602,7 +2616,9 @@ function hhGenerate(){
   if(st.melody.length){
     const roles=computeMelodyRoles(st.melody);
     const toneTagStyle=MELODY_TONE_TAG[st.melodyTone];
-    if(roles)tags.push(`${toneTagStyle?toneTagStyle+' ':''}${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
+    const toneNuanceStyle=mood&&MOOD_TONE_NUANCE[mood.kr];
+    const toneCombinedStyle=toneTagStyle&&toneNuanceStyle?`${toneTagStyle}, ${toneNuanceStyle}`:toneTagStyle;
+    if(roles)tags.push(`${toneCombinedStyle?toneCombinedStyle+' ':''}${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
     else tags.push(...st.melody.map(m=>m.toLowerCase()));
   }
   if(st._808&&st._808!=='None')tags.push(`${st._808} 808`);
