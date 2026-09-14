@@ -1695,7 +1695,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const eDesc=(eightOh&&eightOh!=='None')?eightOh+' 808 bass':'booming 808 bass';
   const dDesc=drums?drums.split(',')[0].trim():'crisp trap drums';
   const grooveTag=GROOVE_TAG[st.groove]||'consistent rhythmic pocket';
-  const mDesc=(melody&&melody.length)?melody.join(', '):'dark synthesizers';
+  // ', '가 아니라 ' & '로 묶음 — genArrangeDir 템플릿 상당수가 "2-bar ${mDesc} loop"처럼 mDesc를 문장 중간에 끼워 넣는데,
+  // 악기 2개가 쉼표로 이어지면 "2-bar Dark synth, Psychedelic FX loop"처럼 어디까지가 한 덩어리인지 모호해짐
+  const mDesc=(melody&&melody.length)?melody.join(' & '):'dark synthesizers';
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   const vocalCharTag=VOCAL_CHAR_TAG[st.vocalChar]||'clean vocal recording';
   const vocalStyleTag=VOCAL_STYLE_TAG[st.vocalStyle];
