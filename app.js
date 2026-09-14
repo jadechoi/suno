@@ -2530,7 +2530,7 @@ async function buildTrendingArtistAccordion(artists,tok){
   container.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:6px 0">🎧 Spotify 핫 트랙 로딩 중…</div>';
   setTimeout(()=>{ // DOM paint 먼저
     container.innerHTML='';
-    artists.slice(0,10).forEach((a,i)=>{
+    artists.slice(0,15).forEach((a,i)=>{
       const color=TREND_COLORS[i%TREND_COLORS.length];
       const row=document.createElement('div');
       row.className='artist-row';
