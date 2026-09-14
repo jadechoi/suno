@@ -2378,12 +2378,17 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // TRENDING ARTISTS
 // ============================================================
 // genre:"tag" 아티스트 검색 — popularity 붙은 아티스트 객체를 바로 돌려줌 (플레이리스트 스크래핑 불필요)
-async function searchArtistsByGenre(tag,tok){
+// genre: 필드 필터는 이 앱 등급에서 사실상 무의미한(popularity 0, 무명 아티스트) 결과만 줘서
+// 평문 키워드 검색으로 대체 — Spotify 자체 relevance 랭킹이 훨씬 낫다 (실측 확인됨).
+// market으로 로케일(Accept-Language) 편향을 조절하고, 한글 이름 여부로 해외/국내를 나눠 받는다.
+const isKoreanName=name=>/[가-힣]/.test(name);
+async function searchArtistsByGenre(keyword,tok,{market='US',onlyKorean=false}={}){
   try{
-    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`genre:"${tag}"`)}&type=artist&market=US&limit=10`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok){console.warn(`artist search "${tag}" HTTP ${r.status}`);return[];}
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(keyword)}&type=artist&market=${market}&limit=10`,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok){console.warn(`artist search "${keyword}" HTTP ${r.status}`);return[];}
     const d=await r.json();
-    return(d.artists?.items||[]).filter(a=>a.id&&a.name);
+    const items=(d.artists?.items||[]).filter(a=>a.id&&a.name);
+    return items.filter(a=>onlyKorean?isKoreanName(a.name):!isKoreanName(a.name));
   }catch(e){console.warn('searchArtistsByGenre error',e);return[];}
 }
 
@@ -2479,9 +2484,8 @@ async function buildTrendingArtistAccordion(artists,tok){
       row.className='artist-row';
       const header=document.createElement('div');
       header.className='artist-header';
-      const popBg=a.popularity>=85?'#22c55e':a.popularity>=70?'#f59e0b':'var(--border)';
-      const popFg=a.popularity>=70?'#000':'var(--text-2)';
-      header.innerHTML=`<div class="artist-pill" style="background:${color}20;border:1px solid ${color}50;color:${color}">${a.name}</div><span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:${popBg};color:${popFg};margin-left:4px">🔥${a.popularity}</span><span class="artist-caret" style="margin-left:auto">▼</span>`;
+      const flagEmoji=isKoreanName(a.name)?'🇰🇷':'🌍';
+      header.innerHTML=`<div class="artist-pill" style="background:${color}20;border:1px solid ${color}50;color:${color}">${a.name}</div><span style="font-size:11px;margin-left:4px">${flagEmoji}</span><span class="artist-caret" style="margin-left:auto">▼</span>`;
       header.onclick=()=>row.classList.toggle('open');
       const songsDiv=document.createElement('div');
       songsDiv.className='artist-songs';
@@ -2530,7 +2534,7 @@ async function fetchTrendingArtists(){
   const chipsEl=document.getElementById('hh-trending-chips');
   const lastEl=document.getElementById('trending-last-update');
   if(btn)btn.textContent='로딩 중...';
-  if(statusEl){statusEl.textContent='🔍 genre:"hip-hop" 아티스트 검색 중…';statusEl.hidden=false;}
+  if(statusEl){statusEl.textContent='🔍 "hip hop" 아티스트 검색 중…';statusEl.hidden=false;}
 
   const tok=await getSpotifyToken();
   if(!tok){
@@ -2542,23 +2546,26 @@ async function fetchTrendingArtists(){
     return;
   }
 
-  const found=await searchArtistsByGenre('hip-hop',tok);
+  // 해외 7명 + 한국 3명 고정 비율로 따로 검색해서 합침
+  const [intl,kr]=await Promise.all([
+    searchArtistsByGenre('hip hop',tok,{market:'US',onlyKorean:false}),
+    searchArtistsByGenre('hip hop',tok,{market:'KR',onlyKorean:true}),
+  ]);
+  const found=[...intl.slice(0,7),...kr.slice(0,3)];
   if(!found.length){
     if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ 아티스트 검색 결과가 없습니다. 브라우저 콘솔(F12)에서 오류를 확인하세요.</span>';
     if(statusEl){statusEl.textContent='아티스트 검색 실패';statusEl.hidden=false;}
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
-  if(statusEl)statusEl.textContent=`검색 결과: ${found.length}명 (인기도순 · 추정치, 공식 차트 아님)`;
+  if(statusEl)statusEl.textContent=`검색 결과: 해외 ${Math.min(intl.length,7)}명 · 한국 ${Math.min(kr.length,3)}명 (Spotify 검색 순위순 · popularity 수치는 이 앱 등급에서 제공 안 됨)`;
 
-  // popularity순 정렬 — 검색 응답에 이미 popularity·genres·images가 포함돼 있어 별도 배치 조회 불필요
+  // popularity 필드가 이 앱 등급에선 내려오지 않아서(undefined) 별도 정렬 없이 Spotify 자체 relevance 순서를 그대로 신뢰한다
   const scored=found.map(a=>({
     id:a.id,name:a.name,
-    popularity:a.popularity||0,
     genres:a.genres||[],
-    score:a.popularity||0,
     img:(a.images||[])[2]?.url||(a.images||[])[0]?.url||null
-  })).sort((a,b)=>b.score-a.score).slice(0,24);
+  })).slice(0,24);
 
   // 세션 캐시
   try{sessionStorage.setItem('sp_trending',JSON.stringify(scored));
@@ -2577,17 +2584,16 @@ async function fetchTrendingArtists(){
 }
 
 function computeGenreTrends(artists){
+  // popularity 필드가 없어서(이 앱 등급 제한) count(등장 빈도)만으로 순위를 매긴다
   const buckets={};
   artists.forEach(a=>{
     const idx=detectGenreFromSpotify(a.genres);
     if(idx==null)return;
-    if(!buckets[idx])buckets[idx]={idx,count:0,totalPop:0};
+    if(!buckets[idx])buckets[idx]={idx,count:0};
     buckets[idx].count++;
-    buckets[idx].totalPop+=a.popularity||0;
   });
   return Object.values(buckets)
-    .map(b=>({...b,avgPop:Math.round(b.totalPop/b.count)}))
-    .sort((a,b)=>b.totalPop-a.totalPop)
+    .sort((a,b)=>b.count-a.count)
     .slice(0,6);
 }
 
@@ -2606,7 +2612,7 @@ function renderGenreTrends(trends){
     badge.dataset.genreIdx=t.idx;
     badge.className='chip'+(st.genre===t.idx?' selected':'');
     badge.style.cssText='display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 12px;min-width:100px;border-radius:var(--r-sm);text-align:left;white-space:normal';
-    badge.innerHTML=`<span>${i===0?'🔥 ':''}${g.kr}</span><span style="font-size:9px;color:var(--text-3);font-weight:400">아티스트 ${t.count}명 · 평균인기도 ${t.avgPop}</span>`;
+    badge.innerHTML=`<span>${i===0?'🔥 ':''}${g.kr}</span><span style="font-size:9px;color:var(--text-3);font-weight:400">검색된 아티스트 ${t.count}명</span>`;
     badge.onclick=()=>selectGenre(t.idx);
     el.appendChild(badge);
   });
@@ -2620,14 +2626,14 @@ function renderTrendingChips(artists){
     const chip=document.createElement('div');
     chip.className='chip';
     chip.style.cssText='display:flex;align-items:center;gap:5px;padding:5px 10px 5px 6px';
-    const pop=document.createElement('span');
-    pop.style.cssText=`font-size:9px;font-weight:700;padding:1px 4px;border-radius:4px;background:${a.popularity>=85?'#22c55e':a.popularity>=70?'#f59e0b':'var(--border)'};color:${a.popularity>=70?'#000':'var(--text-2)'}`;
-    pop.textContent=a.popularity;
-    chip.appendChild(pop);
+    const flag=document.createElement('span');
+    flag.style.cssText='font-size:11px';
+    flag.textContent=isKoreanName(a.name)?'🇰🇷':'🌍';
+    chip.appendChild(flag);
     const name=document.createElement('span');
     name.textContent=a.name;
     chip.appendChild(name);
-    chip.title=`인기도 ${a.popularity} · ${a.genres.slice(0,2).join(', ')||'hip-hop'}`;
+    chip.title=a.genres.slice(0,2).join(', ')||'hip-hop';
     chip.onclick=()=>applyTrendingArtist(a.id,a.name,a.genres);
     el.appendChild(chip);
   });
