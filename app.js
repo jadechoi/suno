@@ -1794,7 +1794,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push(`(${bB} Bars: ${desc}${sAE.bridge?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
-      lines.push(`(Beat resolves cleanly, ${melodyRef('outro')} chords echoing out in ${keyName}, smooth fade out)`);
+      // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
+      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName})`);
     }
     lines.push('');
   });
@@ -2746,6 +2747,19 @@ function hhGenerate(){
   container.appendChild(makeOutBlock('③ 스타일 프롬프트',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
+
+  // Suno Studio 세팅 팁 — Variety를 0보다 높게 두면 Suno가 위 스타일 태그를 자체적으로 고쳐써버려서
+  // 여기서 공들여 만든 태그가 무시될 수 있음. 생성 전에 꼭 확인하라고 안내
+  container.appendChild(makeOutBlock('⚙ Suno Studio 세팅 팁',
+    `<div style="font-size:12px;color:var(--text-2);line-height:1.8">
+      이 프롬프트를 최대한 그대로 반영하려면 Suno에서 생성하기 전에 이렇게 맞춰두세요 — <strong style="color:var(--danger)">Variety를 0보다 올리면 위 스타일 태그를 Suno가 직접 고쳐씁니다.</strong>
+      <ul style="margin:8px 0 0;padding-left:18px">
+        <li><strong style="color:var(--text-1)">Variety: 0%</strong> — 스타일 태그를 그대로 유지</li>
+        <li><strong style="color:var(--text-1)">모델: v6</strong> (v6-wild 아님) — wild는 결과를 예측할 수 없게 바꿈</li>
+        <li><strong style="color:var(--text-1)">Weirdness / Style Influence: 50%</strong> 유지 (기본값)</li>
+      </ul>
+    </div>`,
+    null,'#F59E0B'));
 
   // ④ BPM & 템포 — 장르를 골랐으면 그 장르 기준으로, 아니면 일반 BPM대 설명으로
   let tempoDesc='';
