@@ -2455,6 +2455,17 @@ async function fetchArtistTopTracks(artistId,tok,limit=5){
   }));
 }
 
+// Billboard엔 트랙 ID가 없어서, "지금 차트인 그 곡"을 Spotify에서 아티스트+제목으로 직접 찾는다
+async function resolveTrackByArtistAndTitle(artist,title,tok){
+  try{
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`${artist} ${title}`)}&type=track&market=US&limit=1`,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok)return null;
+    const d=await r.json();
+    const t=(d.tracks?.items||[])[0];
+    return t?{id:t.id,name:t.name,popularity:t.popularity||0,year:(t.album?.release_date||'').slice(0,4)}:null;
+  }catch(e){return null;}
+}
+
 async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackName){
   const statusEl=document.getElementById('trending-status');
   if(statusEl){statusEl.textContent=`🎧 ${artistName} — ${trackName} 분석 중…`;statusEl.hidden=false;}
@@ -2533,15 +2544,27 @@ async function buildTrendingArtistAccordion(artists,tok){
       songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">로딩 중…</div>';
       row.appendChild(header);row.appendChild(songsDiv);
       container.appendChild(row);
-      // 비동기로 트랙 fetch
-      fetchArtistTopTracks(a.id,tok,5).then(tracks=>{
+      // 비동기로 트랙 fetch — Billboard에서 확인된 "지금 차트인 곡"을 최우선으로 꽂는다
+      fetchArtistTopTracks(a.id,tok,5).then(async tracks=>{
+        if(a.chartSong){
+          const chartTitle=a.chartSong.name.toLowerCase().trim();
+          const already=tracks.find(t=>t.name.toLowerCase().trim()===chartTitle);
+          if(already){
+            tracks=[already,...tracks.filter(t=>t!==already)];
+          } else {
+            const resolvedChart=await resolveTrackByArtistAndTitle(a.name,a.chartSong.name,tok);
+            if(resolvedChart)tracks=[resolvedChart,...tracks].slice(0,5);
+          }
+        }
         if(!tracks.length){songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">트랙 없음</div>';return;}
         const grid=document.createElement('div');
         grid.className='songs-grid';
-        tracks.forEach(t=>{
+        tracks.forEach((t,ti)=>{
           const card=document.createElement('div');
           card.className='song-card';
-          card.innerHTML=`<div class="song-name">${t.name}</div><div class="song-meta">${t.year} · 인기도 ${t.popularity}</div>`;
+          const chartBadge=(a.chartSong&&ti===0)?' · 📊 차트인':'';
+          const popText=t.popularity?` · 인기도 ${t.popularity}`:'';
+          card.innerHTML=`<div class="song-name">${t.name}</div><div class="song-meta">${t.year}${popText}${chartBadge}</div>`;
           card.onclick=()=>applySpotifyTrackSong(a.id,a.name,a.genres,t.id,t.name);
           grid.appendChild(card);
         });
@@ -2596,18 +2619,21 @@ async function fetchTrendingArtists(){
   }
 
   // 차트 순위 그대로 유니크 아티스트 추출 (이미 진짜 트렌드 순서라 재정렬 불필요), 한국 아티스트 제외
+  // 이 시점의 곡 제목(chartSong)을 같이 들고 있다가 아코디언에서 "진짜 지금 차트인 곡"을 최우선으로 보여줄 때 씀
   const seen=new Set();
-  const chartArtists=[];
+  const chartEntries=[];
   chart.forEach(s=>{
     if(!s.artist||seen.has(s.artist)||isKoreanName(s.artist))return;
     seen.add(s.artist);
-    chartArtists.push(s.artist);
+    chartEntries.push(s);
   });
 
-  if(statusEl)statusEl.textContent=`Billboard 순위 아티스트 ${Math.min(chartArtists.length,15)}명 Spotify ID 조회 중…`;
+  if(statusEl)statusEl.textContent=`Billboard 순위 아티스트 ${Math.min(chartEntries.length,15)}명 Spotify ID 조회 중…`;
   // Billboard엔 Spotify ID가 없어서 이름으로 리졸브 (병렬)
-  const resolved=(await Promise.all(chartArtists.slice(0,15).map(n=>resolveArtistIdByName(n,tok))))
-    .filter(Boolean);
+  const resolved=(await Promise.all(chartEntries.slice(0,15).map(async s=>{
+    const a=await resolveArtistIdByName(s.artist,tok);
+    return a?{...a,chartSong:{name:s.name,position:s.position}}:null;
+  }))).filter(Boolean);
   const scoredTop=resolved.filter(a=>!isKoreanName(a.name)).slice(0,15);
 
   if(!scoredTop.length){
