@@ -450,7 +450,7 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 // ============================================================
 const st={
   genre:null,key:7,bpm:140,
-  _808:'Balanced',drums:[],melody:[],mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
+  _808:'Balanced',drums:[],melody:[],melodyTone:null,mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,
   narrSt:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
@@ -556,6 +556,7 @@ function hhInit(){
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
+  chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
@@ -710,6 +711,26 @@ const MOOD_MELODY_FIT={
   '로맨틱·달콤한':['Emotional piano','Strings'], '긴장감·서스펜스':['Strings','Psychedelic FX'],
   '노스탤직·향수':['Saxophone','Guitar loop'], '미스터리·신비':['Psychedelic FX','Strings'],
 };
+// 리드 멜로디 악기 자체의 음색 — 믹스 전체 텍스처(09번)와는 별개로 "그 악기가 어떤 톤으로 녹음됐는지"
+const HH_MELODY_TONE=['웜·아날로그','브라이트·클린','빈티지·러프','디스토티드·그릿','소프트·머플드'];
+const MELODY_TONE_TAG={
+  '웜·아날로그':'warm analog','브라이트·클린':'bright clean','빈티지·러프':'vintage worn',
+  '디스토티드·그릿':'distorted gritty','소프트·머플드':'soft mellow',
+};
+const GENRE_MELODY_TONE={
+  0:'브라이트·클린',1:'디스토티드·그릿',2:'웜·아날로그',3:'디스토티드·그릿',4:'디스토티드·그릿',
+  5:'빈티지·러프',6:'빈티지·러프',7:'소프트·머플드',8:'소프트·머플드',9:'브라이트·클린',
+  10:'디스토티드·그릿',11:'웜·아날로그',12:'웜·아날로그',13:'웜·아날로그',14:'브라이트·클린',
+  15:'디스토티드·그릿',16:'소프트·머플드',17:'빈티지·러프',
+};
+const MOOD_MELODY_TONE={
+  '어둡고 위압적':['디스토티드·그릿'],'감각적·관능적':['웜·아날로그'],'멜로딕·감성':['웜·아날로그'],
+  '에너제틱·하입':['브라이트·클린'],'사이키델릭·몽환':['소프트·머플드'],'칠·그루비':['웜·아날로그'],
+  '분노·공격적':['디스토티드·그릿'],'내성적·사색':['소프트·머플드'],'축제·환희':['브라이트·클린'],
+  '승리감·웅장':['브라이트·클린'],'슬프고·멜랑콜리':['웜·아날로그'],'자신감·플렉스':['브라이트·클린'],
+  '로맨틱·달콤한':['웜·아날로그'],'긴장감·서스펜스':['디스토티드·그릿'],'노스탤직·향수':['빈티지·러프'],
+  '미스터리·신비':['소프트·머플드'],
+};
 const GENRE_TEXTURE_TIPS={
   0:'Sidechain pump + Bass-heavy', 1:'Heavy reverb + Bass-heavy',
   2:'Stereo wide + Heavy reverb', 3:'Dry intimate + Bass-heavy',
@@ -760,11 +781,16 @@ function recommendMelodyTexture(){
   const rankedTexture=scorePick(HH_TEXTURE,GENRE_TEXTURE_TIPS,MOOD_TEXTURE_FIT,st.genre,st.mood,ERA_TEXTURE_BOOST[st.era]);
   st.texture=rankedTexture.slice(0,2);
 
+  const rankedTone=scorePick(HH_MELODY_TONE,GENRE_MELODY_TONE,MOOD_MELODY_TONE,st.genre,st.mood,null);
+  st.melodyTone=rankedTone[0];
+
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
+  chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
   setAutoHint('hh-melody-hint',`${lead} + ${bg}`);
   setAutoHint('hh-texture-hint',st.texture.join(', '));
+  setAutoHint('hh-melody-tone-hint',st.melodyTone);
   st._mtAutoManaged=true;
   recommendVocalChar();
 }
@@ -905,6 +931,7 @@ function selectGenre(i){
     clearAutoHint('hh-melody-hint');
     clearAutoHint('hh-texture-hint');
     clearAutoHint('hh-ref-hint');
+    clearAutoHint('hh-melody-tone-hint');
     st.refs=[];renderProducerRef();
   }
   renderHhGenres();
@@ -1583,13 +1610,20 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const mDescCallbacks=['matching synth layers','consistent instrumentation','the same tonal palette'];
   let mDescUses=0;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
+  // + 리드 악기 자체의 톤(웜·아날로그 등)을 이름 앞에 붙임 — 믹스 전체 텍스처(grooveTag 등)와는 별개로 그 악기만의 질감
+  const toneTag=MELODY_TONE_TAG[st.melodyTone]||'';
   const melodyRef=(section)=>{
     const ref=mDescUses===0?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length]);
     mDescUses++;
     const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
-    if(!art)return ref;
-    // 악기 이름이 문구 안에 있으면 그 이름 바로 뒤에 붙여서 "어느 악기"의 연주법인지 명확하게 (2개 악기 나열 시 뒤엣것으로 오해되는 것 방지)
-    return ref.includes(leadInstrument)?ref.replace(leadInstrument,`${leadInstrument} (${art})`):`${ref} (${art})`;
+    // 악기 이름이 문구 안에 있으면 그 이름 앞뒤에 톤/연주법을 붙여서 "어느 악기"에 대한 설명인지 명확하게 (2개 악기 나열 시 오해 방지)
+    if(leadInstrument&&ref.includes(leadInstrument)){
+      const toned=toneTag?`${toneTag} ${leadInstrument}`:leadInstrument;
+      return ref.replace(leadInstrument,art?`${toned} (${art})`:toned);
+    }
+    if(toneTag&&art)return `${toneTag} ${ref} (${art})`;
+    if(toneTag)return `${toneTag} ${ref}`;
+    return art?`${ref} (${art})`:ref;
   };
 
   segs.forEach(type=>{
@@ -1641,7 +1675,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push(`(${bB} Bars: ${desc}${sAE.bridge?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
-      lines.push(`(Beat resolves cleanly, warm ${melodyRef('outro')} chords echoing out in ${keyName}, smooth fade out)`);
+      lines.push(`(Beat resolves cleanly, ${melodyRef('outro')} chords echoing out in ${keyName}, smooth fade out)`);
     }
     lines.push('');
   });
@@ -2547,7 +2581,8 @@ function hhGenerate(){
   if(mood)tags.push(mood.tag);
   if(st.melody.length){
     const roles=computeMelodyRoles(st.melody);
-    if(roles)tags.push(`${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
+    const toneTagStyle=MELODY_TONE_TAG[st.melodyTone];
+    if(roles)tags.push(`${toneTagStyle?toneTagStyle+' ':''}${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
     else tags.push(...st.melody.map(m=>m.toLowerCase()));
   }
   if(st._808&&st._808!=='None')tags.push(`${st._808} 808`);
@@ -2743,7 +2778,7 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
   st.narrSt={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;
+  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   document.getElementById('hh-bpm').value=140;
@@ -2755,6 +2790,7 @@ function hhReset(){
   clearAutoHint('hh-fx-hint');
   clearAutoHint('hh-groove-hint');
   clearAutoHint('hh-ref-hint');
+  clearAutoHint('hh-melody-tone-hint');
   const vcBox=document.getElementById('hh-vocal-char-box');
   if(vcBox)vcBox.hidden=true;
   const vsBox=document.getElementById('hh-vocal-style-box');
@@ -2764,6 +2800,7 @@ function hhReset(){
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
+  chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
