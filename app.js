@@ -433,7 +433,7 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 // ============================================================
 const st={
   genre:null,key:7,bpm:140,
-  _808:'Balanced',drums:[],melody:[],mood:null,vocal:'No Vocal',
+  _808:'Balanced',drums:[],melody:[],mood:null,vocal:'No Vocal',vocalChar:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,
   narrSt:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
@@ -540,7 +540,7 @@ function hhInit(){
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
-  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,null);
+  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
@@ -623,6 +623,17 @@ const GROOVE_TAG={
 const MELODY_ROLE={
   'Dark synth':'lead','Emotional piano':'lead','Guitar loop':'lead','Sample chop':'lead','Brass stab':'lead',
   'Ambient pad':'background','Strings':'background','Psychedelic FX':'background',
+};
+// 리드 멜로디 악기가 섹션마다 어떤 느낌으로 연주되면 좋을지 — 같은 악기라도 인트로/훅/벌스/브릿지/아웃트로마다 다르게
+const MELODY_ARTICULATION={
+  'Dark synth':{intro:'slow sustained tone',hook:'staccato stabs',verse:'sparse sustained notes',bridge:'rising arpeggiated pattern',outro:'fading sustained tone'},
+  'Emotional piano':{intro:'soft single sustained chord',hook:'rhythmic chord stabs',verse:'sparse single-note melody',bridge:'flowing legato run',outro:'slow fading chord'},
+  'Guitar loop':{intro:'gentle fingerpicked notes',hook:'tight rhythmic strumming',verse:'fingerpicked pattern',bridge:'muted palm-mute groove',outro:'fingerpicked fade-out'},
+  'Sample chop':{intro:'single chopped phrase',hook:'rhythmic chopped stabs',verse:'sparse chopped fragments',bridge:'pitched rising chop',outro:'slowed chopped fade'},
+  'Ambient pad':{intro:'soft sustained drone',hook:'wide sustained swell',verse:'quiet static drone',bridge:'slow rising swell',outro:'fading sustained drone'},
+  'Brass stab':{intro:'single soft stab',hook:'short punchy stabs',verse:'restrained single stabs',bridge:'sustained rising swell',outro:'held fading stab'},
+  'Strings':{intro:'soft legato sustain',hook:'staccato rhythmic hits',verse:'legato sustained bed',bridge:'rising tremolo swell',outro:'slow legato fade'},
+  'Psychedelic FX':{intro:'slow sweeping texture',hook:'glitchy stutter bursts',verse:'sparse sweeping texture',bridge:'sweeping rising FX',outro:'fading sweeping texture'},
 };
 // 멜로디 2개 선택 시 리드/배경 자동 배정 — st.melodyLeadIdx로 사용자가 ⇄ 바꾼 상태 반영
 function computeMelodyRoles(arr){
@@ -734,6 +745,7 @@ function recommendMelodyTexture(){
   setAutoHint('hh-melody-hint',`${lead} + ${bg}`);
   setAutoHint('hh-texture-hint',st.texture.join(', '));
   st._mtAutoManaged=true;
+  recommendVocalChar();
 }
 function onMelodyManualChange(){
   st._mtAutoManaged=false;
@@ -741,6 +753,44 @@ function onMelodyManualChange(){
 }
 function onTextureManualChange(){
   st._mtAutoManaged=false;
+}
+
+// ============================================================
+// 보컬 녹음 질감 — vocal이 켜져 있을 때만 의미 있음 (디폴트는 No Vocal)
+// 마이크 거리감·리버브양이 실제 결과를 크게 바꾼다는 프로듀서 팁 반영
+// ============================================================
+const HH_VOCAL_CHAR=['클로즈·드라이','헤비 컴프레션','인티밋 라이브룸','스타디움 리버브','미니멀 리버브'];
+const VOCAL_CHAR_TAG={
+  '클로즈·드라이':'extreme proximity to the mic, dry without reverb',
+  '헤비 컴프레션':'processed via heavy compression',
+  '인티밋 라이브룸':'intimate live room feel',
+  '스타디움 리버브':'stadium-sized reverb',
+  '미니멀 리버브':'minimal reverb',
+};
+const GENRE_VOCAL_CHAR={
+  0:'클로즈·드라이',1:'클로즈·드라이',2:'헤비 컴프레션',3:'클로즈·드라이',4:'클로즈·드라이',
+  5:'인티밋 라이브룸',6:'인티밋 라이브룸',7:'스타디움 리버브',8:'미니멀 리버브',9:'헤비 컴프레션',
+  10:'클로즈·드라이',11:'헤비 컴프레션',12:'인티밋 라이브룸',13:'헤비 컴프레션',14:'헤비 컴프레션',
+  15:'클로즈·드라이',16:'인티밋 라이브룸',17:'인티밋 라이브룸',
+};
+const MOOD_VOCAL_CHAR={
+  '어둡고 위압적':['클로즈·드라이'],'감각적·관능적':['인티밋 라이브룸'],'멜로딕·감성':['헤비 컴프레션'],
+  '에너제틱·하입':['스타디움 리버브'],'사이키델릭·몽환':['스타디움 리버브'],'칠·그루비':['미니멀 리버브'],
+  '분노·공격적':['클로즈·드라이'],'내성적·사색':['인티밋 라이브룸'],'축제·환희':['스타디움 리버브'],
+  '승리감·웅장':['스타디움 리버브'],'슬프고·멜랑콜리':['인티밋 라이브룸'],'자신감·플렉스':['헤비 컴프레션'],
+  '로맨틱·달콤한':['인티밋 라이브룸'],'긴장감·서스펜스':['클로즈·드라이'],'노스탤직·향수':['미니멀 리버브'],
+  '미스터리·신비':['클로즈·드라이'],
+};
+// GENRE_VOCAL_CHAR 값은 scorePick이 기대하는 "X + Y" 포맷과 호환되도록 단일 문자열 그대로 사용(split해도 1개짜리 배열이 됨)
+function recommendVocalChar(){
+  const box=document.getElementById('hh-vocal-char-box');
+  if(!box)return;
+  if(!st.vocal||st.vocal==='No Vocal'){box.hidden=true;st.vocalChar=null;return;}
+  box.hidden=false;
+  const ranked=st.genre!==null?scorePick(HH_VOCAL_CHAR,GENRE_VOCAL_CHAR,MOOD_VOCAL_CHAR,st.genre,st.mood,null):HH_VOCAL_CHAR;
+  st.vocalChar=ranked[0];
+  chipGrid(document.getElementById('hh-vocal-char'),HH_VOCAL_CHAR,st,'vocalChar',1,null);
+  setAutoHint('hh-vocal-char-hint',st.vocalChar);
 }
 
 function setAutoHint(id,text){
@@ -1440,6 +1490,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const dDesc=drums?drums.split(',')[0].trim():'crisp trap drums';
   const grooveTag=GROOVE_TAG[st.groove]||'consistent rhythmic pocket';
   const mDesc=(melody&&melody.length)?melody.join(', '):'dark synthesizers';
+  const hasVocal=st.vocal&&st.vocal!=='No Vocal';
+  const vocalCharTag=VOCAL_CHAR_TAG[st.vocalChar]||'clean vocal recording';
 
   const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus','Euphoric Anthem','Triumphant Peak','Melancholic Peak','Flex Anthem','Romantic Chorus','Suspense Peak','Nostalgic Chorus','Mysterious Drop'];
   const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak','euphoric explosive','triumphant anthemic','melancholic emotional','confident flexing','romantic sweet','tense suspenseful','nostalgic wistful','mysterious enigmatic'];
@@ -1458,13 +1510,18 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 멜로디 악기명은 처음 2번(Intro·첫 Hook)만 명시하고, 이후엔 "같은 악기" 콜백으로 순환 — 섹션마다 문구 그대로 반복되는 것 방지
   // 멜로디 2개 선택 시 맨 처음 등장은 리드/배경 역할까지 명시해서 입체감 부여
   const melodyRoles=computeMelodyRoles(melody);
+  const leadInstrument=melodyRoles?melodyRoles.lead:(melody&&melody[0]);
   const mDescFull=melodyRoles?`${melodyRoles.lead} lead melody, ${melodyRoles.bg} layered softly beneath`:mDesc;
   const mDescCallbacks=['matching synth layers','consistent instrumentation','the same tonal palette'];
   let mDescUses=0;
-  const melodyRef=()=>{
+  // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
+  const melodyRef=(section)=>{
     const ref=mDescUses===0?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2)%mDescCallbacks.length]);
     mDescUses++;
-    return ref;
+    const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
+    if(!art)return ref;
+    // 악기 이름이 문구 안에 있으면 그 이름 바로 뒤에 붙여서 "어느 악기"의 연주법인지 명확하게 (2개 악기 나열 시 뒤엣것으로 오해되는 것 방지)
+    return ref.includes(leadInstrument)?ref.replace(leadInstrument,`${leadInstrument} (${art})`):`${ref} (${art})`;
   };
 
   segs.forEach(type=>{
@@ -1472,16 +1529,15 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push('[Intro]');
       // 스킵 방지 — 잔잔한 페이드인 빌드업은 Suno가 기본으로 만드는 "안전한" 패턴이라 가장 먼저 스킵당함
       // 보컬 있으면 Vocal First, 에너지 낮은 장르는 Signature Sound, 나머지는 Groove First로 즉시 진입
-      const hasVocal=st.vocal&&st.vocal!=='No Vocal';
       const gEnergy=GENRES[st.genre]?.energy;
       const lowEnergy=gEnergy==='low'||gEnergy==='low-mid';
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef()}, vocal ad-libs enter within the first beat, no build-up)`);
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalCharTag}, no build-up)`);
       } else if(lowEnergy){
-        lines.push(`(Immediate mood set — ${melodyRef()} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar)`);
+        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar)`);
       } else {
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef()}, full groove from bar 1, no intro build-up)`);
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up)`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1490,16 +1546,18 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const energy=isLast
         ?`Maximum ${hookEng} energy, all layers activated, heaviest impact`
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, full energy`;
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalCharTag}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef()}, completely instrumental, ZERO vocal chops${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
       const desc=cnt.verse===1
-        ?`Beat strips back, sparse 808s, lighter drum pattern, ${melodyRef()} softened, spacious and clean arrangement`
-        :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef()} layered in background, intimate groove`;
+        ?`Beat strips back, sparse 808s, lighter drum pattern, ${melodyRef('verse')} softened, spacious and clean arrangement`
+        :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalCharTag}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, purely instrumental pocket${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1509,13 +1567,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         ?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f).join(', ')
         :'reverse cymbal swell, low-pass filter sweep down';
       const desc=isLastB
-        ?`Quick break, isolated ${melodyRef()} chord echoing, ${fxPhrase}, maximum tension`
-        :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef()} building anticipation`;
+        ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
+        :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${sAE.bridge?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
-      lines.push(`(Beat resolves cleanly, warm ${melodyRef()} chords echoing out in ${keyName}, smooth fade out)`);
+      lines.push(`(Beat resolves cleanly, warm ${melodyRef('outro')} chords echoing out in ${keyName}, smooth fade out)`);
     }
     lines.push('');
   });
@@ -2407,8 +2465,11 @@ function hhGenerate(){
   // ③ 스타일 프롬프트
   // 순서: [Instrumental] → no vocals → genre → producer ref → mood → melody → 808/drums → Key → BPM → texture → anti-AI
   const tags=[];
-  tags.push('[Instrumental]');
-  tags.push('no vocals');                                           // 보컬 억제 보완 태그
+  const hhHasVocal=st.vocal&&st.vocal!=='No Vocal';
+  if(!hhHasVocal){
+    tags.push('[Instrumental]');
+    tags.push('no vocals');                                         // 보컬 억제 보완 태그
+  }
   if(g)tags.push(g.tag);
   // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화)
   if(st.refs.length){
@@ -2426,7 +2487,10 @@ function hhGenerate(){
   // g.drum은 드럼 칩 미선택 시 fallback으로만 사용
   if(st.drums.length)tags.push(...st.drums.map(d=>d.toLowerCase()));
   else if(g)tags.push(g.drum);
-  if(st.vocal&&st.vocal!=='No Vocal')tags.push(st.vocal.toLowerCase());
+  if(st.vocal&&st.vocal!=='No Vocal'){
+    tags.push(st.vocal.toLowerCase());
+    if(st.vocalChar)tags.push(VOCAL_CHAR_TAG[st.vocalChar]);
+  }
   tags.push(`Key of ${keyStr}`);
   tags.push(`${bpmVal} BPM`);
   if(st.texture.length)tags.push(...st.texture.map(t=>t.toLowerCase()));
@@ -2610,7 +2674,7 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
   st.narrSt={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;
+  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   document.getElementById('hh-bpm').value=140;
@@ -2621,13 +2685,15 @@ function hhReset(){
   clearAutoHint('hh-texture-hint');
   clearAutoHint('hh-fx-hint');
   clearAutoHint('hh-groove-hint');
+  const vcBox=document.getElementById('hh-vocal-char-box');
+  if(vcBox)vcBox.hidden=true;
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();});
-  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,null);
+  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
