@@ -1600,29 +1600,30 @@ function genArrangeDir(genre,sec,ctx){
   const fastBpm=bpmNum>=135;
   const slowBpm=bpmNum<=95;
   // Hook entry: heavy 808 → instant drop no build; light → gradual layer
-  const intHook=boomLvl>=3
-    ?'all layers hitting from bar 1 — instant drop, no build'
+  // 각 후보를 2개씩 두고 pick()으로 골라서, 같은 곡 안에 훅/벌스가 여러 번 나와도 genArrangeDir가 매번 똑같은 문장을 반복하지 않게 함
+  const intHook=pick(boomLvl>=3
+    ?['all layers hitting from bar 1 — instant drop, no build','full impact from the first bar, zero build-up']
     :boomLvl<=1
-    ?'layers entering one by one over first 4 bars, slow build into drop'
-    :'drop at bar 3 after 2-bar setup, mid-intensity entry';
+    ?['layers entering one by one over first 4 bars, slow build into drop','elements stacking gradually across the first 4 bars into the drop']
+    :['drop at bar 3 after 2-bar setup, mid-intensity entry','brief 2-bar setup then drop at bar 3, medium intensity entry']);
   // Verse contrast: high 808 means hook was massive → verse needs dramatic strip-down
-  const intVerse=boomLvl>=3
-    ?'strip to skeleton — kick and hi-hat only, 808 pulled back, wide empty space for contrast'
+  const intVerse=pick(boomLvl>=3
+    ?['strip to skeleton — kick and hi-hat only, 808 pulled back, wide empty space for contrast','pared down to just kick and hi-hat, 808 pulled way back, lots of open space']
     :boomLvl<=1
-    ?'verse stays airy, no heavy bass, just rhythmic texture bed'
-    :'verse pulls 808 back by half, lighter drum hit, spacious clean pocket';
+    ?['verse stays airy, no heavy bass, just rhythmic texture bed','verse kept light and airy, no low end, purely rhythmic texture']
+    :['verse pulls 808 back by half, lighter drum hit, spacious clean pocket','808 cut back by half in the verse, drums lighter, clean open pocket']);
   // BPM-based timing advice
-  const loopWord=slowBpm
-    ?'slow hypnotic loop, let notes ring long, wide reverb tail'
+  const loopWord=pick(slowBpm
+    ?['slow hypnotic loop, let notes ring long, wide reverb tail','slow hypnotic repetition, notes ringing out with a wide reverb tail']
     :fastBpm
-    ?'tight short loop, fast attack drums, aggressive forward momentum'
-    :'medium rolling groove, steady rhythmic drive';
+    ?['tight short loop, fast attack drums, aggressive forward momentum','short tight loop, fast-attack drums driving hard forward']
+    :['medium rolling groove, steady rhythmic drive','steady mid-tempo groove with a consistent rhythmic pulse']);
   // Tone: read from hookEng (already derived from mood)
-  const toneWord=hookEng.includes('dark')||hookEng.includes('aggressive')||hookEng.includes('hard')
-    ?'dark brooding tone maintained throughout, no brightness'
+  const toneWord=pick(hookEng.includes('dark')||hookEng.includes('aggressive')||hookEng.includes('hard')
+    ?['dark brooding tone maintained throughout, no brightness','consistently dark and brooding, brightness kept out']
     :hookEng.includes('melodic')||hookEng.includes('soulful')||hookEng.includes('conscious')
-    ?'warm melodic tone, emotional resonance forward'
-    :'neutral energetic tone, consistent intensity';
+    ?['warm melodic tone, emotional resonance forward','warm and melodic throughout, emotional resonance up front']
+    :['neutral energetic tone, consistent intensity','even-keeled energetic tone, intensity held steady']);
   // genre-specific templates — interpolate song descriptors + ref audio feature modifiers
   const map={
     0:{hook:`${eDesc} ${intHook}, ${dDesc} at peak, ${toneWord}`,
@@ -1652,9 +1653,9 @@ function genArrangeDir(genre,sec,ctx){
     8:{hook:`consistent ${mDesc} lo-fi loop, ${dDesc} gentle groove, ${toneWord}`,
        verse:`same ${mDesc} feel, ${dDesc} very subtle variation, ${intVerse}`,
        bridge:`soft ${mDesc} continuation, slight ${dDesc} texture shift, ${toneWord}`},
-    9:{hook:`${dDesc} syncopated bounce ${intHook}, chopped vocal chops cutting through, ${loopWord}`,
-       verse:`${dDesc} pattern thinned, vocal chops pulled back, ${mDesc} light bed, ${intVerse}`,
-       bridge:`${dDesc} pattern stuttering, chopped vocal echo fading, ${toneWord}, tension before drop`},
+    9:{hook:`${dDesc} syncopated bounce ${intHook}, chopped sample stabs cutting through, ${loopWord}`,
+       verse:`${dDesc} pattern thinned, sample chops pulled back, ${mDesc} light bed, ${intVerse}`,
+       bridge:`${dDesc} pattern stuttering, chopped sample echo fading, ${toneWord}, tension before drop`},
     10:{hook:`${mDesc} 1-bar loop relentless, ${eDesc} distorted and pitched hard, ${loopWord}`,
         verse:`same ${mDesc} loop, ${dDesc} stripped, ${intVerse}`,
         bridge:`${mDesc} filter sweep down, ${dDesc} brief break, ${toneWord}, loop resets full`},
@@ -1765,8 +1766,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       cnt.hook++;
       const isLast=cnt.hook===totalHooks;
       const sub=isLast?'Maximum Anthemic Climax':hookSub;
+      // hookEng 자체가 이미 "maximum ..."인 경우(예: 에너제틱·하입 무드) "Maximum maximum ..." 중복 방지
       const energy=isLast
-        ?`Maximum ${hookEng} energy, all layers activated, heaviest impact`
+        ?`Maximum ${hookEng.replace(/^maximum /i,'')} energy, all layers activated, heaviest impact`
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, full energy`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
@@ -1974,7 +1976,7 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
     6:{hook:'sample groove driving full, punchy boom bap drums prominent, soulful sample up front',verse:'deep sample pocket, classic boom bap groove, verse-centered structure',bridge:'sample chop rhythmic variation, groove shift, building back into verse pocket'},
     7:{hook:'maximum wide space, sparse minimal drums, dreamy warm lo-fi atmosphere',verse:'drums nearly absent, pure spacious ambient texture, extreme breathing room',bridge:'quiet ambient swell, soft texture shift, gentle dreamlike transition'},
     8:{hook:'consistent lo-fi loop mood maintained, gentle groove, warm tape texture steady',verse:'same consistent lo-fi feel, very subtle variation, calm unbroken mood',bridge:'soft mood continuation, slight texture shift, seamless smooth flow'},
-    9:{hook:'syncopated club kick bounce driving hard, chopped vocal chops cutting through, high energy club drop',verse:'kick pattern thinned out, vocal chops pulled back, light club bounce, spacious pocket',bridge:'kick pattern stuttering, chopped vocal echo fading out, tension building before drop'},
+    9:{hook:'syncopated club kick bounce driving hard, chopped sample stabs cutting through, high energy club drop',verse:'kick pattern thinned out, sample chops pulled back, light club bounce, spacious pocket',bridge:'kick pattern stuttering, chopped sample echo fading out, tension building before drop'},
     10:{hook:'1 bar loop repeated relentlessly, distorted pitched synths blaring, addictive hypnotic hook',verse:'same loop driving, slightly stripped kit, continuous minimal energy',bridge:'loop filter sweep down, brief break, tension before loop drops back full'},
     11:{hook:'afro percussion locked in, tropical syncopated groove driving, bouncy energetic drop',verse:'afro percussion lighter, tropical melody softly layered, groove simplified',bridge:'percussion stripping then rebuilding, tropical tension rising before hook return'},
     12:{hook:'simple sparse beat, wide open space for expression, soulful sample breathing room',verse:'minimal minimal minimal, beat stays completely out of the way, clean open pocket',bridge:'brief instrumental breath, soul sample swell, resolves cleanly before verse'},
