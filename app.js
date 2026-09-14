@@ -1470,7 +1470,19 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   segs.forEach(type=>{
     if(type==='intro'){
       lines.push('[Intro]');
-      lines.push(`(Warm opening in ${keyName} — ${melodyRef()}, low-pass filter smoothly rising, subtle hi-hats creeping in, ${grooveTag}, no bass yet)`);
+      // 스킵 방지 — 잔잔한 페이드인 빌드업은 Suno가 기본으로 만드는 "안전한" 패턴이라 가장 먼저 스킵당함
+      // 보컬 있으면 Vocal First, 에너지 낮은 장르는 Signature Sound, 나머지는 Groove First로 즉시 진입
+      const hasVocal=st.vocal&&st.vocal!=='No Vocal';
+      const gEnergy=GENRES[st.genre]?.energy;
+      const lowEnergy=gEnergy==='low'||gEnergy==='low-mid';
+      const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
+      if(hasVocal){
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef()}, vocal ad-libs enter within the first beat, no build-up)`);
+      } else if(lowEnergy){
+        lines.push(`(Immediate mood set — ${melodyRef()} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar)`);
+      } else {
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef()}, full groove from bar 1, no intro build-up)`);
+      }
     } else if(type==='hook'){
       cnt.hook++;
       const isLast=cnt.hook===totalHooks;
