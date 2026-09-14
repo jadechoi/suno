@@ -165,15 +165,23 @@ const HH_REF=[
   {kr:'Timbaland',     en:'rhythmic experimental R&B trap, syncopated futuristic percussion',                   artists:'Missy Elliott · Justin T.',   vibes:'리드믹 · 익스페리멘탈 · 팝R&B'},
   {kr:'Just Blaze',    en:'soulful orchestral samples, golden era boom bap horns, triumphant energy',    artists:'Jay-Z · Kanye West',          vibes:'소울 · 오케스트라 · 골든에라'},
   {kr:'Boi-1da',       en:'hard cinematic beats, dramatic orchestral hits, lyrical trap drum patterns',             artists:'Kendrick · Drake · Eminem',   vibes:'하드 · 시네마틱 · 라이리컬'},
+  {kr:'Clams Casino',  en:'hazy ambient cloud rap production, chopped pitched vocal samples, reverb-drenched atmosphere', artists:'A$AP Rocky · Lil B',      vibes:'몽환 · 앰비언트 · 클라우드'},
+  {kr:'Madlib',        en:'jazzy dusty sample loops, freeform experimental structure, raw boom bap texture',       artists:'MF DOOM · Freddie Gibbs',     vibes:'재즈 · 더스티 · 실험적'},
+  {kr:'Kaytranada',    en:'funky syncopated groove, chopped soul and disco samples, house-inflected bounce',       artists:"Anderson .Paak · SZA",        vibes:'펑키 · 디스코 · 그루비'},
+  {kr:'DJ Mustard',    en:'minimal ratchet West Coast bounce, sparse keyboard stabs, heavy syncopated claps',      artists:'YG · Tyga',                    vibes:'미니멀 · 웨스트코스트 · 클럽'},
+  {kr:'Whitearmor',    en:'digital distorted rage production, glitchy ambient textures, pitched detuned leads',    artists:'Bladee · Yung Lean',           vibes:'디지털 · 디스토션 · 앰비언트'},
+  {kr:'Mike Dean',     en:'cinematic wall-of-synth production, layered psychedelic pads, epic orchestral scale',   artists:'Travis Scott · Kanye West',    vibes:'사이키델릭 · 웅장 · 신스'},
+  {kr:'Kenny Beats',   en:'punchy modern boom bap-trap hybrid, playful sound design, energetic drum programming',  artists:'Freddie Gibbs · Vince Staples', vibes:'펀치감 · 플레이풀 · 모던'},
+  {kr:'Ronny J',       en:'chaotic distorted 808 production, raw SoundCloud-era energy, aggressive pitched drums', artists:'XXXTentacion · Denzel Curry',  vibes:'카오틱 · 디스토션 · 로우'},
 ];
 // 장르별 프로듀서 레퍼런스 자동 추천 (HH_REF.kr 참조) — 808/드럼/전환효과처럼 장르 고르면 바로 채워지고, 수동으로 바꿀 수도 있음
 const GENRE_REF={
   0:['Southside','Wheezy'], 1:['Metro Boomin','Southside'], 2:['Wheezy',"Pi'erre Bourne"],
-  3:['Tay Keith','Southside'], 4:['Tay Keith','Metro Boomin'], 5:['The Alchemist','Southside'],
-  6:['J Dilla','The Alchemist'], 7:["Pi'erre Bourne",'Harry Fraud'], 8:['J Dilla','Harry Fraud'],
-  9:['Timbaland','Pharrell Williams'], 10:["Pi'erre Bourne",'Wheezy'], 11:['Pharrell Williams','Timbaland'],
-  12:['J Dilla','Just Blaze'], 13:['Zaytoven','Timbaland'], 14:['Timbaland',"Pi'erre Bourne"],
-  15:["Pi'erre Bourne",'Timbaland'], 16:["Pi'erre Bourne",'Wheezy'], 17:['J Dilla','Harry Fraud'],
+  3:['Tay Keith','Southside'], 4:['Tay Keith','Metro Boomin'], 5:['Ronny J','The Alchemist'],
+  6:['J Dilla','Madlib'], 7:['Clams Casino','Harry Fraud'], 8:['J Dilla','Harry Fraud'],
+  9:['DJ Mustard','Timbaland'], 10:["Pi'erre Bourne",'Whitearmor'], 11:['Pharrell Williams','Kaytranada'],
+  12:['J Dilla','Just Blaze'], 13:['Zaytoven','Timbaland'], 14:['Ronny J','Mike Dean'],
+  15:['Whitearmor','Ronny J'], 16:["Pi'erre Bourne",'Wheezy'], 17:['J Dilla','Harry Fraud'],
 };
 const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb','Dry intimate','Sidechain pump','Stereo wide','Bass-heavy','Punchy mix','Polished production','Raw sound'];
 const HH_ERA=['90s','2000s','2010s','2020s','Timeless'];
