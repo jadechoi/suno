@@ -1471,6 +1471,17 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   if(bH<6){
     warns.push({html:`⚠️ 훅이 <strong>${bH}마디</strong>로 짧습니다. 인스트루멘탈 훅은 최소 8마디는 돼야 임팩트가 살아납니다.`,btnLabel:null,btnFn:null});
   }
+  // 브릿지 위치 — 마지막 훅 직전이 아니면 고조 효과가 약함
+  const lastHookIdx=segs.lastIndexOf('hook');
+  const bridgeIdxs=segs.map((s,i)=>s==='bridge'?i:-1).filter(i=>i>=0);
+  if(bridgeIdxs.length&&lastHookIdx>=0&&!bridgeIdxs.includes(lastHookIdx-1)){
+    tips.push({html:`💡 <strong>브릿지 위치</strong> — 브릿지는 마지막 훅 바로 직전에 있어야 고조 효과가 가장 큽니다. 지금 위치면 반전 효과가 약해질 수 있어요.`,btnLabel:null,btnFn:null});
+  }
+  // 구조가 너무 납작함 — 훅만 반복되면 고조·반전을 줄 여지가 아예 없음
+  const uniqueStructTypes=new Set(segs.filter(s=>s!=='intro'&&s!=='outro'));
+  if(uniqueStructTypes.size<=1){
+    warns.push({html:`⚠️ <strong>구조가 단조롭습니다</strong> — 훅만 반복되는 구조라 고조·반전을 줄 여지가 없습니다. 벌스나 브릿지를 최소 하나 추가해서 대비를 만들어보세요.`,btnLabel:null,btnFn:null});
+  }
 
   // 8. 무드+멜로디 일관성
   const emotionalMoods=[2,5,7];
