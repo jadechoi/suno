@@ -137,6 +137,8 @@ const HH_MOODS=[
   {kr:'칠·그루비',tag:'chill groovy'},
   {kr:'분노·공격적',tag:'aggressive angry'},
   {kr:'내성적·사색',tag:'introspective thoughtful'},
+  {kr:'축제·환희',tag:'euphoric festival energy'},
+  {kr:'승리감·웅장',tag:'triumphant anthemic'},
 ];
 const HH_VOCAL=['No Vocal','Light ad-libs','Heavy hooks','Full rap feature'];
 // en 필드는 실제 Suno 프롬프트에 그대로 들어감 — 실존 아티스트/프로듀서 이름을 직접 넣으면
@@ -1338,12 +1340,12 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const grooveTag=GROOVE_TAG[st.groove]||'consistent rhythmic pocket';
   const mDesc=(melody&&melody.length)?melody.join(', '):'dark synthesizers';
 
-  const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus'];
-  const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak'];
-  const verseSubMap=['Grimy Pocket','Melodic Pocket','Hard Pocket','Deep Pocket','Energetic Verse','Chill Pocket','Cinematic Build','Conscious Flow'];
-  const hookSub=moodIdx>=0?hookSubMap[moodIdx%8]:'Euphoric Drop';
-  const hookEng=moodIdx>=0?hookEngMap[moodIdx%8]:'euphoric';
-  const verseSub=moodIdx>=0?verseSubMap[moodIdx%8]:'Stripped Pocket';
+  const hookSubMap=['Dark Drop','Melodic Chorus','Hard Drop','Conscious Peak','Hype Drop','Chill Peak','Cinematic Drop','Soulful Chorus','Euphoric Anthem','Triumphant Peak'];
+  const hookEngMap=['dark explosive','melodic euphoric','aggressive hard','conscious peak','maximum hype','smooth peak','cinematic climax','soulful peak','euphoric explosive','triumphant anthemic'];
+  const verseSubMap=['Grimy Pocket','Melodic Pocket','Hard Pocket','Deep Pocket','Energetic Verse','Chill Pocket','Cinematic Build','Conscious Flow','Building Hype','Rising Anthem'];
+  const hookSub=moodIdx>=0?hookSubMap[moodIdx%hookSubMap.length]:'Euphoric Drop';
+  const hookEng=moodIdx>=0?hookEngMap[moodIdx%hookEngMap.length]:'euphoric';
+  const verseSub=moodIdx>=0?verseSubMap[moodIdx%verseSubMap.length]:'Stripped Pocket';
 
   const cnt={hook:0,verse:0,bridge:0};
   const totalHooks=segs.filter(s=>s==='hook').length;
