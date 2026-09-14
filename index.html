@@ -119,6 +119,21 @@
   <div id="hh-genre-section">
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
+      <div class="section-title">📊 요즘 뜨는 서브장르 <span style="font-size:10px;color:var(--text-3);margin-left:4px">인기 아티스트 장르 태그 집계 · 추정치, 공식 차트 아님</span></div>
+      <span class="caret">▼</span>
+    </div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span id="genre-trend-last-update" style="font-size:10px;color:var(--text-3)">Spotify 연동 후 새로고침</span>
+        <button onclick="fetchTrendingArtists()" id="genre-trend-refresh-btn" style="padding:5px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer;transition:.15s">↻ 새로고침</button>
+      </div>
+      <div id="hh-genre-trends" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px">
+        <span style="font-size:11px;color:var(--text-3);align-self:center">연결 후 새로고침을 누르면 요즘 뜨는 서브장르가 표시됩니다</span>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-header open" onclick="toggleSection(this)">
       <div class="section-title"><span class="section-num">01</span> GENRE</div>
       <span class="caret">▼</span>
     </div>
@@ -134,7 +149,7 @@
     <!-- 실시간 트렌딩 -->
     <div class="section">
       <div class="section-header open" onclick="toggleSection(this)">
-        <div class="section-title">🔥 실시간 트렌딩 <span style="font-size:10px;color:var(--text-3);margin-left:4px">Spotify Rap Caviar · Most Necessary 기반</span></div>
+        <div class="section-title">🔥 실시간 트렌딩 <span style="font-size:10px;color:var(--text-3);margin-left:4px">genre:"hip-hop" 아티스트 검색 인기도순 · 추정치</span></div>
         <span class="caret">▼</span>
       </div>
       <div class="section-body">

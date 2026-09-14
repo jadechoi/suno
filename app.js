@@ -610,33 +610,39 @@ function renderHhGenres(){
     const el=document.createElement('div');
     el.className='chip'+(st.genre===i?' selected':'');
     el.textContent=g.kr;
-    el.onclick=()=>{
-      const deselect=st.genre===i;
-      st.genre=deselect?null:i;
-      if(st.genre!==null){
-        st.bpm=GENRES[i].bpm;
-        document.getElementById('hh-bpm').value=st.bpm;
-        renderGenreRefSuggestions(i);
-        // 808·드럼 자동 추천 적용
-        const auto=GENRE_AUTO[i];
-        if(auto){
-          st._808=auto.a808;
-          st.drums=[...auto.aDrums];
-          chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-          chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-          setAutoHint('hh-808-hint','808: '+auto.a808);
-          setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
-        }
-      } else {
-        _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
-        const sg=document.getElementById('hh-ref-suggestions');
-        if(sg)sg.innerHTML='';
-        clearAutoHint('hh-808-hint');
-        clearAutoHint('hh-drums-hint');
-      }
-      renderHhGenres();
-    };
+    el.onclick=()=>selectGenre(i);
     container.appendChild(el);
+  });
+}
+
+function selectGenre(i){
+  const deselect=st.genre===i;
+  st.genre=deselect?null:i;
+  if(st.genre!==null){
+    st.bpm=GENRES[i].bpm;
+    document.getElementById('hh-bpm').value=st.bpm;
+    renderGenreRefSuggestions(i);
+    // 808·드럼 자동 추천 적용
+    const auto=GENRE_AUTO[i];
+    if(auto){
+      st._808=auto.a808;
+      st.drums=[...auto.aDrums];
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+      setAutoHint('hh-808-hint','808: '+auto.a808);
+      setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
+    }
+  } else {
+    _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
+    const sg=document.getElementById('hh-ref-suggestions');
+    if(sg)sg.innerHTML='';
+    clearAutoHint('hh-808-hint');
+    clearAutoHint('hh-drums-hint');
+  }
+  renderHhGenres();
+  const trendEl=document.getElementById('hh-genre-trends');
+  if(trendEl)trendEl.querySelectorAll('[data-genre-idx]').forEach(b=>{
+    b.classList.toggle('selected',+b.dataset.genreIdx===st.genre);
   });
 }
 
@@ -2359,35 +2365,14 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // ============================================================
 // TRENDING ARTISTS
 // ============================================================
-const TRENDING_PLAYLISTS=[
-  {id:'37i9dQZEVXbMDoHDwVN2tF',name:'Global Top 50'},
-  {id:'37i9dQZEVXbLiURsqIUVvmx',name:"Today's Top Hits"},
-  {id:'37i9dQZEVXbLRoIbDDzwxt',name:'United States Top 50'},
-];
-
-async function fetchPlaylistArtistIds(playlistId,tok){
+// genre:"tag" 아티스트 검색 — popularity 붙은 아티스트 객체를 바로 돌려줌 (플레이리스트 스크래핑 불필요)
+async function searchArtistsByGenre(tag,tok){
   try{
-    const r=await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&market=US`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok){console.warn(`playlist ${playlistId} HTTP ${r.status}`);return[];}
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`genre:"${tag}"`)}&type=artist&market=US&limit=50`,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok){console.warn(`artist search "${tag}" HTTP ${r.status}`);return[];}
     const d=await r.json();
-    const artists=[];
-    (d.items||[]).forEach(item=>{
-      const track=item?.track;
-      if(!track||track.type==='episode')return;
-      (track.artists||[]).forEach(a=>{if(a.id&&a.name)artists.push({id:a.id,name:a.name});});
-    });
-    return artists;
-  }catch(e){console.warn('fetchPlaylistArtistIds error',e);return[];}
-}
-
-async function fetchArtistsBatch(ids,tok){
-  if(!ids.length)return[];
-  try{
-    const r=await fetch(`https://api.spotify.com/v1/artists?ids=${ids.slice(0,50).join(',')}`,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok)return[];
-    const d=await r.json();
-    return(d.artists||[]).filter(Boolean);
-  }catch(e){return[];}
+    return(d.artists?.items||[]).filter(a=>a.id&&a.name);
+  }catch(e){console.warn('searchArtistsByGenre error',e);return[];}
 }
 
 async function fetchArtistTopTrack(artistId,tok){
@@ -2515,7 +2500,7 @@ const SP_GENRE_MAP=[
   {pats:['ny drill','new york drill'],idx:3},{pats:['uk drill','british drill'],idx:4},
   {pats:['phonk','memphis'],idx:5},{pats:['boom bap','east coast hip hop','underground hip hop'],idx:6},
   {pats:['cloud rap','witch house'],idx:7},{pats:['lo-fi','chillhop'],idx:8},
-  {pats:['plugg','rage'],idx:10},{pats:['afrobeats','afropop','afro trap'],idx:11},
+  {pats:['jersey club'],idx:9},{pats:['plugg','rage'],idx:10},{pats:['afrobeats','afropop','afro trap'],idx:11},
   {pats:['conscious hip hop'],idx:12},{pats:['trap soul','r&b','soul'],idx:13},
   {pats:['hyperpop'],idx:14},{pats:['trap','rap','hip hop'],idx:0},
 ];
@@ -2533,7 +2518,7 @@ async function fetchTrendingArtists(){
   const chipsEl=document.getElementById('hh-trending-chips');
   const lastEl=document.getElementById('trending-last-update');
   if(btn)btn.textContent='로딩 중...';
-  if(statusEl){statusEl.textContent='';statusEl.hidden=true;}
+  if(statusEl){statusEl.textContent='🔍 genre:"hip-hop" 아티스트 검색 중…';statusEl.hidden=false;}
 
   const tok=await getSpotifyToken();
   if(!tok){
@@ -2545,37 +2530,21 @@ async function fetchTrendingArtists(){
     return;
   }
 
-  // 여러 플레이리스트에서 아티스트 수집
-  if(statusEl){statusEl.textContent='📡 플레이리스트 불러오는 중…';statusEl.hidden=false;}
-  const artistCount={};
-  const plResults=[];
-  for(const pl of TRENDING_PLAYLISTS){
-    const artists=await fetchPlaylistArtistIds(pl.id,tok);
-    plResults.push(`${pl.name}: ${artists.length}개`);
-    artists.forEach(({id,name})=>{
-      if(!artistCount[id])artistCount[id]={id,name,count:0};
-      artistCount[id].count++;
-    });
-  }
-  if(statusEl)statusEl.textContent=plResults.join(' / ');
-
-  const uniqueIds=Object.keys(artistCount);
-  if(!uniqueIds.length){
-    if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ 플레이리스트에서 트랙을 가져오지 못했습니다. 브라우저 콘솔(F12)에서 오류를 확인하세요.</span>';
-    if(statusEl){statusEl.textContent='플레이리스트 조회 실패 — Spotify API가 해당 플레이리스트에 접근을 차단했을 수 있습니다';statusEl.hidden=false;}
+  const found=await searchArtistsByGenre('hip-hop',tok);
+  if(!found.length){
+    if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ 아티스트 검색 결과가 없습니다. 브라우저 콘솔(F12)에서 오류를 확인하세요.</span>';
+    if(statusEl){statusEl.textContent='아티스트 검색 실패';statusEl.hidden=false;}
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
+  if(statusEl)statusEl.textContent=`검색 결과: ${found.length}명 (인기도순 · 추정치, 공식 차트 아님)`;
 
-  // 아티스트 상세 (popularity + genres) 배치 조회
-  const details=await fetchArtistsBatch(uniqueIds,tok);
-
-  // popularity + 등장 횟수 가중치로 정렬
-  const scored=details.map(a=>({
+  // popularity순 정렬 — 검색 응답에 이미 popularity·genres·images가 포함돼 있어 별도 배치 조회 불필요
+  const scored=found.map(a=>({
     id:a.id,name:a.name,
     popularity:a.popularity||0,
     genres:a.genres||[],
-    score:(a.popularity||0)+((artistCount[a.id]?.count||0)*5),
+    score:a.popularity||0,
     img:(a.images||[])[2]?.url||(a.images||[])[0]?.url||null
   })).sort((a,b)=>b.score-a.score).slice(0,24);
 
@@ -2587,6 +2556,48 @@ async function fetchTrendingArtists(){
   buildTrendingArtistAccordion(scored,tok);
   if(lastEl){const now=new Date();lastEl.textContent=`업데이트: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;}
   if(btn)btn.textContent='↻ 새로고침';
+
+  // 요즘 뜨는 서브장르 — 검색으로 받은 아티스트들의 genres 태그를 우리 GENRES 인덱스로 집계 (추가 API 호출 없음)
+  const trends=computeGenreTrends(found);
+  renderGenreTrends(trends);
+  const gtLastEl=document.getElementById('genre-trend-last-update');
+  if(gtLastEl){const now=new Date();gtLastEl.textContent=`업데이트: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;}
+}
+
+function computeGenreTrends(artists){
+  const buckets={};
+  artists.forEach(a=>{
+    const idx=detectGenreFromSpotify(a.genres);
+    if(idx==null)return;
+    if(!buckets[idx])buckets[idx]={idx,count:0,totalPop:0};
+    buckets[idx].count++;
+    buckets[idx].totalPop+=a.popularity||0;
+  });
+  return Object.values(buckets)
+    .map(b=>({...b,avgPop:Math.round(b.totalPop/b.count)}))
+    .sort((a,b)=>b.totalPop-a.totalPop)
+    .slice(0,6);
+}
+
+function renderGenreTrends(trends){
+  const el=document.getElementById('hh-genre-trends');
+  if(!el)return;
+  el.innerHTML='';
+  if(!trends.length){
+    el.innerHTML='<span style="font-size:11px;color:var(--text-3)">해당하는 서브장르를 찾지 못했습니다</span>';
+    return;
+  }
+  trends.forEach((t,i)=>{
+    const g=GENRES[t.idx];
+    if(!g)return;
+    const badge=document.createElement('div');
+    badge.dataset.genreIdx=t.idx;
+    badge.className='chip'+(st.genre===t.idx?' selected':'');
+    badge.style.cssText='display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 12px;min-width:100px;border-radius:var(--r-sm);text-align:left;white-space:normal';
+    badge.innerHTML=`<span>${i===0?'🔥 ':''}${g.kr}</span><span style="font-size:9px;color:var(--text-3);font-weight:400">아티스트 ${t.count}명 · 평균인기도 ${t.avgPop}</span>`;
+    badge.onclick=()=>selectGenre(t.idx);
+    el.appendChild(badge);
+  });
 }
 
 function renderTrendingChips(artists){
