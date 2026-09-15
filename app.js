@@ -2352,6 +2352,11 @@ function saveRapidApiKey(){
 function getAnthropicKey(){
   try{return localStorage.getItem('anthropic_api_key')||'';}catch(_){return'';}
 }
+// content 배열의 첫 블록이 항상 text는 아님 — extended thinking 블록이 먼저 오면 content[0].text는 undefined가 됨
+function anthropicText(data){
+  const block=(data.content||[]).find(b=>b.type==='text');
+  return block?.text||'';
+}
 function saveAnthropicKey(){
   const el=document.getElementById('anthropic-key');
   const val=el?.value.trim()||'';
@@ -2442,8 +2447,8 @@ ${ctx}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
+    if(!(anthropicText(data)||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
+    const raw=anthropicText(data)||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
@@ -2556,7 +2561,7 @@ ${original}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    const polished=(data.content?.[0]?.text||'').trim();
+    const polished=(anthropicText(data)||'').trim();
     if(!polished)throw new Error('빈 응답을 받았습니다');
     _polishOriginal=original;
     ta.value=polished;
@@ -2636,8 +2641,8 @@ ${HH_GROOVE.join(', ')}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
+    if(!(anthropicText(data)||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
+    const raw=anthropicText(data)||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
     if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
@@ -2729,8 +2734,8 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
+    if(!(anthropicText(data)||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
+    const raw=anthropicText(data)||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
     if(segs.length<2||segs.length>16)throw new Error('AI가 유효한 구조를 반환하지 못했습니다');
