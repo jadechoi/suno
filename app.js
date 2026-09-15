@@ -2426,14 +2426,13 @@ async function aiPolishSectionPrompt(){
   btn.disabled=true;btn.textContent='🤖 다듬는 중...';
   if(statusEl)statusEl.hidden=true;
   try{
-    const prompt=`너는 힙합 프로듀서가 Suno AI에 넣을 섹션별 편곡 프롬프트를 다듬는 걸 도와줘. 아래 텍스트는 규칙 기반으로 조합돼서 문장 구조가 반복적이고 기계적으로 느껴져. 의미는 그대로 유지하면서 문장을 더 자연스럽고 프로듀서가 직접 쓴 것처럼 다양하게 다듬어줘.
+    const prompt=`너는 힙합 프로듀서가 Suno AI에 넣을 섹션별 편곡 프롬프트를 다듬는 걸 도와줘. 아래 텍스트는 규칙 기반으로 조합돼서 어휘와 문장 구조가 반복적이고 표현이 납작해. 의미는 그대로 유지하면서 (1) 같은 단어·구절을 여러 섹션에서 반복하지 말고 매번 다른 표현으로 다양화하고, (2) 사운드를 더 구체적이고 디테일하게 묘사해줘 (질감·공간감·움직임 같은 걸 한 겹씩 더 얹는 느낌으로, 뭉뚱그리지 말고).
 
 [반드시 지킬 것]
 - [Intro], [Instrumental Hook 1: ...] 같은 대괄호 헤더는 절대 수정하지 마 (줄 순서도 그대로)
 - 괄호 안 "8 Bars:" 같은 마디 수 숫자는 절대 바꾸지 마
 - BPM, Key, 악기 이름, ZERO/instrumental 같은 보컬 관련 지시는 의미가 바뀌면 안 돼
 - 줄 개수와 대략적인 문장 길이는 비슷하게 유지
-- 같은 단어/구절이 여러 섹션에서 반복되면 다른 표현으로 바꿔서 더 다양하게
 
 [원본]
 ${original}
@@ -2838,7 +2837,7 @@ function hhGenerate(){
     badge.textContent='✦ Anti-AI ON';
     sectBlock.querySelector('.output-box-label').after(badge);
   }
-  // Copy 버튼 옆에 AI 다듬기 버튼 — 룰 기반 조합이라 문장이 반복·기계적으로 느껴질 때 자연스럽게 재작성 (opt-in, 구조/수치는 보존하도록 지시)
+  // Copy 버튼 옆에 AI 다듬기 버튼 — 룰 기반 조합이라 어휘가 반복되고 표현이 납작해질 때 더 다양하고 디테일하게 재작성 (opt-in, 구조/수치는 보존하도록 지시)
   const hdr=sectBlock.querySelector('.output-box-header');
   const copyBtn=hdr.querySelector('button');
   const actionsWrap=document.createElement('div');
