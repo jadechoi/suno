@@ -470,9 +470,17 @@ async function fetchBillboardHipHopChart(){
 }
 
 // 429가 떴을 때 곧바로 재시도하면 아직 안 풀린 제한 구간을 한 번 더 건드려서 요청만 늘리고 회복에 도움이 안 됨 —
-// 재시도 대신 pMapLimit 쪽에서 애초에 완전 순차 + 충분한 간격으로 보내서 429 자체가 덜 나게 하는 쪽으로 대응
+// 재시도 대신 pMapLimit 쪽에서 애초에 완전 순차 + 충분한 간격으로 보내서 429 자체가 덜 나게 하는 쪽으로 대응.
+// 단, 실측해보니 이 429의 실제 몸통이 {"reason":"QUOTA_EXCEEDED"} — 초당 요청 수 제한이 아니라 앱 단위
+// 총 할당량(Development 등급이라 낮음) 소진이라, 페이싱으로는 애초에 못 고치는 종류의 에러. 최소한 사용자에게
+// "잠시 후 재시도"가 아니라 "할당량 초과"라는 정확한 원인이라도 보여주려고 플래그만 남겨둠
+let _spQuotaExceeded=false;
 async function fetchWithRetry429(url,tok){
-  return await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+  const r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+  if(r.status===429){
+    try{const body=await r.clone().json();if(body?.error?.reason==='QUOTA_EXCEEDED')_spQuotaExceeded=true;}catch(_){}
+  }
+  return r;
 }
 // Billboard 차트엔 Spotify ID가 없어서 아티스트 이름으로 정확히 검색해 ID를 리졸브
 async function resolveArtistIdByName(name,tok){
@@ -697,6 +705,7 @@ async function fetchTrendingArtists(){
   const lastEl=document.getElementById('trending-last-update');
   if(btn)btn.textContent='로딩 중...';
   if(statusEl){statusEl.textContent='📊 Billboard Hip-Hop/R&B 차트 조회 중…';statusEl.hidden=false;}
+  _spQuotaExceeded=false;
 
   const tok=await getSpotifyToken();
   if(!tok){
@@ -735,8 +744,9 @@ async function fetchTrendingArtists(){
   const scoredTop=resolved.filter(a=>!isKoreanName(a.name)).slice(0,15);
 
   if(!scoredTop.length){
-    if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ Billboard 아티스트를 Spotify에서 찾지 못했습니다.</span>';
-    if(statusEl){statusEl.textContent='아티스트 리졸브 실패';statusEl.hidden=false;}
+    const quotaMsg='⚠️ Spotify API 일일 할당량 초과 — 이 앱이 Development 등급이라 한도가 낮습니다. 몇 시간 후 다시 시도하거나 Extended Quota Mode를 신청하세요.';
+    if(chipsEl)chipsEl.innerHTML=`<span style="font-size:11px;color:var(--danger)">${_spQuotaExceeded?quotaMsg:'⚠️ Billboard 아티스트를 Spotify에서 찾지 못했습니다.'}</span>`;
+    if(statusEl){statusEl.textContent=_spQuotaExceeded?'할당량 초과':'아티스트 리졸브 실패';statusEl.hidden=false;}
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
