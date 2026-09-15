@@ -469,12 +469,12 @@ async function fetchBillboardHipHopChart(){
   }catch(e){console.warn('fetchBillboardHipHopChart error',e);return[];}
 }
 
-// /v1/search가 429(rate limit)를 주면 Retry-After만큼(최대 3초) 기다렸다가 한 번만 재시도 — pMapLimit로 동시성을 줄여도
-// 짧은 순간 몰리면 여전히 걸릴 수 있어서, 실패로 조용히 버리지 않고 한 번은 복구를 시도
+// /v1/search가 429(rate limit)를 주면 Retry-After만큼 기다렸다가 재시도 — 최대 2번까지 (Extended quota mode가 아닌
+// Development 등급 앱이라 허용치가 낮아서, pMapLimit로 페이싱을 줘도 짧은 순간 몰리면 여전히 걸릴 수 있음)
 async function fetchWithRetry429(url,tok){
   let r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
-  if(r.status===429){
-    const wait=Math.min(3,parseInt(r.headers.get('retry-after')||'1',10)||1)*1000;
+  for(let attempt=0;attempt<2&&r.status===429;attempt++){
+    const wait=Math.min(5,parseInt(r.headers.get('retry-after')||'2',10)||2)*1000;
     await new Promise(res=>setTimeout(res,wait));
     r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
   }
@@ -632,7 +632,7 @@ async function buildTrendingArtistAccordion(artists,tok){
       return{a,songsDiv};
     });
     // 트랙 fetch(그중 일부는 Spotify /search)를 동시에 15개 다 쏘면 429가 나서, 여기도 동시성을 제한해 순차적으로 소화
-    pMapLimit(rows,4,async({a,songsDiv})=>{
+    pMapLimit(rows,2,async({a,songsDiv})=>{
       // Billboard에서 확인된 "지금 차트인 곡"을 최우선으로 꽂는다
       let tracks=await fetchArtistTopTracks(a.id,tok,5);
       if(a.chartSong){
@@ -658,7 +658,7 @@ async function buildTrendingArtistAccordion(artists,tok){
         grid.appendChild(card);
       });
       songsDiv.innerHTML='';songsDiv.appendChild(grid);
-    });
+    },250);
   },0);
 }
 
@@ -680,14 +680,17 @@ function detectGenreFromSpotify(genres){
   return null;
 }
 
-// 한 번에 너무 많이 동시 요청하면 Spotify가 429(rate limit)로 응답 — 동시 실행 개수를 제한해서 순차적으로 소화
-async function pMapLimit(items,limit,fn){
+// 한 번에 너무 많이 동시 요청하면 Spotify가 429(rate limit)로 응답 — 동시 실행 개수를 제한하고(limit),
+// 요청 사이 간격도 둬서(delayMs) 순간 몰림 자체를 줄인다. 이 앱은 Extended quota mode가 아니라
+// 기본 Development 등급이라 허용치가 낮아서, 동시성 제한만으로는 부족해 페이싱까지 같이 함
+async function pMapLimit(items,limit,fn,delayMs=0){
   const results=new Array(items.length);
   let i=0;
   async function worker(){
     while(i<items.length){
       const idx=i++;
       results[idx]=await fn(items[idx],idx);
+      if(delayMs)await new Promise(r=>setTimeout(r,delayMs));
     }
   }
   await Promise.all(Array.from({length:Math.min(limit,items.length)},worker));
@@ -731,10 +734,10 @@ async function fetchTrendingArtists(){
 
   if(statusEl)statusEl.textContent=`Billboard 순위 아티스트 ${Math.min(chartEntries.length,15)}명 Spotify ID 조회 중…`;
   // Billboard엔 Spotify ID가 없어서 이름으로 리졸브 (병렬)
-  const resolved=(await pMapLimit(chartEntries.slice(0,15),5,async s=>{
+  const resolved=(await pMapLimit(chartEntries.slice(0,15),2,async s=>{
     const a=await resolveArtistIdByName(s.artist,tok);
     return a?{...a,chartSong:{name:s.name,position:s.position}}:null;
-  })).filter(Boolean);
+  },250)).filter(Boolean);
   const scoredTop=resolved.filter(a=>!isKoreanName(a.name)).slice(0,15);
 
   if(!scoredTop.length){
