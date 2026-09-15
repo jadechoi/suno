@@ -2378,7 +2378,7 @@ ${ctx}
       mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
       applied:false,
     }));
-    hhGenerate();
+    hhGenerate(false);
   }catch(e){
     fail(e.message);
     if(btn){btn.disabled=false;btn.textContent='🤖 AI 프로듀서 리뷰 받기';}
@@ -2399,11 +2399,11 @@ function applyAiSuggestion(idx){
     st._structAutoManaged=false;
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
   }
-  hhGenerate();
+  hhGenerate(`AI 리뷰 적용: ${sug.category}`);
 }
 function clearAiSuggestions(){
   _aiSuggestions=null;
-  hhGenerate();
+  hhGenerate(false);
 }
 let _polishOriginal=null;
 async function aiPolishSectionPrompt(){
@@ -2550,7 +2550,7 @@ ${HH_TEXTURE.join(', ')}
     chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
     clearAutoHint('hh-melody-hint');
     clearAutoHint('hh-texture-hint');
-    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate();
+    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 악기 추천 적용');
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';
@@ -2614,7 +2614,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     st.structIdx=null;
     st._structAutoManaged=false;
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
-    hhGenerate();
+    hhGenerate(`AI 구조 추천 적용: ${refSong}`);
     const confidenceNote=parsed.confident===false?' <span style="opacity:.75">(⚠ 정확히 아는 곡이 아니라 추정치)</span>':'';
     showToast(`✅ <strong>${escHtml(refSong)}</strong> 구조 적용됨${confidenceNote}${parsed.reason?'<br>'+escHtml(parsed.reason):''}`,6000);
   }catch(e){
@@ -2796,18 +2796,18 @@ async function applySpotifyTrack(trackId,label){
 function applyAdvBPM(bpm){
   st.bpm=bpm;
   document.getElementById('hh-bpm').value=bpm;
-  hhGenerate();
+  hhGenerate(`BPM ${bpm} 적용`);
 }
 function applyAdv808(level){
   st._808=level;
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   setAutoHint('hh-808-hint','808: '+level);
-  hhGenerate();
+  hhGenerate(`808 ${level} 적용`);
 }
 function applyAdvKey(){
   st.key=7; // A minor
   document.getElementById('hh-key').value=7;
-  hhGenerate();
+  hhGenerate('Key 변경 적용');
 }
 function applyAdvMelody(melStr){
   const parts=melStr.split(' + ');
@@ -2815,21 +2815,21 @@ function applyAdvMelody(melStr){
   st._mtAutoManaged=false;
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',null,onMelodyManualChange);
   renderMelodyRoleUI();
-  hhGenerate();
+  hhGenerate(`멜로디 변경: ${melStr}`);
 }
 function applyAdvMood(moodKr){
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   if(st._mtAutoManaged)recommendMelodyTexture();
   if(st._structAutoManaged)recommendStructure();
-  hhGenerate();
+  hhGenerate(`무드 변경: ${moodKr}`);
 }
 function applyAdvTagsIdx(idx){
   const tags=(window._advTagSets||[])[idx]||[];
   tags.forEach(t=>{if(!st.extraTags.includes(t))st.extraTags.push(t);});
   st._appliedAdvTipGenre=st.genre;
   showToast(`✅ 스타일 태그 ${tags.length}개 반영됨 — 피드백 적용 완료`);
-  hhGenerate();
+  hhGenerate('스타일 태그 반영');
 }
 function applyArrangeTipToSection(sectionType){
   st.sectionArrangeExtras=st.sectionArrangeExtras||{};
@@ -2837,18 +2837,19 @@ function applyArrangeTipToSection(sectionType){
   st.sectionArrangeExtras[sectionType]=true;
   const label={hook:'Hook',verse:'Verse',bridge:'Bridge'}[sectionType]||sectionType;
   showToast(`✅ ${label} 섹션에 편곡 포인트 반영됨`);
-  hhGenerate();
+  hhGenerate(`편곡 포인트 반영: ${label}`);
 }
 function dismissArrangeTip(){
   st._appliedArrangeTipGenre=st.genre;
-  hhGenerate();
+  hhGenerate(false);
 }
 function removeAdvTag(tag){
   st.extraTags=st.extraTags.filter(t=>t!==tag);
-  hhGenerate();
+  hhGenerate(`태그 제거: ${tag}`);
 }
 
-function hhGenerate(){
+// source: undefined = 사용자가 직접 Generate 누름 (기록에 라벨 없음), 문자열 = 어떤 적용 액션이 실제로 프롬프트를 바꿔서 다시 생성됐는지 (기록에 라벨로 남음), false = 프롬프트 내용은 안 바뀌고 UI만 갱신 (기록 안 남김)
+function hhGenerate(source){
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
@@ -3097,7 +3098,7 @@ function hhGenerate(){
   container.appendChild(resetWrap);
   setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);
   updateFloatSummary();
-  savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText});
+  if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null});
 }
 
 // ============================================================
@@ -3145,9 +3146,10 @@ function renderPromptHistory(){
     const row=document.createElement('div');
     row.style.cssText='border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;background:var(--surface-2)';
     row.innerHTML=`
-      <div style="display:flex;align-items:center;gap:8px;cursor:pointer" class="ph-header">
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex-wrap:wrap" class="ph-header">
         <span style="font-size:10px;color:var(--text-3);font-family:'Space Mono',monospace">${dateStr}</span>
         <span style="font-size:12px;font-weight:600">${e.genre} · ${e.bpm}BPM · ${e.key}</span>
+        ${e.source?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(157,78,221,0.12);border:1px solid rgba(157,78,221,0.35);color:var(--accent-text)">🔧 ${escHtml(e.source)}</span>`:''}
         <span style="font-size:11px;color:var(--text-3);margin-left:auto">▼</span>
       </div>
       <div class="ph-body" hidden style="margin-top:8px;flex-direction:column;gap:6px">
