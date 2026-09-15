@@ -248,6 +248,17 @@ const HH_NARR_DIR={
     '리버스 인트로':'reversed intro elements bring the track full circle',
   },
 };
+// 구조의 각 섹션을 유일하게 가리키는 키 — intro/outro는 그대로, 반복되는 타입은 hook1/hook2처럼 번호를 붙임.
+// AI가 narrDir을 쓸 때 이 키로 "정확히 몇 번째 훅"을 지목하게 해서, 4개 고정 카테고리로는 못 담던
+// "구간마다 다른 다이나믹" 요청(예: 섹션마다 점점 밀도 증가)을 실제 구조 그대로 담을 수 있게 함
+function structOccurrenceKeys(segs){
+  const cnt={};
+  return (segs||st.structSegs).map(type=>{
+    if(type==='intro'||type==='outro')return type;
+    cnt[type]=(cnt[type]||0)+1;
+    return `${type}${cnt[type]}`;
+  });
+}
 const HH_STRUCT_PRESETS=[
   {name:'Standard',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','outro']},
   {name:'Hook Heavy',segs:['intro','hook','verse','hook','verse','hook','outro']},
@@ -1295,6 +1306,20 @@ function applyArtistSong(tabKey,song,artist){
 function renderHhNarr(){
   const container=document.getElementById('hh-narr');
   container.innerHTML='';
+  const aiKeys=Object.keys(st.narrAI);
+  if(aiKeys.length){
+    const aiBox=document.createElement('div');
+    aiBox.style.cssText='margin-bottom:10px;padding:8px;border-radius:var(--r-sm);background:rgba(157,78,221,.08);border:1px solid rgba(157,78,221,.25)';
+    aiBox.innerHTML=`<div style="font-size:11px;color:var(--text-3);margin-bottom:6px">🤖 AI 전개 디렉션 (섹션별)</div>`;
+    aiKeys.forEach(k=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0';
+      row.innerHTML=`<span style="font-size:11px;color:var(--text-3);min-width:44px">${k}</span><span style="font-size:11px;color:var(--accent-text);flex:1">${escHtml(st.narrAI[k])}</span><span style="cursor:pointer;color:var(--text-3);font-size:11px" title="AI 디렉션 지우기">✕</span>`;
+      row.querySelector('span[title]').onclick=()=>{delete st.narrAI[k];renderHhNarr();};
+      aiBox.appendChild(row);
+    });
+    container.appendChild(aiBox);
+  }
   HH_NARR.forEach(seg=>{
     const div=document.createElement('div');
     div.className='narr-seg';
@@ -1304,13 +1329,6 @@ function renderHhNarr(){
     hdr.onclick=()=>{div.classList.toggle('open');};
     const opts=document.createElement('div');
     opts.className='narr-seg-options';
-    if(st.narrAI[seg.label]){
-      const aiRow=document.createElement('div');
-      aiRow.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:8px;border-radius:var(--r-sm);background:rgba(157,78,221,.08);border:1px solid rgba(157,78,221,.25)';
-      aiRow.innerHTML=`<span style="font-size:11px;color:var(--accent-text);flex:1">🤖 ${escHtml(st.narrAI[seg.label])}</span><span style="cursor:pointer;color:var(--text-3);font-size:11px" title="AI 디렉션 지우기">✕</span>`;
-      aiRow.querySelector('span[title]').onclick=()=>{delete st.narrAI[seg.label];renderHhNarr();};
-      opts.appendChild(aiRow);
-    }
     const optsRow=document.createElement('div');
     optsRow.className='narr-opts';
     seg.opts.forEach(o=>{
@@ -1319,7 +1337,6 @@ function renderHhNarr(){
       el.textContent=o;
       el.onclick=()=>{
         st.narrSt[seg.label]=st.narrSt[seg.label]===o?null:o;
-        delete st.narrAI[seg.label]; // 수동으로 고르면 AI 커스텀 디렉션은 비움 — 어느 쪽이 적용된 건지 헷갈리지 않게
         renderHhNarr();
       };
       optsRow.appendChild(el);
@@ -1820,8 +1837,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     if(tone)return `${tone} ${ref}`;
     return art?`${ref} (${art})`:ref;
   };
-  const narrNote=category=>{
-    if(st.narrAI[category])return `, ${st.narrAI[category]}`; // AI가 직접 쓴 커스텀 디렉션이 있으면 그걸 우선
+  // 수동 프리셋(HH_NARR, 4개 고정 카테고리)과 AI narrDir(실제 섹션마다 고유 키, 예: hook2)은 서로 다른 키 공간이라 분리 —
+  // AI는 이 특정 occurrence에 쓴 게 있으면 그걸 쓰고, 없으면 수동 프리셋(카테고리 단위)으로 폴백
+  const aiNote=occKey=>st.narrAI[occKey]?`, ${st.narrAI[occKey]}`:'';
+  const manualNote=category=>{
     const choice=st.narrSt[category];
     if(choice==='아카펠라 오프닝'&&!hasVocal)return''; // 보컬 없는 트랙에서 "보컬만 나오는 오프닝"은 ZERO vocal chops 지시와 직접 모순됨
     const dir=choice&&HH_NARR_DIR[category]?.[choice];
@@ -1847,11 +1866,11 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const lowEnergy=gEnergy==='low'||gEnergy==='low-mid';
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up${narrNote('인트로')})`);
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up${aiNote('intro')+manualNote('인트로')})`);
       } else if(lowEnergy){
-        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar${narrNote('인트로')})`);
+        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar${aiNote('intro')+manualNote('인트로')})`);
       } else {
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up${narrNote('인트로')})`);
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up${aiNote('intro')+manualNote('인트로')})`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1865,7 +1884,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${cnt.hook===1?narrNote('버스/훅'):''}${isLast?narrNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1874,7 +1893,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${cnt.verse===1?narrNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1886,11 +1905,11 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
         :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
-      lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''})`);
+      lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
-      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}${narrNote('아웃트로')})`);
+      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
@@ -2459,6 +2478,7 @@ async function aiProducerReview(){
   if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
   const uniqueSegs=[...new Set(st.structSegs)].filter(s=>s==='hook'||s==='verse'||s==='bridge');
+  const occKeys=structOccurrenceKeys();
 
   if(btn){btn.disabled=true;btn.textContent='🤖 분석 중...';}
   if(statusEl)statusEl.hidden=true;
@@ -2491,7 +2511,7 @@ async function aiProducerReview(){
 - boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나. 그리고 boostOccurrence로 그 타입 중 몇 번째를 말하는 건지도 반드시 같이 정해: first(그 타입의 첫 번째) | last(마지막 — 보통 클라이맥스, 기본값). 조언이 "첫 훅"이라고 하면 first, "마지막/클라이맥스 훅"이면 last — 조언 내용이랑 실제로 일치해야 해. 조언에 "악기 A와 B가 주고받는다"처럼 장르 고정 문구로는 못 담는 구체적인 아이디어가 있으면 boostText에 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장을 직접 써 (없으면 생략 — 그때는 장르 기본 편곡 문구가 대신 들어감). Suno는 텍스트→음악 변환 모델이라 추상적 비유보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹)로 쓴 지시를 훨씬 잘 반영해 (예: "flute and synth trade short call-and-response phrases with increasing density"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입(hook|verse|bridge)과, 그걸 어디 넣을지 addSectionPosition도 같이 정해줘: beforeFirstHook(첫 훅 앞) | afterIntro(인트로 바로 뒤) | beforeLastHook(마지막 훅 직전 — 클라이맥스 텐션 빌드용) | end(아웃트로 직전) 중 조언 내용이랑 실제로 일치하는 위치 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
-- narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
+- narrDir: "전개" 조언일 때 → 아래 [narrDir에 쓸 수 있는 섹션 키]에 있는 키만 사용해서 {"hook1":"...","verse1":"...","hook2":"...",...} 형식 객체를 만들어. 서사가 특정 구간에만 해당하면 그 키만 넣어도 되고, 전체 곡에 걸친 점진적 변화(예: 밀도가 곡 전체에서 계속 증가)라면 관련된 모든 키에 각각 다른 문장을 채워 — 같은 문장을 여러 키에 반복 복사하지 말고, 그 구간이 전체 흐름에서 몇 번째인지에 맞게 서로 다르게 써(예: hook1은 "sparse, restrained energy", hook2는 "denser layering, energy builds", hook3은 "full density, all elements present"). 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - removeRef: tag를 추가할 때마다 아래 [프로듀서 레퍼런스]에 있는 설명을 한 번씩 대조해봐 — 장르/서브장르 자체가 달라지는 수준으로 상반되면(예: tag는 "log drum bassline"인데 레퍼런스 설명엔 "chiptune-esque synth leads"나 "disco samples, house-inflected bounce"처럼 완전히 다른 서브장르 색채가 이미 박혀있으면) 반드시 그 프로듀서의 정확한 이름을 넣어. 특히 "레퍼런스 부합도" 카테고리는 지금 레퍼런스가 타겟 곡이랑 안 맞는다는 게 핵심 지적이니, 그 안 맞는 레퍼런스를 tag만 추가하고 그대로 두면 안 돼 — 반드시 확인해서 빼
 - removeTag: 조언이 "지금 있는 X를 줄이자/빼자"는 뜻도 담고 있으면(예: "sidechain pump가 강하면 무드가 죽으니 줄이자") X를 가리키는 핵심 단어(예: "sidechain")를 넣어 — 그 단어를 포함하는 기존 텍스처/스타일 태그를 전부 제거해. tag(추가)랑 같이 써도 됨 — "줄이고 대신 이걸 넣자"는 조언이면 둘 다 채워
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
@@ -2502,6 +2522,9 @@ async function aiProducerReview(){
 
 [적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
 ${uniqueSegs.length?uniqueSegs.join('|'):'(현재 구조에 hook/verse/bridge 없음 — boostSection 쓰지 마)'}
+
+[narrDir에 쓸 수 있는 섹션 키 — 실제 곡 구조 순서 그대로]
+${occKeys.join(' → ')}
 
 [보컬 여부]
 ${hasVocal?'보컬 있음: '+st.vocal:'인스트루멘탈 (보컬 없음)'}
@@ -2516,7 +2539,6 @@ ${ctx}`;
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
-    const narrCats=['인트로','버스/훅','클라이맥스/드롭','아웃트로'];
     _aiSuggestions=list.map(s=>({
       category:s.category||'💡',
       text:s.text,
@@ -2535,7 +2557,7 @@ ${ctx}`;
       mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
       narrDir:(()=>{
         if(!s.narrDir||typeof s.narrDir!=='object')return null;
-        const cleaned=Object.fromEntries(narrCats.filter(c=>typeof s.narrDir[c]==='string'&&s.narrDir[c].trim()).map(c=>[c,s.narrDir[c].trim().slice(0,150)]));
+        const cleaned=Object.fromEntries(occKeys.filter(k=>typeof s.narrDir[k]==='string'&&s.narrDir[k].trim()).map(k=>[k,s.narrDir[k].trim().slice(0,150)]));
         return Object.keys(cleaned).length?cleaned:null;
       })(),
       removeRef:(s.removeRef&&st.refs.includes(s.removeRef))?s.removeRef:null,
@@ -2591,10 +2613,7 @@ function applyAiSuggestion(idx){
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
   }
   if(sug.narrDir){
-    Object.entries(sug.narrDir).forEach(([cat,dir])=>{
-      st.narrAI[cat]=dir;
-      st.narrSt[cat]=null; // AI 디렉션이 우선이니 프리셋 선택 표시는 비워둠
-    });
+    Object.entries(sug.narrDir).forEach(([occKey,dir])=>{st.narrAI[occKey]=dir;});
     renderHhNarr();
   }
   if(sug.removeRef){
@@ -3167,9 +3186,10 @@ function hhGenerate(source){
   if(st.density)summaryRows.push(['⚖ 밀도',st.density]);
   if(st.length)summaryRows.push(['⏱ 길이',st.length]);
   const narrEntries=HH_NARR.map(seg=>seg.label)
-    .map(k=>[k, st.narrAI[k]?`🤖 ${st.narrAI[k]}`:st.narrSt[k]])
+    .map(k=>[k, st.narrSt[k]])
     .filter(([,v])=>v);
   narrEntries.forEach(([k,v])=>summaryRows.push(['🎬 '+k,v]));
+  Object.entries(st.narrAI).forEach(([occKey,v])=>summaryRows.push(['🎬 '+occKey,`🤖 ${v}`]));
   let tableHTML='<table style="width:100%;border-collapse:collapse">';
   summaryRows.forEach((row,i)=>{
     const bg=i%2===0?'rgba(255,255,255,0.035)':'transparent';
