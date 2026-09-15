@@ -2297,7 +2297,7 @@ function saveAnthropicKey(){
 // 열린 판단은 못 함 — 그 갭을 메우기 위해 여러 관점(악기/편곡/구조/믹스/보컬/무드)에서 자유 형식 조언을 받고,
 // 그중 기존 컨트롤(스타일 태그·섹션 강화)로 바로 적용 가능한 것만 원클릭 적용 버튼을 붙임
 let _aiSuggestions=null;
-const AI_CATEGORY_EMOJI={'악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶'};
+const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯','악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶'};
 async function aiProducerReview(){
   const key=getAnthropicKey();
   const btn=document.getElementById('hh-ai-arrange-btn');
@@ -2312,19 +2312,29 @@ async function aiProducerReview(){
   try{
     const g=GENRES[st.genre];
     const mood=HH_MOODS.find(m=>m.kr===st.mood);
+    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+    const refProducers=st.refs.length?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?p.en:kr;}).join(', '):null;
     const ctx=[
       `장르: ${g.kr} (${g.sound})`,
       mood?`무드: ${mood.kr}`:null,
       st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
       st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
       st.vocal&&st.vocal!=='No Vocal'?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
+      refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
+      refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
       st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
       `구조: ${st.structSegs.join(' → ')}`,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const prompt=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 3~5개 관점에서 짧게 조언해줘 (악기, 편곡/에너지, 구조, 믹스, 보컬, 무드 등을 섞어서). 뻔한 일반론 말고 지금 이 조합이라서 나올 수 있는 구체적인 조언으로.
+    const critiqueLine=`- "총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로.`;
+    const refFitLine=refSong?`- "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해: 지금 설정으로 곡을 만들면 "${refSong}" 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해줘. 부합 정도(예: 상/중/하 또는 %)와 그렇게 판단한 구체적 근거(사운드·톤·편곡 중 뭐가 비슷하고 뭐가 다른지), 더 가깝게 만들려면 뭘 바꿔야 하는지까지 적어줘.`:'';
+    const prompt=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘.
 
-중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 4개 필드 중 이 조언과 맞는 걸 정확히 하나 채워서, 버튼 한 번으로 적용되게 해줘 (정말 애매해서 도저히 못 채우겠으면 그때만 생략):
+${critiqueLine}
+${refFitLine}
+- 나머지는 악기/편곡/구조/믹스/보컬/무드 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지).
+
+중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 4개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
 - boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → ${uniqueSegs.length?uniqueSegs.join('|'):'(현재 구조에 hook/verse/bridge 없음)'} 중 정확히 하나
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입 하나, hook|verse|bridge 중 하나
@@ -2334,7 +2344,7 @@ async function aiProducerReview(){
 ${ctx}
 
 다른 텍스트 없이 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"악기|편곡|구조|믹스|보컬|무드","text":"한국어 한두 문장 조언","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)"}]}`;
+{"suggestions":[{"category":"총평${refSong?'|레퍼런스 부합도':''}|악기|편곡|구조|믹스|보컬|무드","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)"}]}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2346,7 +2356,7 @@ ${ctx}
       },
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
-        max_tokens:700,
+        max_tokens:1000,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -3004,7 +3014,7 @@ function hhGenerate(){
   } else {
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <button id="hh-ai-arrange-btn" onclick="aiProducerReview()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 AI 프로듀서 리뷰 받기</button>
-      <span style="font-size:11px;color:var(--text-3);font-style:normal">악기·편곡·구조·믹스·보컬·무드 등 여러 관점에서 이 곡을 더 좋게 만들 방법을 AI가 짚어줍니다</span>
+      <span style="font-size:11px;color:var(--text-3);font-style:normal">전문 프로듀서 총평, 레퍼런스 곡 부합도(type beat 평가), 악기·편곡·구조·믹스 등을 AI가 짚어줍니다</span>
     </div>
     <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`;
   }
