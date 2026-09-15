@@ -1734,7 +1734,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const melodyRoles=computeMelodyRoles(melody);
   const leadInstrument=melodyRoles?melodyRoles.lead:(melody&&melody[0]);
   const mDescFull=melodyRoles?`${melodyRoles.lead} lead melody, ${melodyRoles.bg} layered softly beneath`:mDesc;
-  const mDescCallbacks=['matching synth layers','consistent instrumentation','the same tonal palette'];
+  const mDescCallbacks=['matching synth layers','consistent instrumentation','matching tonal palette'];
   const mDescCallbackOffset=Math.floor(Math.random()*mDescCallbacks.length); // Generate마다 시작점을 섞어서 반복 문구 순서도 달라지게
   let mDescUses=0;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
