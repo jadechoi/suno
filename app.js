@@ -2437,7 +2437,7 @@ ${ctx}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:2500,
+        max_tokens:4000,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2551,7 +2551,7 @@ ${original}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:1800,
+        max_tokens:3000,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2631,7 +2631,7 @@ ${HH_GROOVE.join(', ')}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:900,
+        max_tokens:1500,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2724,7 +2724,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:700,
+        max_tokens:1200,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -3193,13 +3193,21 @@ function hhGenerate(source){
   window._advTagSets=[];  // 매 generate마다 초기화
   const adv=buildProducerAdvice(g,st,mood,bpmVal,keyStr);
   const advBtn=(label,fn)=>fn?`<button onclick="${fn}" style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s" onmouseover="this.style.background='var(--accent-dim)'" onmouseout="this.style.background='var(--surface-3)'">${label}</button>`:'';
+  const hasAiKey=!!getAnthropicKey();
   let advHtml='';
   if(adv.warns.length||adv.tips.length){
-    advHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent-text);margin-bottom:10px;font-style:normal">🎧 프로듀서 피드백</div>
-      ${adv.warns.map(w=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.3);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${w.html}</span>${advBtn(w.btnLabel,w.btnFn)}</div>`).join('')}
-      ${adv.tips.map(t=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(0,198,255,.07);border:1px solid rgba(0,198,255,.22);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${t.html}</span>${t.btnHtml||advBtn(t.btnLabel,t.btnFn)}</div>`).join('')}
-    </div>`;
+    const advRows=`${adv.warns.map(w=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.3);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${w.html}</span>${advBtn(w.btnLabel,w.btnFn)}</div>`).join('')}
+      ${adv.tips.map(t=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(0,198,255,.07);border:1px solid rgba(0,198,255,.22);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${t.html}</span>${t.btnHtml||advBtn(t.btnLabel,t.btnFn)}</div>`).join('')}`;
+    // AI Key가 있으면 AI 프로듀서 리뷰가 우선이니, 룰 기반 피드백은 접어두고 클릭해야 펼쳐지게 (details는 네이티브 접기라 JS 불필요)
+    advHtml=hasAiKey
+      ?`<details style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
+          <summary style="cursor:pointer;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3)">🎧 룰 기반 피드백 (클릭해서 펼치기)</summary>
+          <div style="margin-top:10px">${advRows}</div>
+        </details>`
+      :`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent-text);margin-bottom:10px;font-style:normal">🎧 프로듀서 피드백</div>
+          ${advRows}
+        </div>`;
   }
 
   let aiReviewHtml;
@@ -3229,7 +3237,7 @@ function hhGenerate(source){
     <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`;
   }
   container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
-    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${advHtml}${aiReviewHtml}`,
+    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+advHtml:advHtml+aiReviewHtml}`,
     null,'#6B7280'));
 
   // Reset link
