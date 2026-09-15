@@ -2371,7 +2371,7 @@ function saveAnthropicKey(){
 // 열린 판단은 못 함 — 그 갭을 메우기 위해 여러 관점(악기/편곡/구조/믹스/보컬/무드)에서 자유 형식 조언을 받고,
 // 그중 기존 컨트롤(스타일 태그·섹션 강화)로 바로 적용 가능한 것만 원클릭 적용 버튼을 붙임
 let _aiSuggestions=null;
-const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯','악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶'};
+const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯','악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶','전개':'🎬'};
 async function aiProducerReview(){
   const key=getAnthropicKey();
   const btn=document.getElementById('hh-ai-arrange-btn');
@@ -2400,25 +2400,27 @@ async function aiProducerReview(){
       `구조: ${st.structSegs.join(' → ')}`,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
+    const hasVocal=st.vocal&&st.vocal!=='No Vocal';
     const critiqueLine=`- "총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로.`;
     const refFitLine=refSong?`- "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해: 지금 설정으로 곡을 만들면 "${refSong}" 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해줘. 부합 정도(예: 상/중/하 또는 %)와 그렇게 판단한 구체적 근거(사운드·톤·편곡 중 뭐가 비슷하고 뭐가 다른지), 더 가깝게 만들려면 뭘 바꿔야 하는지까지 적어줘.`:'';
     const prompt=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘.
 
 ${critiqueLine}
 ${refFitLine}
-- 나머지는 악기/편곡/구조/믹스/보컬/무드 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지).
+- 나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지). "전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야.
 
-중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 4개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
+중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
 - boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → ${uniqueSegs.length?uniqueSegs.join('|'):'(현재 구조에 hook/verse/bridge 없음)'} 중 정확히 하나
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입 하나, hook|verse|bridge 중 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
+- narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). ${hasVocal?'':'이 트랙은 보컬 없는 완전 인스트루멘탈이니 보컬·가사·노래 관련 묘사는 절대 넣지 마.'}
 
 [현재 설정]
 ${ctx}
 
 다른 텍스트 없이 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평${refSong?'|레퍼런스 부합도':''}|악기|편곡|구조|믹스|보컬|무드","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)"}]}`;
+{"suggestions":[{"category":"총평${refSong?'|레퍼런스 부합도':''}|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2444,6 +2446,7 @@ ${ctx}
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
+    const narrCats=['인트로','버스/훅','클라이맥스/드롭','아웃트로'];
     _aiSuggestions=list.map(s=>({
       category:s.category||'💡',
       text:s.text,
@@ -2451,6 +2454,11 @@ ${ctx}
       boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
       addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
       mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
+      narrDir:(()=>{
+        if(!s.narrDir||typeof s.narrDir!=='object')return null;
+        const cleaned=Object.fromEntries(narrCats.filter(c=>typeof s.narrDir[c]==='string'&&s.narrDir[c].trim()).map(c=>[c,s.narrDir[c].trim().slice(0,150)]));
+        return Object.keys(cleaned).length?cleaned:null;
+      })(),
       applied:false,
     }));
     hhGenerate(false);
@@ -2473,6 +2481,13 @@ function applyAiSuggestion(idx){
     st.structSegs.splice(Math.max(st.structSegs.length-1,0),0,sug.addSection);
     st._structAutoManaged=false;
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+  }
+  if(sug.narrDir){
+    Object.entries(sug.narrDir).forEach(([cat,dir])=>{
+      st.narrAI[cat]=dir;
+      st.narrSt[cat]=null; // AI 디렉션이 우선이니 프리셋 선택 표시는 비워둠
+    });
+    renderHhNarr();
   }
   hhGenerate(`AI 리뷰 적용: ${sug.category}`);
 }
@@ -2737,87 +2752,6 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     fail(e.message);
   }finally{
     btn.disabled=false;btn.textContent='🤖 레퍼런스 곡 구조로 추천';
-  }
-}
-
-// HH_NARR의 5개 프리셋은 고정 문구라 세밀한 요청("2번째 훅에서만 살짝 긴장감 늦추고" 같은)은 못 담음 —
-// 프리셋 대신 4개 구간 전체를 맥락에 맞춰 자유롭게 써주는 AI 경로
-async function aiNarrativeDirecting(){
-  const key=getAnthropicKey();
-  const btn=document.getElementById('hh-ai-narr-btn');
-  const statusEl=document.getElementById('hh-ai-narr-status');
-  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
-  if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
-
-  btn.disabled=true;btn.textContent='🤖 작성 중...';
-  if(statusEl)statusEl.hidden=true;
-  try{
-    const g=GENRES[st.genre];
-    const mood=HH_MOODS.find(m=>m.kr===st.mood);
-    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
-    const hasVocal=st.vocal&&st.vocal!=='No Vocal';
-    const ctx=[
-      `장르: ${g.kr} (${g.sound})`,
-      mood?`무드: ${mood.kr}`:null,
-      hasVocal?`보컬: ${st.vocal}`:'보컬 없음 — 완전 인스트루멘탈이라 보컬·가사·노래 관련 묘사는 절대 넣지 마',
-      refSong?`레퍼런스 곡: ${refSong}`:null,
-      `구조: ${st.structSegs.join(' → ')}`,
-      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
-    ].filter(Boolean).join('\n');
-    const prompt=`너는 힙합 프로듀서야. 아래 트랙이 인트로 → 벌스/훅 → 클라이맥스(마지막 드롭) → 아웃트로로 전개될 때, 각 구간에서 구체적으로 어떤 일이 일어나면 좋을지 Suno AI 프롬프트에 넣을 문구를 구간당 1문장씩 써줘.
-
-Suno는 텍스트를 실제 음악으로 변환하는 모델이라, 추상적이거나 문학적인 표현("긴장감이 감돈다")보다 실제로 들리는 소리를 구체적인 프로덕션/오디오 엔지니어링 용어(악기·이펙트·다이나믹·공간감)로 지시할 때("energy ramps up gradually rather than hitting all at once", "filtered synth rises with a slow reverb swell before the drop") 훨씬 더 잘 알아듣고 반영해. 자유롭게 쓰되 매 문장이 실제 소리로 구현 가능한 구체적 지시여야 해 — 모호하거나 시적인 비유로 흐르면 안 돼.
-
-[현재 설정]
-${ctx}
-
-다른 텍스트 없이 아래 JSON 형식으로만 답해 (각 값은 소문자로 시작하는 영어 한 문장 — 기존 문장 뒤에 쉼표로 이어붙일 거야):
-{"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"...","reason":"한국어 한 문장 요약"}`;
-
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-5',
-        max_tokens:500,
-        messages:[{role:'user',content:prompt}],
-      }),
-    });
-    if(!res.ok){
-      const errText=await res.text().catch(()=>'');
-      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
-    }
-    const data=await res.json();
-    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
-    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
-    const cats=['인트로','버스/훅','클라이맥스/드롭','아웃트로'];
-    let applied=0;
-    cats.forEach(c=>{
-      const v=(parsed[c]||'').trim().slice(0,150);
-      if(v){
-        st.narrAI[c]=v;
-        st.narrSt[c]=null; // AI 디렉션이 우선이니 프리셋 선택 표시는 비워둠
-        applied++;
-      }
-    });
-    if(!applied)throw new Error('AI가 디렉션을 반환하지 못했습니다');
-    renderHhNarr();
-    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 내러티브 디렉팅 적용');
-    if(statusEl){
-      statusEl.hidden=false;statusEl.style.color='var(--success)';
-      statusEl.textContent='✅ '+(parsed.reason||`${applied}개 구간 디렉션 적용됨`);
-    }
-  }catch(e){
-    fail(e.message);
-  }finally{
-    btn.disabled=false;btn.textContent='🤖 AI로 세부 디렉션 받기';
   }
 }
 
@@ -3264,7 +3198,7 @@ function hhGenerate(source){
   if(_aiSuggestions){
     const rowsHtml=_aiSuggestions.map((s,idx)=>{
       const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
-      const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood);
+      const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood||s.narrDir);
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
       return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong> — ${escHtml(s.text)}</span>${btnHtml}</div>`;
     }).join('');
