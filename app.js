@@ -1852,7 +1852,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''}${narrNote('버스/훅')}${isLast?narrNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''}${cnt.hook===1?narrNote('버스/훅'):''}${isLast?narrNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1861,7 +1861,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''}${narrNote('버스/훅')})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''}${cnt.verse===1?narrNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
