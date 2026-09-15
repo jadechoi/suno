@@ -2292,6 +2292,81 @@ function saveAnthropicKey(){
   try{localStorage.setItem('anthropic_api_key',val);}catch(_){}
   if(msgEl){msgEl.textContent='✅ 저장됨 — MELODY 섹션의 🤖 AI 추천받기 버튼을 눌러보세요';msgEl.hidden=false;msgEl.style.color='var(--success)';}
 }
+async function aiSuggestArrangement(){
+  const key=getAnthropicKey();
+  const btn=document.getElementById('hh-ai-arrange-btn');
+  const statusEl=document.getElementById('hh-ai-arrange-status');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
+  const uniqueSegs=[...new Set(st.structSegs)].filter(s=>s==='hook'||s==='verse'||s==='bridge');
+  if(!uniqueSegs.length){fail('구조에 Hook/Verse/Bridge가 없습니다');return;}
+
+  btn.disabled=true;btn.textContent='🤖 분석 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const g=GENRES[st.genre];
+    const mood=HH_MOODS.find(m=>m.kr===st.mood);
+    const ctx=[
+      `장르: ${g.kr} (${g.sound})`,
+      mood?`무드: ${mood.kr}`:null,
+      st.melody.length?`이미 선택된 멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
+      st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
+      st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
+      `구조: ${st.structSegs.join(' → ')}`,
+      `BPM ${st.bpm}`,
+    ].filter(Boolean).join('\n');
+    const prompt=`너는 힙합 비트 프로듀서야. 아래 트랙 설정을 보고 두 가지를 제안해줘.
+1. 지금 편성에 한 겹 더하면 좋을 악기/사운드 레이어 1개 (이미 선택된 악기·태그와 겹치지 않게)
+2. 아래 구조 중 에너지를 한 단계 더 끌어올리면 좋을 섹션 1곳
+
+[현재 설정]
+${ctx}
+
+[선택 가능한 섹션]
+${uniqueSegs.join(', ')}
+
+다른 텍스트 없이 아래 JSON 형식으로만 답해:
+{"instrument":"Suno 스타일 태그에 쓸 영어 소문자 악기/사운드 명사구 (예: muted trumpet stabs)","instrumentReason":"한 문장 한국어 이유","boostSection":"${uniqueSegs.join('|')}" 중 정확히 하나,"boostReason":"한 문장 한국어 이유"}`;
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:300,
+        messages:[{role:'user',content:prompt}],
+      }),
+    });
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'');
+      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+    }
+    const data=await res.json();
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    if(!parsed.instrument)throw new Error('AI가 악기를 추천하지 못했습니다');
+    if(!st.extraTags.includes(parsed.instrument))st.extraTags.push(parsed.instrument);
+
+    const secLabel={hook:'Hook',verse:'Verse',bridge:'Bridge'};
+    let boostMsg='';
+    if(parsed.boostSection&&uniqueSegs.includes(parsed.boostSection)){
+      st.sectionArrangeExtras=st.sectionArrangeExtras||{};
+      st.sectionArrangeExtras[parsed.boostSection]=true;
+      boostMsg=` · <strong>${secLabel[parsed.boostSection]}</strong> 섹션 강화 (${escHtml(parsed.boostReason||'')})`;
+    }
+    hhGenerate();
+    showToast(`✅ <strong>${escHtml(parsed.instrument)}</strong> 추가됨 (${escHtml(parsed.instrumentReason||'')})${boostMsg}`,5000);
+  }catch(e){
+    fail(e.message);
+    btn.disabled=false;btn.textContent='🤖 악기·편곡 포인트 추천받기';
+  }
+}
 let _polishOriginal=null;
 async function aiPolishSectionPrompt(){
   const key=getAnthropicKey();
@@ -2880,7 +2955,12 @@ function hhGenerate(){
   }
 
   container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
-    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${advHtml}`,
+    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${advHtml}
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button id="hh-ai-arrange-btn" onclick="aiSuggestArrangement()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 악기·편곡 포인트 추천받기</button>
+      <span style="font-size:11px;color:var(--text-3);font-style:normal">추가하면 어울릴 악기, 더 터뜨리면 좋은 섹션을 AI가 짚어줍니다</span>
+    </div>
+    <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
     null,'#6B7280'));
 
   // Reset link
