@@ -2573,6 +2573,56 @@ function clearAiSuggestions(){
   _aiSuggestions=null;
   hhGenerate(false);
 }
+// 룰 기반 모순 제거(태그 겹침, 반복 등)는 적용 순간 코드가 이미 처리하지만, 그건 "우리가 미리 안 패턴"만 잡음 —
+// 조언이 실제로 "의도한 대로" 반영됐는지(위치·대상·뉘앙스까지)는 판단이 필요한 영역이라 AI로 한 번 더 대조
+async function aiVerifyAppliedSuggestions(){
+  const key=getAnthropicKey();
+  const btn=document.getElementById('hh-ai-verify-btn');
+  const statusEl=document.getElementById('hh-ai-arrange-status');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  const applied=(_aiSuggestions||[]).filter(s=>s.applied);
+  if(!applied.length){fail('적용된 조언이 없습니다');return;}
+
+  if(btn){btn.disabled=true;btn.textContent='🔍 검증 중...';}
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const sectText=document.getElementById('hh-sect-ta')?.value||'';
+    const styleText=document.getElementById('hh-style-ta')?.value||'';
+    const staticText=`너는 힙합 프로듀서 QA 담당이야. 아래 [적용된 조언 목록]과 [최종 프롬프트]를 비교해서, 각 조언이 실제로 프롬프트에 "의도한 대로" 반영됐는지 확인해줘. 단순히 비슷한 단어가 있는지가 아니라, 조언이 말하는 위치·대상·뉘앙스까지 실제로 맞는지 꼼꼼히 봐 (예: "마지막 훅 앞에 브릿지"라고 했는데 실제로 다른 위치에 있으면 fail).
+
+각 조언마다 정확히 이 순서로 판정해: pass(의도한 대로 정확히 반영됨) | partial(반영되긴 했는데 의도랑 다르거나 일부만 됨) | fail(반영 안 됨). partial·fail이면 왜 그런지 한국어 한 문장으로 이유를 적어.
+
+설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해 (checks 배열 순서는 조언 목록 순서와 정확히 같아야 해):
+{"checks":[{"status":"pass|partial|fail","note":"(partial·fail일 때만) 한국어 이유"}]}`;
+    const dynamicText=`
+
+[적용된 조언 목록]
+${applied.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n')}
+
+[최종 섹션 프롬프트]
+${sectText}
+
+[최종 스타일 프롬프트]
+${styleText}`;
+
+    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText});
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const checks=parsed.checks||[];
+    let matched=0;
+    applied.forEach((s,i)=>{
+      const c=checks[i];
+      if(!c||!['pass','partial','fail'].includes(c.status))return;
+      s.verify={status:c.status,note:(c.note||'').slice(0,150)};
+      matched++;
+    });
+    if(!matched)throw new Error('AI가 검증 결과를 반환하지 못했습니다');
+    hhGenerate(false);
+  }catch(e){
+    fail(e.message);
+    if(btn){btn.disabled=false;btn.textContent='🔍 적용 검증';}
+  }
+}
 let _polishOriginal=null;
 async function aiPolishSectionPrompt(){
   const key=getAnthropicKey();
@@ -3259,12 +3309,19 @@ function hhGenerate(source){
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
       const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.score}/100</strong>`:'';
-      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>`;
+      const verifyHtml=s.verify?(()=>{
+        const vColor=s.verify.status==='pass'?'var(--success)':s.verify.status==='partial'?'#F59E0B':'var(--danger)';
+        const vIcon=s.verify.status==='pass'?'✅ 확인됨':s.verify.status==='partial'?'⚠️ 일부만 반영':'❌ 반영 안 됨';
+        return `<div style="margin-top:5px;font-size:11px;color:${vColor}">${vIcon}${s.verify.note?' — '+escHtml(s.verify.note):''}</div>`;
+      })():'';
+      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>${verifyHtml}</div>`;
     }).join('');
+    const hasApplied=_aiSuggestions.some(s=>s.applied);
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
         <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent-text);font-style:normal">🤖 AI 프로듀서 리뷰</span>
         <div style="display:flex;gap:6px">
+          ${hasApplied?`<button id="hh-ai-verify-btn" onclick="aiVerifyAppliedSuggestions()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">🔍 적용 검증</button>`:''}
           <button id="hh-ai-arrange-btn" onclick="aiProducerReview()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--text-2);font-size:11px;cursor:pointer">🔄 다시</button>
           <button onclick="clearAiSuggestions()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:transparent;color:var(--text-3);font-size:11px;cursor:pointer">✕</button>
         </div>
