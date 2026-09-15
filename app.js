@@ -2765,7 +2765,9 @@ async function aiNarrativeDirecting(){
       `구조: ${st.structSegs.join(' → ')}`,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const prompt=`너는 힙합 프로듀서야. 아래 트랙이 인트로 → 벌스/훅 → 클라이맥스(마지막 드롭) → 아웃트로로 전개될 때, 각 구간에서 구체적으로 어떤 일이 일어나면 좋을지 Suno AI 프롬프트에 넣을 영어 프로덕션 문구로 구간당 1문장씩 써줘. 추상적 비유 말고 실제 소리로 구현되는 구체적 지시로 (예: "energy ramps up gradually rather than hitting all at once").
+    const prompt=`너는 힙합 프로듀서야. 아래 트랙이 인트로 → 벌스/훅 → 클라이맥스(마지막 드롭) → 아웃트로로 전개될 때, 각 구간에서 구체적으로 어떤 일이 일어나면 좋을지 Suno AI 프롬프트에 넣을 문구를 구간당 1문장씩 써줘.
+
+Suno는 텍스트를 실제 음악으로 변환하는 모델이라, 추상적이거나 문학적인 표현("긴장감이 감돈다")보다 실제로 들리는 소리를 구체적인 프로덕션/오디오 엔지니어링 용어(악기·이펙트·다이나믹·공간감)로 지시할 때("energy ramps up gradually rather than hitting all at once", "filtered synth rises with a slow reverb swell before the drop") 훨씬 더 잘 알아듣고 반영해. 자유롭게 쓰되 매 문장이 실제 소리로 구현 가능한 구체적 지시여야 해 — 모호하거나 시적인 비유로 흐르면 안 돼.
 
 [현재 설정]
 ${ctx}
