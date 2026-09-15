@@ -216,6 +216,38 @@ const HH_NARR=[
   {label:'클라이맥스/드롭',icon:'💥',opts:['풀 드롭·모든 요소 등장','서서히 에너지 증폭','갑작스러운 전환','미니멀 드롭','리프레인 반복']},
   {label:'아웃트로',icon:'🔚',opts:['페이드 아웃','갑작스러운 컷','콜다 마무리','루프 반복 종료','리버스 인트로']},
 ];
+// HH_NARR에서 고른 선택지를 실제 섹션 프롬프트에 넣을 영어 프로덕션 문구로 변환 — 지금까지는 요약표에만 표시되고
+// 실제 생성 텍스트엔 반영이 안 됐던 부분 (① 요약엔 뜨는데 ②③엔 반영 안 되는 눈속임이었음)
+const HH_NARR_DIR={
+  '인트로':{
+    '콜드 오프닝·임팩트':'sudden full-force entry with no build-up',
+    '서서히 빌드업':'gradual layered build-up across several bars',
+    '미니멀 비트 인트로':'stripped-back minimal beat only, other elements withheld',
+    '아카펠라 오프닝':'vocal-only opening before the beat drops in',
+    '직접적 그루브 시작':'full groove and rhythm section present from bar 1',
+  },
+  '버스/훅':{
+    '반복 훅 강조':'hook motif repeated and emphasized',
+    '버스 집중형':'verse carries the melodic focus, hook kept simple',
+    '콜&리스폰스':'call-and-response phrasing between layers',
+    '레이어드 훅':'multiple harmonized layers stacked on the hook',
+    '임프로바이제이션':'loose improvisational feel, less rigid repetition',
+  },
+  '클라이맥스/드롭':{
+    '풀 드롭·모든 요소 등장':'every element hits simultaneously at full force',
+    '서서히 에너지 증폭':'energy ramps up gradually rather than hitting all at once',
+    '갑작스러운 전환':'abrupt unexpected transition into the drop',
+    '미니멀 드롭':'restrained minimal drop, some elements held back',
+    '리프레인 반복':'refrain motif repeats through the climax',
+  },
+  '아웃트로':{
+    '페이드 아웃':'slow fade-out to silence',
+    '갑작스러운 컷':'abrupt hard cut to silence',
+    '콜다 마무리':'extended coda-style resolving ending',
+    '루프 반복 종료':'loop repeats and winds down',
+    '리버스 인트로':'reversed intro elements bring the track full circle',
+  },
+};
 const HH_STRUCT_PRESETS=[
   {name:'Standard',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','outro']},
   {name:'Hook Heavy',segs:['intro','hook','verse','hook','verse','hook','outro']},
@@ -467,7 +499,7 @@ const st={
   genre:null,key:7,bpm:140,
   _808:'Balanced',drums:[],melody:[],melodyTone:null,mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,
-  narrSt:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
+  narrSt:{},narrAI:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},refAf:null,
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
@@ -1263,6 +1295,13 @@ function renderHhNarr(){
     hdr.onclick=()=>{div.classList.toggle('open');};
     const opts=document.createElement('div');
     opts.className='narr-seg-options';
+    if(st.narrAI[seg.label]){
+      const aiRow=document.createElement('div');
+      aiRow.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:8px;border-radius:var(--r-sm);background:rgba(157,78,221,.08);border:1px solid rgba(157,78,221,.25)';
+      aiRow.innerHTML=`<span style="font-size:11px;color:var(--accent-text);flex:1">🤖 ${escHtml(st.narrAI[seg.label])}</span><span style="cursor:pointer;color:var(--text-3);font-size:11px" title="AI 디렉션 지우기">✕</span>`;
+      aiRow.querySelector('span[title]').onclick=()=>{delete st.narrAI[seg.label];renderHhNarr();};
+      opts.appendChild(aiRow);
+    }
     const optsRow=document.createElement('div');
     optsRow.className='narr-opts';
     seg.opts.forEach(o=>{
@@ -1271,6 +1310,7 @@ function renderHhNarr(){
       el.textContent=o;
       el.onclick=()=>{
         st.narrSt[seg.label]=st.narrSt[seg.label]===o?null:o;
+        delete st.narrAI[seg.label]; // 수동으로 고르면 AI 커스텀 디렉션은 비움 — 어느 쪽이 적용된 건지 헷갈리지 않게
         renderHhNarr();
       };
       optsRow.appendChild(el);
@@ -1770,6 +1810,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     if(tone)return `${tone} ${ref}`;
     return art?`${ref} (${art})`:ref;
   };
+  const narrNote=category=>{
+    if(st.narrAI[category])return `, ${st.narrAI[category]}`; // AI가 직접 쓴 커스텀 디렉션이 있으면 그걸 우선
+    const choice=st.narrSt[category];
+    if(choice==='아카펠라 오프닝'&&!hasVocal)return''; // 보컬 없는 트랙에서 "보컬만 나오는 오프닝"은 ZERO vocal chops 지시와 직접 모순됨
+    const dir=choice&&HH_NARR_DIR[category]?.[choice];
+    return dir?`, ${dir}`:'';
+  };
 
   segs.forEach(type=>{
     if(type==='intro'){
@@ -1780,11 +1827,11 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const lowEnergy=gEnergy==='low'||gEnergy==='low-mid';
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up)`);
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up${narrNote('인트로')})`);
       } else if(lowEnergy){
-        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar)`);
+        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar${narrNote('인트로')})`);
       } else {
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up)`);
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up${narrNote('인트로')})`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1798,7 +1845,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''}${narrNote('버스/훅')}${isLast?narrNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1807,7 +1854,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''}${narrNote('버스/훅')})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1823,7 +1870,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     } else if(type==='outro'){
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
-      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName})`);
+      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}${narrNote('아웃트로')})`);
     }
     lines.push('');
   });
@@ -2693,6 +2740,85 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
   }
 }
 
+// HH_NARR의 5개 프리셋은 고정 문구라 세밀한 요청("2번째 훅에서만 살짝 긴장감 늦추고" 같은)은 못 담음 —
+// 프리셋 대신 4개 구간 전체를 맥락에 맞춰 자유롭게 써주는 AI 경로
+async function aiNarrativeDirecting(){
+  const key=getAnthropicKey();
+  const btn=document.getElementById('hh-ai-narr-btn');
+  const statusEl=document.getElementById('hh-ai-narr-status');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
+
+  btn.disabled=true;btn.textContent='🤖 작성 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const g=GENRES[st.genre];
+    const mood=HH_MOODS.find(m=>m.kr===st.mood);
+    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+    const hasVocal=st.vocal&&st.vocal!=='No Vocal';
+    const ctx=[
+      `장르: ${g.kr} (${g.sound})`,
+      mood?`무드: ${mood.kr}`:null,
+      hasVocal?`보컬: ${st.vocal}`:'보컬 없음 — 완전 인스트루멘탈이라 보컬·가사·노래 관련 묘사는 절대 넣지 마',
+      refSong?`레퍼런스 곡: ${refSong}`:null,
+      `구조: ${st.structSegs.join(' → ')}`,
+      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
+    ].filter(Boolean).join('\n');
+    const prompt=`너는 힙합 프로듀서야. 아래 트랙이 인트로 → 벌스/훅 → 클라이맥스(마지막 드롭) → 아웃트로로 전개될 때, 각 구간에서 구체적으로 어떤 일이 일어나면 좋을지 Suno AI 프롬프트에 넣을 영어 프로덕션 문구로 구간당 1문장씩 써줘. 추상적 비유 말고 실제 소리로 구현되는 구체적 지시로 (예: "energy ramps up gradually rather than hitting all at once").
+
+[현재 설정]
+${ctx}
+
+다른 텍스트 없이 아래 JSON 형식으로만 답해 (각 값은 소문자로 시작하는 영어 한 문장 — 기존 문장 뒤에 쉼표로 이어붙일 거야):
+{"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"...","reason":"한국어 한 문장 요약"}`;
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-5',
+        max_tokens:500,
+        messages:[{role:'user',content:prompt}],
+      }),
+    });
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'');
+      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+    }
+    const data=await res.json();
+    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const cats=['인트로','버스/훅','클라이맥스/드롭','아웃트로'];
+    let applied=0;
+    cats.forEach(c=>{
+      const v=(parsed[c]||'').trim().slice(0,150);
+      if(v){
+        st.narrAI[c]=v;
+        st.narrSt[c]=null; // AI 디렉션이 우선이니 프리셋 선택 표시는 비워둠
+        applied++;
+      }
+    });
+    if(!applied)throw new Error('AI가 디렉션을 반환하지 못했습니다');
+    renderHhNarr();
+    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 내러티브 디렉팅 적용');
+    if(statusEl){
+      statusEl.hidden=false;statusEl.style.color='var(--success)';
+      statusEl.textContent='✅ '+(parsed.reason||`${applied}개 구간 디렉션 적용됨`);
+    }
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 AI로 세부 디렉션 받기';
+  }
+}
+
 async function getAudioFeaturesViaRapidAPI(trackId){
   const key=getRapidApiKey();
   if(!key)return null;
@@ -2951,7 +3077,9 @@ function hhGenerate(source){
   if(st.region)summaryRows.push(['📍 지역',st.region]);
   if(st.density)summaryRows.push(['⚖ 밀도',st.density]);
   if(st.length)summaryRows.push(['⏱ 길이',st.length]);
-  const narrEntries=Object.entries(st.narrSt).filter(([,v])=>v);
+  const narrEntries=HH_NARR.map(seg=>seg.label)
+    .map(k=>[k, st.narrAI[k]?`🤖 ${st.narrAI[k]}`:st.narrSt[k]])
+    .filter(([,v])=>v);
   narrEntries.forEach(([k,v])=>summaryRows.push(['🎬 '+k,v]));
   let tableHTML='<table style="width:100%;border-collapse:collapse">';
   summaryRows.forEach((row,i)=>{
@@ -3257,7 +3385,7 @@ function hhReset(){
   st.genre=null;st.key=7;st.bpm=140;
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
-  st.narrSt={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
+  st.narrSt={};st.narrAI={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
   st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';

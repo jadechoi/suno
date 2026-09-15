@@ -362,6 +362,11 @@
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="aiNarrativeDirecting()" id="hh-ai-narr-btn" style="padding:6px 14px;border-radius:var(--r-sm);border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 AI로 세부 디렉션 받기</button>
+        <span style="font-size:10px;color:var(--text-3)">아래 5개 프리셋보다 더 구체적인 전개를 원하면, 지금 조합에 맞춰 AI가 4개 구간 전체를 직접 써줍니다 (선택사항)</span>
+      </div>
+      <div id="hh-ai-narr-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-bottom:10px"></div>
       <div class="narr-segments" id="hh-narr"></div>
     </div>
   </div>
