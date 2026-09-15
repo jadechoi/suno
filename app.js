@@ -127,7 +127,7 @@ const HH_ARTISTS=[
 
 const HH_808=['None','Minimal','Balanced','Heavy','Dominant'];
 const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks'];
-const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth'];
+const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth','Flute','Harp','Music box','Organ','Vibraphone','Kalimba','Arp pluck synth','Cello','Sitar','Vocoder synth'];
 const HH_MOODS=[
   {kr:'어둡고 위압적',tag:'dark menacing'},
   {kr:'감각적·관능적',tag:'sensual smooth'},
@@ -663,6 +663,8 @@ const MELODY_ROLE={
   'Dark synth':'lead','Emotional piano':'lead','Guitar loop':'lead','Sample chop':'lead','Brass stab':'lead',
   'Ambient pad':'background','Strings':'background','Psychedelic FX':'background',
   'Rhodes keys':'lead','Saxophone':'lead','Supersaw synth':'lead',
+  'Flute':'lead','Harp':'lead','Music box':'lead','Organ':'lead','Vibraphone':'lead','Kalimba':'lead','Arp pluck synth':'lead',
+  'Cello':'background','Sitar':'background','Vocoder synth':'background',
 };
 // 리드 멜로디 악기가 섹션마다 어떤 느낌으로 연주되면 좋을지 — 같은 악기라도 인트로/훅/벌스/브릿지/아웃트로마다 다르게
 const MELODY_ARTICULATION={
@@ -677,6 +679,16 @@ const MELODY_ARTICULATION={
   'Rhodes keys':{intro:'soft sustained chord',hook:'rhythmic chord stabs',verse:'sparse warm chords',bridge:'flowing chord progression',outro:'slow fading chord'},
   'Saxophone':{intro:'soft held note',hook:'melodic lead line',verse:'sparse improvised phrase',bridge:'rising melodic run',outro:'slow fading phrase'},
   'Supersaw synth':{intro:'soft rising pad',hook:'wide detuned stabs',verse:'thin sustained layer',bridge:'rising detuned swell',outro:'fading detuned pad'},
+  'Flute':{intro:'soft breathy held note',hook:'quick fluttering run',verse:'sparse airy phrase',bridge:'rising breathy trill',outro:'slow fading breath tone'},
+  'Harp':{intro:'soft rolling glissando',hook:'rhythmic plucked arpeggio',verse:'sparse plucked notes',bridge:'rising cascading glissando',outro:'slow fading pluck'},
+  'Music box':{intro:'delicate single chime',hook:'tinkling melodic loop',verse:'sparse chiming notes',bridge:'slowing detuned chime',outro:'fading music box chime'},
+  'Organ':{intro:'soft held chord swell',hook:'rhythmic chord stabs',verse:'sparse warm chord',bridge:'rising Leslie swell',outro:'slow fading chord'},
+  'Vibraphone':{intro:'soft mallet roll',hook:'rhythmic mallet hits',verse:'sparse mallet notes',bridge:'rising tremolo roll',outro:'slow fading mallet ring'},
+  'Kalimba':{intro:'soft plucked pattern',hook:'rhythmic plucked loop',verse:'sparse plucked notes',bridge:'rising plucked run',outro:'fading plucked note'},
+  'Arp pluck synth':{intro:'soft rising arpeggio',hook:'rapid plucked arpeggio',verse:'sparse plucked sequence',bridge:'rising pitched arpeggio',outro:'slowing fading arpeggio'},
+  'Cello':{intro:'soft sustained low tone',hook:'rhythmic bowed stabs',verse:'sparse sustained low note',bridge:'rising bowed swell',outro:'slow fading low tone'},
+  'Sitar':{intro:'droning sustained tone',hook:'rhythmic plucked buzz',verse:'sparse droning texture',bridge:'rising sliding drone',outro:'fading droning tone'},
+  'Vocoder synth':{intro:'soft robotic sustained tone',hook:'rhythmic robotic stabs',verse:'sparse robotic texture',bridge:'rising pitched sweep',outro:'fading robotic tone'},
 };
 // 멜로디 2개 선택 시 리드/배경 자동 배정 — st.melodyLeadIdx로 사용자가 ⇄ 바꾼 상태 반영
 function computeMelodyRoles(arr){
