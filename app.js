@@ -1827,6 +1827,12 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     const dir=choice&&HH_NARR_DIR[category]?.[choice];
     return dir?`, ${dir}`:'';
   };
+  // sectionArrangeExtras[type]는 true(장르 기본 편곡 문구) 또는 AI가 직접 쓴 문자열(구체적 아이디어) 둘 다 가능
+  const arrangeExtra=type=>{
+    const v=sAE[type];
+    if(!v)return'';
+    return `, ${typeof v==='string'?v:genArrangeDir(st.genre,type,_ctx)}`;
+  };
 
   segs.forEach(type=>{
     if(type==='intro'){
@@ -1855,7 +1861,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook&&isLast?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''}${cnt.hook===1?narrNote('버스/훅'):''}${isLast?narrNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${isLast?arrangeExtra('hook'):''}${cnt.hook===1?narrNote('버스/훅'):''}${isLast?narrNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1864,7 +1870,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse&&cnt.verse===totalVerses?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''}${cnt.verse===1?narrNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${cnt.verse===totalVerses?arrangeExtra('verse'):''}${cnt.verse===1?narrNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1876,7 +1882,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
         :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
-      lines.push(`(${bB} Bars: ${desc}${sAE.bridge&&isLastB?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
+      lines.push(`(${bB} Bars: ${desc}${isLastB?arrangeExtra('bridge'):''})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
@@ -2478,7 +2484,7 @@ async function aiProducerReview(){
 
 중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
-- boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나
+- boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나. 조언에 "악기 A와 B가 주고받는다"처럼 장르 고정 문구로는 못 담는 구체적인 아이디어가 있으면 boostText에 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장을 직접 써 (없으면 생략 — 그때는 장르 기본 편곡 문구가 대신 들어감). Suno는 텍스트→음악 변환 모델이라 추상적 비유보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹)로 쓴 지시를 훨씬 잘 반영해 (예: "flute and synth trade short call-and-response phrases with increasing density"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입(hook|verse|bridge)과, 그걸 어디 넣을지 addSectionPosition도 같이 정해줘: beforeFirstHook(첫 훅 앞) | afterIntro(인트로 바로 뒤) | beforeLastHook(마지막 훅 직전 — 클라이맥스 텐션 빌드용) | end(아웃트로 직전) 중 조언 내용이랑 실제로 일치하는 위치 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
 - narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
@@ -2487,7 +2493,7 @@ async function aiProducerReview(){
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시)","boostSection":"(해당시)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 한 문장)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
     const dynamicText=`
 
 [적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
@@ -2513,6 +2519,7 @@ ${ctx}`;
       score:(Number.isFinite(Math.round(s.score))&&Math.round(s.score)>=1&&Math.round(s.score)<=100)?Math.round(s.score):null,
       tag:s.tag||null,
       boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
+      boostText:(typeof s.boostText==='string'&&s.boostText.trim())?s.boostText.trim().slice(0,150):null,
       addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
       addSectionPosition:(['beforeFirstHook','afterIntro','beforeLastHook','end'].includes(s.addSectionPosition))?s.addSectionPosition:'beforeLastHook',
       mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
@@ -2546,7 +2553,8 @@ function applyAiSuggestion(idx){
   }
   if(sug.boostSection){
     st.sectionArrangeExtras=st.sectionArrangeExtras||{};
-    st.sectionArrangeExtras[sug.boostSection]=true;
+    // boostText(AI가 직접 쓴 구체적 문장)가 있으면 그걸 저장, 없으면 기존처럼 true만 저장해서 장르 기본 편곡 문구가 대신 들어가게 함
+    st.sectionArrangeExtras[sug.boostSection]=sug.boostText||true;
   }
   if(sug.addSection){
     // 항상 같은 자리(맨 끝 직전)에 끼워넣으면 조언 텍스트가 말하는 위치("인트로 뒤에", "첫 훅 앞에" 등)랑 실제 결과가 어긋날 수 있어서,
