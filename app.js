@@ -609,6 +609,8 @@ function updateAiButtonVisibility(){
   const hasKey=!!getAnthropicKey();
   const melodyBlock=document.getElementById('hh-melody-ai-block');
   if(melodyBlock)melodyBlock.hidden=!hasKey;
+  const refBlock=document.getElementById('hh-ref-ai-block');
+  if(refBlock)refBlock.hidden=!hasKey;
 }
 
 // hhInit·hhReset이 공통으로 쓰는 칩/그리드 렌더 블록 — 한쪽만 고치고 잊어버리는 걸 방지
@@ -2720,6 +2722,64 @@ ${ctx}`;
   }
 }
 
+// GENRE_REF는 장르 하나만 보고 고정 2명을 주는 룰 테이블이라, 같은 장르에서도 무드·멜로디·텍스처가 다르면
+// 더 어울리는 다른 프로듀서가 있을 수 있음 — 그 판단은 룰로 못 담아서 AI로
+async function aiRecommendProducerRef(){
+  const key=getAnthropicKey();
+  const statusEl=document.getElementById('hh-ai-ref-status');
+  const btn=document.getElementById('hh-ai-ref-btn');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
+
+  btn.disabled=true;btn.textContent='🤖 추천 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const refList=HH_REF.map(p=>`${p.kr} (${p.vibes} — ${p.en})`).join('\n');
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 프로듀서 레퍼런스 1~2명을 아래 목록에서만 정확히 그대로 골라줘. 장르만 보지 말고 무드·멜로디·텍스처까지 종합해서 판단해 — 같은 장르라도 무드가 다르면 다른 프로듀서가 더 어울릴 수 있어.
+
+[프로듀서 목록]
+${refList}
+
+설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
+{"refs":["...","..."],"reason":"한 문장 한국어 이유"}`;
+    const g=GENRES[st.genre];
+    const mood=HH_MOODS.find(m=>m.kr===st.mood);
+    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+    const ctx=[
+      `장르: ${g.kr} (${g.sound}, 에너지 ${g.energy})`,
+      mood?`무드: ${mood.kr}`:null,
+      st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:null,
+      st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
+      refSong?`레퍼런스 곡: ${refSong}`:null,
+      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
+    ].filter(Boolean).join('\n');
+    const dynamicText=`
+
+[현재 선택]
+${ctx}`;
+
+    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText});
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const refs=(parsed.refs||[]).filter(r=>HH_REF.some(p=>p.kr===r)).slice(0,2);
+    if(!refs.length)throw new Error('AI가 목록에 없는 프로듀서를 반환했습니다');
+
+    st.refs=refs;
+    renderProducerRef();
+    clearAutoHint('hh-ref-hint');
+    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 레퍼런스 추천 적용');
+
+    if(statusEl){
+      statusEl.hidden=false;statusEl.style.color='var(--success)';
+      statusEl.textContent='✅ '+(parsed.reason||'추천 완료');
+    }
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 AI로 다시 추천';
+  }
+}
+
 async function getAudioFeaturesViaRapidAPI(trackId){
   const key=getRapidApiKey();
   if(!key)return null;
@@ -2788,9 +2848,12 @@ function spDrumsFromFeatures(energy,danceability){
 }
 
 let _spSearchTimer=null;
+// 타이핑 멈추면 자동으로 검색 — 예전엔 타이머만 걸어두고 실제로 검색을 트리거하는 코드가 없어서
+// 검색 버튼을 직접 누르거나 Enter를 쳐야만 결과가 떴음
 function onRefSongInput(val){
   clearTimeout(_spSearchTimer);
   if(val.length<3){hideSpotifyDropdown();return;}
+  _spSearchTimer=setTimeout(()=>doSpotifySearch(),500);
 }
 async function doSpotifySearch(){
   const q=(document.getElementById('hh-ref-song')?.value||'').trim();
