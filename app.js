@@ -1785,6 +1785,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
 
   const cnt={hook:0,verse:0,bridge:0};
   const totalHooks=segs.filter(s=>s==='hook').length;
+  const totalVerses=segs.filter(s=>s==='verse').length;
   const totalBridges=segs.filter(s=>s==='bridge').length;
   const sAE=st.sectionArrangeExtras||{};
   const _ctx={eDesc,dDesc,mDesc,hookEng,bpmNum};
@@ -1854,7 +1855,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''}${cnt.hook===1?narrNote('버스/훅'):''}${isLast?narrNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${sAE.hook&&isLast?`, ${genArrangeDir(st.genre,'hook',_ctx)}`:''}${cnt.hook===1?narrNote('버스/훅'):''}${isLast?narrNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1863,7 +1864,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''}${cnt.verse===1?narrNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${sAE.verse&&cnt.verse===totalVerses?`, ${genArrangeDir(st.genre,'verse',_ctx)}`:''}${cnt.verse===1?narrNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1875,7 +1876,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
         :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
-      lines.push(`(${bB} Bars: ${desc}${sAE.bridge?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
+      lines.push(`(${bB} Bars: ${desc}${sAE.bridge&&isLastB?`, ${genArrangeDir(st.genre,'bridge',_ctx)}`:''})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
@@ -2613,7 +2614,7 @@ Suno는 추상적이거나 문학적인 표현("슬픔이 밀려오는 느낌")�
 
 [원본]
 ${original}`;
-    const polished=(await callAnthropic(key,{maxTokens:3000,staticText,dynamicText})).trim();
+    const polished=(await callAnthropic(key,{maxTokens:6000,staticText,dynamicText})).trim();
     if(!polished)throw new Error('빈 응답을 받았습니다');
     _polishOriginal=original;
     ta.value=polished;
