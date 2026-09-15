@@ -2292,6 +2292,73 @@ function saveAnthropicKey(){
   try{localStorage.setItem('anthropic_api_key',val);}catch(_){}
   if(msgEl){msgEl.textContent='✅ 저장됨 — MELODY 섹션의 🤖 AI 추천받기 버튼을 눌러보세요';msgEl.hidden=false;msgEl.style.color='var(--success)';}
 }
+let _polishOriginal=null;
+async function aiPolishSectionPrompt(){
+  const key=getAnthropicKey();
+  const btn=document.getElementById('hh-ai-polish-btn');
+  const statusEl=document.getElementById('hh-ai-polish-status');
+  const ta=document.getElementById('hh-sect-ta');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+
+  if(btn.dataset.state==='polished'){
+    ta.value=_polishOriginal;
+    btn.textContent='🤖 AI로 다듬기';
+    btn.dataset.state='original';
+    if(statusEl)statusEl.hidden=true;
+    return;
+  }
+
+  const original=ta.value;
+  btn.disabled=true;btn.textContent='🤖 다듬는 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const prompt=`너는 힙합 프로듀서가 Suno AI에 넣을 섹션별 편곡 프롬프트를 다듬는 걸 도와줘. 아래 텍스트는 규칙 기반으로 조합돼서 문장 구조가 반복적이고 기계적으로 느껴져. 의미는 그대로 유지하면서 문장을 더 자연스럽고 프로듀서가 직접 쓴 것처럼 다양하게 다듬어줘.
+
+[반드시 지킬 것]
+- [Intro], [Instrumental Hook 1: ...] 같은 대괄호 헤더는 절대 수정하지 마 (줄 순서도 그대로)
+- 괄호 안 "8 Bars:" 같은 마디 수 숫자는 절대 바꾸지 마
+- BPM, Key, 악기 이름, ZERO/instrumental 같은 보컬 관련 지시는 의미가 바뀌면 안 돼
+- 줄 개수와 대략적인 문장 길이는 비슷하게 유지
+- 같은 단어/구절이 여러 섹션에서 반복되면 다른 표현으로 바꿔서 더 다양하게
+
+[원본]
+${original}
+
+다른 설명 없이 다듬어진 전체 텍스트만 답해.`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1200,
+        messages:[{role:'user',content:prompt}],
+      }),
+    });
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'');
+      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+    }
+    const data=await res.json();
+    const polished=(data.content?.[0]?.text||'').trim();
+    if(!polished)throw new Error('빈 응답을 받았습니다');
+    _polishOriginal=original;
+    ta.value=polished;
+    btn.textContent='↩ 원본으로';
+    btn.dataset.state='polished';
+    if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--success)';statusEl.textContent='✅ 다듬기 완료 — 다시 누르면 원본으로 되돌아갑니다';}
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;
+    if(btn.dataset.state!=='polished')btn.textContent='🤖 AI로 다듬기';
+  }
+}
 async function aiRecommendMelodyTexture(){
   const key=getAnthropicKey();
   const statusEl=document.getElementById('ai-reco-status');
@@ -2649,7 +2716,7 @@ function hhGenerate(){
     st.drums.length?st.drums[0]:null,st.melody,st.region
   );
   const sectBlock=makeOutBlock('② 섹션 프롬프트',
-    `<textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea>`,
+    `<textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
     'hh-sect-ta','#8B5CF6');
   if(antiAI){
     const badge=document.createElement('span');
@@ -2658,6 +2725,20 @@ function hhGenerate(){
     badge.textContent='✦ Anti-AI ON';
     sectBlock.querySelector('.output-box-label').after(badge);
   }
+  // Copy 버튼 옆에 AI 다듬기 버튼 — 룰 기반 조합이라 문장이 반복·기계적으로 느껴질 때 자연스럽게 재작성 (opt-in, 구조/수치는 보존하도록 지시)
+  const hdr=sectBlock.querySelector('.output-box-header');
+  const copyBtn=hdr.querySelector('button');
+  const actionsWrap=document.createElement('div');
+  actionsWrap.style.cssText='display:flex;gap:8px;align-items:center';
+  hdr.appendChild(actionsWrap);
+  actionsWrap.appendChild(copyBtn);
+  const polishBtn=document.createElement('button');
+  polishBtn.id='hh-ai-polish-btn';
+  polishBtn.dataset.state='original';
+  polishBtn.textContent='🤖 AI로 다듬기';
+  polishBtn.style.cssText='padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:"Space Grotesk",sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap';
+  polishBtn.onclick=aiPolishSectionPrompt;
+  actionsWrap.appendChild(polishBtn);
   container.appendChild(sectBlock);
 
   // ③ 스타일 프롬프트
