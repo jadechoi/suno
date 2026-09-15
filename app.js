@@ -602,6 +602,15 @@ function hhInit(){
   renderHhChips();
   renderArtists('hh-artists-typeBeat',HH_ARTISTS,'hh');
   renderPromptHistory();
+  updateAiButtonVisibility();
+}
+// API Key 없으면 눌러도 "Key부터 넣으세요" 안내만 뜨는 AI 버튼들을 아예 숨김 — Key 저장 성공 시 다시 호출해서 드러남
+function updateAiButtonVisibility(){
+  const hasKey=!!getAnthropicKey();
+  const melodyBlock=document.getElementById('hh-melody-ai-block');
+  if(melodyBlock)melodyBlock.hidden=!hasKey;
+  const structBlock=document.getElementById('hh-struct-ai-block');
+  if(structBlock)structBlock.hidden=!hasKey;
 }
 
 // hhInit·hhReset이 공통으로 쓰는 칩/그리드 렌더 블록 — 한쪽만 고치고 잊어버리는 걸 방지
@@ -2371,6 +2380,7 @@ function saveAnthropicKey(){
   }
   try{localStorage.setItem('anthropic_api_key',val);}catch(_){}
   if(msgEl){msgEl.textContent='✅ 저장됨 — MELODY 섹션의 🤖 AI 추천받기 버튼을 눌러보세요';msgEl.hidden=false;msgEl.style.color='var(--success)';}
+  updateAiButtonVisibility();
 }
 // 룰 테이블은 정해진 옵션 중 최선을 고를 뿐, "이 조합에 뭘 더하면 좋을지"·"전체적으로 뭐가 아쉬운지" 같은
 // 열린 판단은 못 함 — 그 갭을 메우기 위해 여러 관점(악기/편곡/구조/믹스/보컬/무드)에서 자유 형식 조언을 받고,
@@ -2989,6 +2999,7 @@ function removeAdvTag(tag){
 
 // source: undefined = 사용자가 직접 Generate 누름 (기록에 라벨 없음), 문자열 = 어떤 적용 액션이 실제로 프롬프트를 바꿔서 다시 생성됐는지 (기록에 라벨로 남음), false = 프롬프트 내용은 안 바뀌고 UI만 갱신 (기록 안 남김)
 function hhGenerate(source){
+  const hasAiKey=!!getAnthropicKey();
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
@@ -3055,13 +3066,15 @@ function hhGenerate(source){
   actionsWrap.style.cssText='display:flex;gap:8px;align-items:center';
   hdr.appendChild(actionsWrap);
   actionsWrap.appendChild(copyBtn);
-  const polishBtn=document.createElement('button');
-  polishBtn.id='hh-ai-polish-btn';
-  polishBtn.dataset.state='original';
-  polishBtn.textContent='🤖 AI로 다듬기';
-  polishBtn.style.cssText='padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:"Space Grotesk",sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap';
-  polishBtn.onclick=aiPolishSectionPrompt;
-  actionsWrap.appendChild(polishBtn);
+  if(hasAiKey){
+    const polishBtn=document.createElement('button');
+    polishBtn.id='hh-ai-polish-btn';
+    polishBtn.dataset.state='original';
+    polishBtn.textContent='🤖 AI로 다듬기';
+    polishBtn.style.cssText='padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:"Space Grotesk",sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap';
+    polishBtn.onclick=aiPolishSectionPrompt;
+    actionsWrap.appendChild(polishBtn);
+  }
   container.appendChild(sectBlock);
 
   // ③ 스타일 프롬프트
@@ -3193,7 +3206,6 @@ function hhGenerate(source){
   window._advTagSets=[];  // 매 generate마다 초기화
   const adv=buildProducerAdvice(g,st,mood,bpmVal,keyStr);
   const advBtn=(label,fn)=>fn?`<button onclick="${fn}" style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s" onmouseover="this.style.background='var(--accent-dim)'" onmouseout="this.style.background='var(--surface-3)'">${label}</button>`:'';
-  const hasAiKey=!!getAnthropicKey();
   let advHtml='';
   if(adv.warns.length||adv.tips.length){
     const advRows=`${adv.warns.map(w=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.3);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${w.html}</span>${advBtn(w.btnLabel,w.btnFn)}</div>`).join('')}
@@ -3229,12 +3241,14 @@ function hhGenerate(source){
       ${rowsHtml}
       <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
     </div>`;
-  } else {
+  } else if(hasAiKey){
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <button id="hh-ai-arrange-btn" onclick="aiProducerReview()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 AI 프로듀서 리뷰 받기</button>
       <span style="font-size:11px;color:var(--text-3);font-style:normal">전문 프로듀서 총평, 레퍼런스 곡 부합도(type beat 평가), 악기·편곡·구조·믹스 등을 AI가 짚어줍니다</span>
     </div>
     <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`;
+  } else {
+    aiReviewHtml=''; // API Key 없으면 AI 버튼 자체를 안 보여줌 — 클릭해도 어차피 Key 넣으라는 안내만 뜨니 UI만 지저분해짐
   }
   container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
     `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+advHtml:advHtml+aiReviewHtml}`,
