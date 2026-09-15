@@ -2754,6 +2754,18 @@ function sp808FromEnergy(energy){
   if(energy<0.82)return'Heavy';
   return'Dominant';
 }
+// 에너지·댄서빌리티로 리듬 밀도(1번째)와 보조 레이어(2번째)를 따로 판단 — 장르 고정값이 아니라 그 곡 실제 특성 기반
+function spDrumsFromFeatures(energy,danceability){
+  const picks=[];
+  if(energy>0.75&&danceability>0.6)picks.push('Trap rolls');
+  else if(energy>0.6&&danceability>0.6)picks.push('Rolling triplets');
+  else if(energy<0.4)picks.push('Boom Bap kick');
+  else picks.push('Crisp hi-hats');
+  if(energy>0.8&&danceability<0.5)picks.push('Glitchy breaks');
+  else if(energy>0.55)picks.push('Sub-bass punch');
+  else if(!picks.includes('Crisp hi-hats'))picks.push('Crisp hi-hats');
+  return[...new Set(picks)].slice(0,2);
+}
 
 let _spSearchTimer=null;
 function onRefSongInput(val){
@@ -2852,6 +2864,11 @@ async function applySpotifyTrack(trackId,label){
   st._808=level;
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
   setAutoHint('hh-808-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+level);
+  // 드럼 — 장르 고정값(GENRE_AUTO) 대신 이 곡의 실제 에너지·댄서빌리티로 판단
+  const drums=spDrumsFromFeatures(af.energy,af.danceability);
+  st.drums=drums;
+  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+  setAutoHint('hh-drums-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+drums.join(', '));
   // Mood
   const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
   st.mood=moodKr;
@@ -2861,7 +2878,7 @@ async function applySpotifyTrack(trackId,label){
   if(statusEl){
     const keyStr=KEYS[st.key]||'?';
     const sfx=_spAudioFeaturesBlocked?' (장르 기반 추정)':'';
-    statusEl.textContent=`✅ Key: ${keyStr} · BPM: ${st.bpm} · 무드: ${moodKr} · 808: ${level}${sfx}`;
+    statusEl.textContent=`✅ Key: ${keyStr} · BPM: ${st.bpm} · 무드: ${moodKr} · 808: ${level} · 드럼: ${drums.join(', ')}${sfx}`;
     statusEl.hidden=false;
   }
 }
