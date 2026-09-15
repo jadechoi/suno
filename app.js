@@ -997,6 +997,7 @@ function renderHhGenres(){
 function selectGenre(i){
   const deselect=st.genre===i;
   st.genre=deselect?null:i;
+  _aiSuggestions=null;
   if(st.genre!==null){
     st.bpm=GENRES[i].bpm;
     document.getElementById('hh-bpm').value=st.bpm;
@@ -2292,7 +2293,12 @@ function saveAnthropicKey(){
   try{localStorage.setItem('anthropic_api_key',val);}catch(_){}
   if(msgEl){msgEl.textContent='✅ 저장됨 — MELODY 섹션의 🤖 AI 추천받기 버튼을 눌러보세요';msgEl.hidden=false;msgEl.style.color='var(--success)';}
 }
-async function aiSuggestArrangement(){
+// 룰 테이블은 정해진 옵션 중 최선을 고를 뿐, "이 조합에 뭘 더하면 좋을지"·"전체적으로 뭐가 아쉬운지" 같은
+// 열린 판단은 못 함 — 그 갭을 메우기 위해 여러 관점(악기/편곡/구조/믹스/보컬/무드)에서 자유 형식 조언을 받고,
+// 그중 기존 컨트롤(스타일 태그·섹션 강화)로 바로 적용 가능한 것만 원클릭 적용 버튼을 붙임
+let _aiSuggestions=null;
+const AI_CATEGORY_EMOJI={'악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶'};
+async function aiProducerReview(){
   const key=getAnthropicKey();
   const btn=document.getElementById('hh-ai-arrange-btn');
   const statusEl=document.getElementById('hh-ai-arrange-status');
@@ -2300,9 +2306,8 @@ async function aiSuggestArrangement(){
   if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
   const uniqueSegs=[...new Set(st.structSegs)].filter(s=>s==='hook'||s==='verse'||s==='bridge');
-  if(!uniqueSegs.length){fail('구조에 Hook/Verse/Bridge가 없습니다');return;}
 
-  btn.disabled=true;btn.textContent='🤖 분석 중...';
+  if(btn){btn.disabled=true;btn.textContent='🤖 분석 중...';}
   if(statusEl)statusEl.hidden=true;
   try{
     const g=GENRES[st.genre];
@@ -2310,24 +2315,23 @@ async function aiSuggestArrangement(){
     const ctx=[
       `장르: ${g.kr} (${g.sound})`,
       mood?`무드: ${mood.kr}`:null,
-      st.melody.length?`이미 선택된 멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
+      st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
       st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
+      st.vocal&&st.vocal!=='No Vocal'?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
       st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
       `구조: ${st.structSegs.join(' → ')}`,
-      `BPM ${st.bpm}`,
+      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const prompt=`너는 힙합 비트 프로듀서야. 아래 트랙 설정을 보고 두 가지를 제안해줘.
-1. 지금 편성에 한 겹 더하면 좋을 악기/사운드 레이어 1개 (이미 선택된 악기·태그와 겹치지 않게)
-2. 아래 구조 중 에너지를 한 단계 더 끌어올리면 좋을 섹션 1곳
+    const prompt=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 3~5개 관점에서 짧게 조언해줘 (악기, 편곡/에너지, 구조, 믹스, 보컬, 무드 등을 섞어서). 뻔한 일반론 말고 지금 이 조합이라서 나올 수 있는 구체적인 조언으로.
 
 [현재 설정]
 ${ctx}
 
-[선택 가능한 섹션]
-${uniqueSegs.join(', ')}
+[에너지를 끌어올릴 섹션을 고를 수 있는 옵션]
+${uniqueSegs.length?uniqueSegs.join(', '):'(없음)'}
 
-다른 텍스트 없이 아래 JSON 형식으로만 답해:
-{"instrument":"Suno 스타일 태그에 쓸 영어 소문자 악기/사운드 명사구 (예: muted trumpet stabs)","instrumentReason":"한 문장 한국어 이유","boostSection":"${uniqueSegs.join('|')}" 중 정확히 하나,"boostReason":"한 문장 한국어 이유"}`;
+다른 텍스트 없이 아래 JSON 형식으로만 답해. instrument는 새 악기/사운드를 추천할 때만(Suno 태그용 영어 소문자 명사구), boostSection은 편곡 에너지 포인트 제안이고 위 옵션 중 하나를 고를 때만 넣고, 그 외 관점은 두 필드 다 생략해:
+{"suggestions":[{"category":"악기|편곡|구조|믹스|보컬|무드","text":"한국어 한두 문장 조언","instrument":"(선택)","boostSection":"(선택, ${uniqueSegs.join('|')||'없음'} 중 하나)"}]}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2339,7 +2343,7 @@ ${uniqueSegs.join(', ')}
       },
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
-        max_tokens:300,
+        max_tokens:700,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2350,22 +2354,35 @@ ${uniqueSegs.join(', ')}
     const data=await res.json();
     const raw=data.content?.[0]?.text||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
-    if(!parsed.instrument)throw new Error('AI가 악기를 추천하지 못했습니다');
-    if(!st.extraTags.includes(parsed.instrument))st.extraTags.push(parsed.instrument);
-
-    const secLabel={hook:'Hook',verse:'Verse',bridge:'Bridge'};
-    let boostMsg='';
-    if(parsed.boostSection&&uniqueSegs.includes(parsed.boostSection)){
-      st.sectionArrangeExtras=st.sectionArrangeExtras||{};
-      st.sectionArrangeExtras[parsed.boostSection]=true;
-      boostMsg=` · <strong>${secLabel[parsed.boostSection]}</strong> 섹션 강화 (${escHtml(parsed.boostReason||'')})`;
-    }
+    const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
+    if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
+    _aiSuggestions=list.map(s=>({
+      category:s.category||'💡',
+      text:s.text,
+      instrument:s.instrument||null,
+      boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
+      applied:false,
+    }));
     hhGenerate();
-    showToast(`✅ <strong>${escHtml(parsed.instrument)}</strong> 추가됨 (${escHtml(parsed.instrumentReason||'')})${boostMsg}`,5000);
   }catch(e){
     fail(e.message);
-    btn.disabled=false;btn.textContent='🤖 악기·편곡 포인트 추천받기';
+    if(btn){btn.disabled=false;btn.textContent='🤖 AI 프로듀서 리뷰 받기';}
   }
+}
+function applyAiSuggestion(idx){
+  const sug=(_aiSuggestions||[])[idx];
+  if(!sug||sug.applied)return;
+  if(sug.instrument&&!st.extraTags.includes(sug.instrument))st.extraTags.push(sug.instrument);
+  if(sug.boostSection){
+    st.sectionArrangeExtras=st.sectionArrangeExtras||{};
+    st.sectionArrangeExtras[sug.boostSection]=true;
+  }
+  sug.applied=true;
+  hhGenerate();
+}
+function clearAiSuggestions(){
+  _aiSuggestions=null;
+  hhGenerate();
 }
 let _polishOriginal=null;
 async function aiPolishSectionPrompt(){
@@ -2954,13 +2971,34 @@ function hhGenerate(){
     </div>`;
   }
 
-  container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
-    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${advHtml}
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <button id="hh-ai-arrange-btn" onclick="aiSuggestArrangement()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 악기·편곡 포인트 추천받기</button>
-      <span style="font-size:11px;color:var(--text-3);font-style:normal">추가하면 어울릴 악기, 더 터뜨리면 좋은 섹션을 AI가 짚어줍니다</span>
+  let aiReviewHtml;
+  if(_aiSuggestions){
+    const rowsHtml=_aiSuggestions.map((s,idx)=>{
+      const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
+      const actionable=!!(s.instrument||s.boostSection);
+      const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
+      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong> — ${escHtml(s.text)}</span>${btnHtml}</div>`;
+    }).join('');
+    aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent-text);font-style:normal">🤖 AI 프로듀서 리뷰</span>
+        <div style="display:flex;gap:6px">
+          <button id="hh-ai-arrange-btn" onclick="aiProducerReview()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--text-2);font-size:11px;cursor:pointer">🔄 다시</button>
+          <button onclick="clearAiSuggestions()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:transparent;color:var(--text-3);font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      ${rowsHtml}
+      <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
+    </div>`;
+  } else {
+    aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button id="hh-ai-arrange-btn" onclick="aiProducerReview()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🤖 AI 프로듀서 리뷰 받기</button>
+      <span style="font-size:11px;color:var(--text-3);font-style:normal">악기·편곡·구조·믹스·보컬·무드 등 여러 관점에서 이 곡을 더 좋게 만들 방법을 AI가 짚어줍니다</span>
     </div>
-    <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
+    <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`;
+  }
+  container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
+    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${advHtml}${aiReviewHtml}`,
     null,'#6B7280'));
 
   // Reset link
@@ -3055,6 +3093,7 @@ function renderPromptHistory(){
 }
 
 function hhReset(){
+  _aiSuggestions=null;
   st.genre=null;st.key=7;st.bpm=140;
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
