@@ -469,10 +469,21 @@ async function fetchBillboardHipHopChart(){
   }catch(e){console.warn('fetchBillboardHipHopChart error',e);return[];}
 }
 
+// /v1/search가 429(rate limit)를 주면 Retry-After만큼(최대 3초) 기다렸다가 한 번만 재시도 — pMapLimit로 동시성을 줄여도
+// 짧은 순간 몰리면 여전히 걸릴 수 있어서, 실패로 조용히 버리지 않고 한 번은 복구를 시도
+async function fetchWithRetry429(url,tok){
+  let r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+  if(r.status===429){
+    const wait=Math.min(3,parseInt(r.headers.get('retry-after')||'1',10)||1)*1000;
+    await new Promise(res=>setTimeout(res,wait));
+    r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+  }
+  return r;
+}
 // Billboard 차트엔 Spotify ID가 없어서 아티스트 이름으로 정확히 검색해 ID를 리졸브
 async function resolveArtistIdByName(name,tok){
   try{
-    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(name)}&type=artist&market=US&limit=1`,{headers:{Authorization:'Bearer '+tok}});
+    const r=await fetchWithRetry429(`https://api.spotify.com/v1/search?q=${encodeURIComponent(name)}&type=artist&market=US&limit=1`,tok);
     if(!r.ok)return null;
     const d=await r.json();
     const a=(d.artists?.items||[])[0];
@@ -525,7 +536,7 @@ async function fetchArtistTopTracks(artistId,tok,limit=5){
 // Billboard엔 트랙 ID가 없어서, "지금 차트인 그 곡"을 Spotify에서 아티스트+제목으로 직접 찾는다
 async function resolveTrackByArtistAndTitle(artist,title,tok){
   try{
-    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`${artist} ${title}`)}&type=track&market=US&limit=1`,{headers:{Authorization:'Bearer '+tok}});
+    const r=await fetchWithRetry429(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`${artist} ${title}`)}&type=track&market=US&limit=1`,tok);
     if(!r.ok)return null;
     const d=await r.json();
     const t=(d.tracks?.items||[])[0];
@@ -603,7 +614,7 @@ async function buildTrendingArtistAccordion(artists,tok){
   container.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:6px 0">🎧 Spotify 핫 트랙 로딩 중…</div>';
   setTimeout(()=>{ // DOM paint 먼저
     container.innerHTML='';
-    artists.slice(0,15).forEach((a,i)=>{
+    const rows=artists.slice(0,15).map((a,i)=>{
       const color=TREND_COLORS[i%TREND_COLORS.length];
       const row=document.createElement('div');
       row.className='artist-row';
@@ -618,32 +629,35 @@ async function buildTrendingArtistAccordion(artists,tok){
       songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">로딩 중…</div>';
       row.appendChild(header);row.appendChild(songsDiv);
       container.appendChild(row);
-      // 비동기로 트랙 fetch — Billboard에서 확인된 "지금 차트인 곡"을 최우선으로 꽂는다
-      fetchArtistTopTracks(a.id,tok,5).then(async tracks=>{
-        if(a.chartSong){
-          const chartTitle=a.chartSong.name.toLowerCase().trim();
-          const already=tracks.find(t=>t.name.toLowerCase().trim()===chartTitle);
-          if(already){
-            tracks=[already,...tracks.filter(t=>t!==already)];
-          } else {
-            const resolvedChart=await resolveTrackByArtistAndTitle(a.name,a.chartSong.name,tok);
-            if(resolvedChart)tracks=[resolvedChart,...tracks].slice(0,5);
-          }
+      return{a,songsDiv};
+    });
+    // 트랙 fetch(그중 일부는 Spotify /search)를 동시에 15개 다 쏘면 429가 나서, 여기도 동시성을 제한해 순차적으로 소화
+    pMapLimit(rows,4,async({a,songsDiv})=>{
+      // Billboard에서 확인된 "지금 차트인 곡"을 최우선으로 꽂는다
+      let tracks=await fetchArtistTopTracks(a.id,tok,5);
+      if(a.chartSong){
+        const chartTitle=a.chartSong.name.toLowerCase().trim();
+        const already=tracks.find(t=>t.name.toLowerCase().trim()===chartTitle);
+        if(already){
+          tracks=[already,...tracks.filter(t=>t!==already)];
+        } else {
+          const resolvedChart=await resolveTrackByArtistAndTitle(a.name,a.chartSong.name,tok);
+          if(resolvedChart)tracks=[resolvedChart,...tracks].slice(0,5);
         }
-        if(!tracks.length){songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">트랙 없음</div>';return;}
-        const grid=document.createElement('div');
-        grid.className='songs-grid';
-        tracks.forEach((t,ti)=>{
-          const card=document.createElement('div');
-          card.className='song-card';
-          const chartBadge=(a.chartSong&&ti===0)?' · 📊 차트인':'';
-          const popText=t.popularity?` · 인기도 ${t.popularity}`:'';
-          card.innerHTML=`<div class="song-name">${t.name}</div><div class="song-meta">${t.year}${popText}${chartBadge}</div>`;
-          card.onclick=()=>applySpotifyTrackSong(a.id,a.name,a.genres,t.id,t.name);
-          grid.appendChild(card);
-        });
-        songsDiv.innerHTML='';songsDiv.appendChild(grid);
+      }
+      if(!tracks.length){songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">트랙 없음</div>';return;}
+      const grid=document.createElement('div');
+      grid.className='songs-grid';
+      tracks.forEach((t,ti)=>{
+        const card=document.createElement('div');
+        card.className='song-card';
+        const chartBadge=(a.chartSong&&ti===0)?' · 📊 차트인':'';
+        const popText=t.popularity?` · 인기도 ${t.popularity}`:'';
+        card.innerHTML=`<div class="song-name">${t.name}</div><div class="song-meta">${t.year}${popText}${chartBadge}</div>`;
+        card.onclick=()=>applySpotifyTrackSong(a.id,a.name,a.genres,t.id,t.name);
+        grid.appendChild(card);
       });
+      songsDiv.innerHTML='';songsDiv.appendChild(grid);
     });
   },0);
 }
