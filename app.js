@@ -2589,16 +2589,20 @@ async function aiVerifyAppliedSuggestions(){
   try{
     const sectText=document.getElementById('hh-sect-ta')?.value||'';
     const styleText=document.getElementById('hh-style-ta')?.value||'';
+    const oldScore=(_aiSuggestions||[]).find(s=>s.category==='총평')?.score;
     const staticText=`너는 힙합 프로듀서 QA 담당이야. 아래 [적용된 조언 목록]과 [최종 프롬프트]를 비교해서, 각 조언이 실제로 프롬프트에 "의도한 대로" 반영됐는지 확인해줘. 단순히 비슷한 단어가 있는지가 아니라, 조언이 말하는 위치·대상·뉘앙스까지 실제로 맞는지 꼼꼼히 봐 (예: "마지막 훅 앞에 브릿지"라고 했는데 실제로 다른 위치에 있으면 fail).
 
 각 조언마다 정확히 이 순서로 판정해: pass(의도한 대로 정확히 반영됨) | partial(반영되긴 했는데 의도랑 다르거나 일부만 됨) | fail(반영 안 됨). partial·fail이면 왜 그런지 한국어 한 문장으로 이유를 적어.
 
+그리고 지금 [최종 프롬프트] 상태 전체를 100점 만점으로 다시 냉정하게 채점해서 updatedScore에 정수로 넣어 — 조언 적용 전 점수에 얽매이지 말고 지금 상태 자체를 기준으로.
+
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해 (checks 배열 순서는 조언 목록 순서와 정확히 같아야 해):
-{"checks":[{"status":"pass|partial|fail","note":"(partial·fail일 때만) 한국어 이유"}]}`;
+{"checks":[{"status":"pass|partial|fail","note":"(partial·fail일 때만) 한국어 이유"}],"updatedScore":(1~100 정수)}`;
     const dynamicText=`
 
 [적용된 조언 목록]
 ${applied.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n')}
+${oldScore!=null?`\n[적용 전 총평 점수] ${oldScore}/100 (참고용 — 지금 상태 기준으로 새로 채점해)`:''}
 
 [최종 섹션 프롬프트]
 ${sectText}
@@ -2617,6 +2621,14 @@ ${styleText}`;
       matched++;
     });
     if(!matched)throw new Error('AI가 검증 결과를 반환하지 못했습니다');
+    const newScore=Math.round(parsed.updatedScore);
+    if(Number.isFinite(newScore)&&newScore>=1&&newScore<=100){
+      const totalRow=(_aiSuggestions||[]).find(s=>s.category==='총평');
+      if(totalRow){
+        totalRow.prevScore=oldScore??null;
+        totalRow.score=newScore;
+      }
+    }
     hhGenerate(false);
   }catch(e){
     fail(e.message);
@@ -3308,7 +3320,7 @@ function hhGenerate(source){
       const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood||s.narrDir);
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
-      const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.score}/100</strong>`:'';
+      const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';
       const verifyHtml=s.verify?(()=>{
         const vColor=s.verify.status==='pass'?'var(--success)':s.verify.status==='partial'?'#F59E0B':'var(--danger)';
         const vIcon=s.verify.status==='pass'?'✅ 확인됨':s.verify.status==='partial'?'⚠️ 일부만 반영':'❌ 반영 안 됨';
