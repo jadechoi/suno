@@ -2476,12 +2476,12 @@ async function aiProducerReview(){
 중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
 - boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나
-- addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입 하나, hook|verse|bridge 중 하나 (실제로는 항상 마지막 훅 바로 앞에 삽입돼 — 클라이맥스 직전 텐션 빌드용으로만 조언 써)
+- addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입(hook|verse|bridge)과, 그걸 어디 넣을지 addSectionPosition도 같이 정해줘: beforeFirstHook(첫 훅 앞) | afterIntro(인트로 바로 뒤) | beforeLastHook(마지막 훅 직전 — 클라이맥스 텐션 빌드용) | end(아웃트로 직전) 중 조언 내용이랑 실제로 일치하는 위치 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
 - narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
     const dynamicText=`
 
 [적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
@@ -2507,6 +2507,7 @@ ${ctx}`;
       tag:s.tag||null,
       boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
       addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
+      addSectionPosition:(['beforeFirstHook','afterIntro','beforeLastHook','end'].includes(s.addSectionPosition))?s.addSectionPosition:'beforeLastHook',
       mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
       narrDir:(()=>{
         if(!s.narrDir||typeof s.narrDir!=='object')return null;
@@ -2539,10 +2540,18 @@ function applyAiSuggestion(idx){
     st.sectionArrangeExtras[sug.boostSection]=true;
   }
   if(sug.addSection){
-    // 항상 맨 끝(아웃트로 직전)에 끼워넣으면 "마지막 훅 직전에 브릿지 넣어서 긴장 쌓자" 같은 조언과 실제 위치가 어긋남 —
-    // 클라이맥스 훅 직전에 넣어야 조언이 말하는 "드롭 전 텐션 빌드" 효과가 실제로 남
+    // 항상 같은 자리(맨 끝 직전)에 끼워넣으면 조언 텍스트가 말하는 위치("인트로 뒤에", "첫 훅 앞에" 등)랑 실제 결과가 어긋날 수 있어서,
+    // AI가 정한 addSectionPosition을 그대로 따름 (기본값은 기존처럼 클라이맥스 직전)
+    const firstHookIdx=st.structSegs.indexOf('hook');
     const lastHookIdx=st.structSegs.lastIndexOf('hook');
-    const insertAt=lastHookIdx>=0?lastHookIdx:Math.max(st.structSegs.length-1,0);
+    const introIdx=st.structSegs.indexOf('intro');
+    const positions={
+      beforeFirstHook:firstHookIdx>=0?firstHookIdx:0,
+      afterIntro:introIdx>=0?introIdx+1:0,
+      beforeLastHook:lastHookIdx>=0?lastHookIdx:Math.max(st.structSegs.length-1,0),
+      end:Math.max(st.structSegs.length-1,0),
+    };
+    const insertAt=positions[sug.addSectionPosition]??positions.beforeLastHook;
     st.structSegs.splice(insertAt,0,sug.addSection);
     st._structAutoManaged=false;
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
