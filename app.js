@@ -2496,7 +2496,7 @@ ${refSong?`"${refSong}"`:'없음 — "레퍼런스 부합도" 카테고리는 �
 [현재 설정]
 ${ctx}`;
 
-    const raw=await callAnthropic(key,{maxTokens:4000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:8000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
