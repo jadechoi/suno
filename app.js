@@ -2442,6 +2442,7 @@ ${ctx}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+    if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
     const raw='{'+(data.content?.[0]?.text||'');
     const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
@@ -2635,6 +2636,7 @@ ${HH_GROOVE.join(', ')}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+    if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
     const raw='{'+(data.content?.[0]?.text||'');
     const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
@@ -2727,6 +2729,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+    if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
     const raw='{'+(data.content?.[0]?.text||'');
     const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
     const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
