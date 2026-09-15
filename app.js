@@ -2419,7 +2419,7 @@ ${refFitLine}
 [현재 설정]
 ${ctx}
 
-다른 텍스트 없이 아래 JSON 형식으로만 답해:
+설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
 {"suggestions":[{"category":"총평${refSong?'|레퍼런스 부합도':''}|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2433,7 +2433,7 @@ ${ctx}
       body:JSON.stringify({
         model:'claude-sonnet-5',
         max_tokens:2500,
-        messages:[{role:'user',content:prompt},{role:'assistant',content:'{'}],
+        messages:[{role:'user',content:prompt}],
       }),
     });
     if(!res.ok){
@@ -2443,8 +2443,8 @@ ${ctx}
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw='{'+(data.content?.[0]?.text||'');
-    const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
     const narrCats=['인트로','버스/훅','클라이맥스/드롭','아웃트로'];
@@ -2613,7 +2613,7 @@ ${HH_TRANSITION_FX.join(', ')}
 [스윙/그루브 목록 — 리듬감]
 ${HH_GROOVE.join(', ')}
 
-다른 텍스트 없이 아래 JSON 형식으로만 답해:
+설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
 {"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","reason":"한 문장 한국어 이유"}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2627,7 +2627,7 @@ ${HH_GROOVE.join(', ')}
       body:JSON.stringify({
         model:'claude-sonnet-5',
         max_tokens:900,
-        messages:[{role:'user',content:prompt},{role:'assistant',content:'{'}],
+        messages:[{role:'user',content:prompt}],
       }),
     });
     if(!res.ok){
@@ -2637,8 +2637,8 @@ ${HH_GROOVE.join(', ')}
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw='{'+(data.content?.[0]?.text||'');
-    const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
     if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
     const tex=(parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)).slice(0,2);
@@ -2706,7 +2706,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
 
 이 곡을 정확히 모르면 절대 지어내지 말고 confident를 false로 하고, 그 장르에서 흔한 구조/마디 수로 최선의 추정만 해.
 
-다른 텍스트 없이 아래 JSON 형식으로만 답해 (bars는 hook 4-32, verse 4-32, bridge 2-16 범위):
+설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해 (bars는 hook 4-32, verse 4-32, bridge 2-16 범위):
 {"segs":["intro","verse","hook","verse","hook","bridge","hook","outro"],"bars":{"hook":8,"verse":12,"bridge":4},"confident":true,"reason":"한국어 한두 문장 — 이 곡 구조의 특징(훅이 몇 번인지, 브릿지 위치·마디 수 등)"}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2720,7 +2720,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
       body:JSON.stringify({
         model:'claude-sonnet-5',
         max_tokens:700,
-        messages:[{role:'user',content:prompt},{role:'assistant',content:'{'}],
+        messages:[{role:'user',content:prompt}],
       }),
     });
     if(!res.ok){
@@ -2730,8 +2730,8 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     if(!(data.content?.[0]?.text||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw='{'+(data.content?.[0]?.text||'');
-    const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
     if(segs.length<2||segs.length>16)throw new Error('AI가 유효한 구조를 반환하지 못했습니다');
 
