@@ -2487,17 +2487,17 @@ async function aiProducerReview(){
 나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지). "전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야. 아래 [레퍼런스 곡]이 주어지면 "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해서, 그 곡의 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해 (부합 정도, 구체적 근거, 더 가깝게 만들 방법까지).
 
 중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
-- tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
+- tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구들의 배열 (조언에서 언급한 요소마다 하나씩 따로 — 예를 들어 "콩가, 샤커, 토킹드럼"이면 하나로 뭉치지 말고 ["conga percussion loop","shaker groove layer","talking drum polyrhythm accent"]처럼 각각 넣어. 하나만 있으면 배열에 1개만)
 - boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나. 그리고 boostOccurrence로 그 타입 중 몇 번째를 말하는 건지도 반드시 같이 정해: first(그 타입의 첫 번째) | last(마지막 — 보통 클라이맥스, 기본값). 조언이 "첫 훅"이라고 하면 first, "마지막/클라이맥스 훅"이면 last — 조언 내용이랑 실제로 일치해야 해. 조언에 "악기 A와 B가 주고받는다"처럼 장르 고정 문구로는 못 담는 구체적인 아이디어가 있으면 boostText에 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장을 직접 써 (없으면 생략 — 그때는 장르 기본 편곡 문구가 대신 들어감). Suno는 텍스트→음악 변환 모델이라 추상적 비유보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹)로 쓴 지시를 훨씬 잘 반영해 (예: "flute and synth trade short call-and-response phrases with increasing density"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입(hook|verse|bridge)과, 그걸 어디 넣을지 addSectionPosition도 같이 정해줘: beforeFirstHook(첫 훅 앞) | afterIntro(인트로 바로 뒤) | beforeLastHook(마지막 훅 직전 — 클라이맥스 텐션 빌드용) | end(아웃트로 직전) 중 조언 내용이랑 실제로 일치하는 위치 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
 - narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
-- removeRef: tag를 추가하는데 아래 [프로듀서 레퍼런스]에 있는 설명이 그 tag랑 상반되면(예: tag는 "log drum bassline"인데 레퍼런스 설명엔 "chiptune-esque synth leads, minimal spacey drums"처럼 정반대 톤이 이미 박혀있으면) 그 프로듀서의 정확한 이름을 넣어 — 이러면 새 tag만 붙고 기존 레퍼런스는 그대로 남아서 서로 모순되는 걸 방지함
+- removeRef: tag를 추가할 때마다 아래 [프로듀서 레퍼런스]에 있는 설명을 한 번씩 대조해봐 — 장르/서브장르 자체가 달라지는 수준으로 상반되면(예: tag는 "log drum bassline"인데 레퍼런스 설명엔 "chiptune-esque synth leads"나 "disco samples, house-inflected bounce"처럼 완전히 다른 서브장르 색채가 이미 박혀있으면) 반드시 그 프로듀서의 정확한 이름을 넣어. 특히 "레퍼런스 부합도" 카테고리는 지금 레퍼런스가 타겟 곡이랑 안 맞는다는 게 핵심 지적이니, 그 안 맞는 레퍼런스를 tag만 추가하고 그대로 두면 안 돼 — 반드시 확인해서 빼
 - removeTag: 조언이 "지금 있는 X를 줄이자/빼자"는 뜻도 담고 있으면(예: "sidechain pump가 강하면 무드가 죽으니 줄이자") X를 가리키는 핵심 단어(예: "sidechain")를 넣어 — 그 단어를 포함하는 기존 텍스처/스타일 태그를 전부 제거해. tag(추가)랑 같이 써도 됨 — "줄이고 대신 이걸 넣자"는 조언이면 둘 다 채워
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 한 문장)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시, [\"...\",\"...\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 한 문장)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
     const dynamicText=`
 
 [적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
@@ -2521,7 +2521,12 @@ ${ctx}`;
       category:s.category||'💡',
       text:s.text,
       score:(Number.isFinite(Math.round(s.score))&&Math.round(s.score)>=1&&Math.round(s.score)<=100)?Math.round(s.score):null,
-      tag:s.tag||null,
+      // 배열이 정상 형태지만, 모델이 가끔 문자열 하나로 줄 수도 있어서 둘 다 받아 배열로 통일
+      tag:(()=>{
+        const arr=Array.isArray(s.tag)?s.tag:(typeof s.tag==='string'&&s.tag.trim()?[s.tag]:[]);
+        const cleaned=arr.filter(t=>typeof t==='string'&&t.trim()).map(t=>t.trim());
+        return cleaned.length?cleaned:null;
+      })(),
       boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
       boostOccurrence:(s.boostOccurrence==='first')?'first':'last',
       boostText:(typeof s.boostText==='string'&&s.boostText.trim())?s.boostText.trim().slice(0,150):null,
@@ -2548,13 +2553,17 @@ function applyAiSuggestion(idx){
   if(!sug||sug.applied)return;
   sug.applied=true;
   if(sug.mood){applyAdvMood(sug.mood);return;}   // 자체적으로 hhGenerate까지 처리함
-  if(sug.tag&&!st.extraTags.includes(sug.tag)){
-    // 새 태그가 기존 텍스처/태그를 문구째로 포함하면("sidechain pump" 안에 "sidechain pump") 그건 "추가"가 아니라 "교체" 의도 —
-    // 그대로 두면 "항상 강하게"(기존) vs "808에만 느리게"(신규) 같은 모순 지시가 동시에 남음
-    const tagLower=sug.tag.toLowerCase();
-    st.texture=st.texture.filter(t=>!tagLower.includes(t.toLowerCase()));
-    st.extraTags=st.extraTags.filter(t=>!tagLower.includes(t.toLowerCase()));
-    st.extraTags.push(sug.tag);
+  if(sug.tag){
+    // 태그가 여러 개일 수 있어서 하나씩 순서대로 처리 (예: 콩가/샤커/토킹드럼처럼 조언 하나가 여러 요소를 언급하는 경우)
+    sug.tag.forEach(t=>{
+      if(st.extraTags.includes(t))return;
+      // 새 태그가 기존 텍스처/태그를 문구째로 포함하면("sidechain pump" 안에 "sidechain pump") 그건 "추가"가 아니라 "교체" 의도 —
+      // 그대로 두면 "항상 강하게"(기존) vs "808에만 느리게"(신규) 같은 모순 지시가 동시에 남음
+      const tagLower=t.toLowerCase();
+      st.texture=st.texture.filter(x=>!tagLower.includes(x.toLowerCase()));
+      st.extraTags=st.extraTags.filter(x=>!tagLower.includes(x.toLowerCase()));
+      st.extraTags.push(t);
+    });
   }
   if(sug.boostSection){
     st.sectionArrangeExtras=st.sectionArrangeExtras||{};
