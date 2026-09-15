@@ -2324,14 +2324,17 @@ async function aiProducerReview(){
     ].filter(Boolean).join('\n');
     const prompt=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 3~5개 관점에서 짧게 조언해줘 (악기, 편곡/에너지, 구조, 믹스, 보컬, 무드 등을 섞어서). 뻔한 일반론 말고 지금 이 조합이라서 나올 수 있는 구체적인 조언으로.
 
+중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 4개 필드 중 이 조언과 맞는 걸 정확히 하나 채워서, 버튼 한 번으로 적용되게 해줘 (정말 애매해서 도저히 못 채우겠으면 그때만 생략):
+- tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
+- boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → ${uniqueSegs.length?uniqueSegs.join('|'):'(현재 구조에 hook/verse/bridge 없음)'} 중 정확히 하나
+- addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입 하나, hook|verse|bridge 중 하나
+- mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
+
 [현재 설정]
 ${ctx}
 
-[에너지를 끌어올릴 섹션을 고를 수 있는 옵션]
-${uniqueSegs.length?uniqueSegs.join(', '):'(없음)'}
-
-다른 텍스트 없이 아래 JSON 형식으로만 답해. instrument는 새 악기/사운드를 추천할 때만(Suno 태그용 영어 소문자 명사구), boostSection은 편곡 에너지 포인트 제안이고 위 옵션 중 하나를 고를 때만 넣고, 그 외 관점은 두 필드 다 생략해:
-{"suggestions":[{"category":"악기|편곡|구조|믹스|보컬|무드","text":"한국어 한두 문장 조언","instrument":"(선택)","boostSection":"(선택, ${uniqueSegs.join('|')||'없음'} 중 하나)"}]}`;
+다른 텍스트 없이 아래 JSON 형식으로만 답해:
+{"suggestions":[{"category":"악기|편곡|구조|믹스|보컬|무드","text":"한국어 한두 문장 조언","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)"}]}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2359,8 +2362,10 @@ ${uniqueSegs.length?uniqueSegs.join(', '):'(없음)'}
     _aiSuggestions=list.map(s=>({
       category:s.category||'💡',
       text:s.text,
-      instrument:s.instrument||null,
+      tag:s.tag||null,
       boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
+      addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
+      mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
       applied:false,
     }));
     hhGenerate();
@@ -2372,12 +2377,18 @@ ${uniqueSegs.length?uniqueSegs.join(', '):'(없음)'}
 function applyAiSuggestion(idx){
   const sug=(_aiSuggestions||[])[idx];
   if(!sug||sug.applied)return;
-  if(sug.instrument&&!st.extraTags.includes(sug.instrument))st.extraTags.push(sug.instrument);
+  sug.applied=true;
+  if(sug.mood){applyAdvMood(sug.mood);return;}   // 자체적으로 hhGenerate까지 처리함
+  if(sug.tag&&!st.extraTags.includes(sug.tag))st.extraTags.push(sug.tag);
   if(sug.boostSection){
     st.sectionArrangeExtras=st.sectionArrangeExtras||{};
     st.sectionArrangeExtras[sug.boostSection]=true;
   }
-  sug.applied=true;
+  if(sug.addSection){
+    st.structSegs.splice(Math.max(st.structSegs.length-1,0),0,sug.addSection);
+    st._structAutoManaged=false;
+    renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+  }
   hhGenerate();
 }
 function clearAiSuggestions(){
@@ -2975,7 +2986,7 @@ function hhGenerate(){
   if(_aiSuggestions){
     const rowsHtml=_aiSuggestions.map((s,idx)=>{
       const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
-      const actionable=!!(s.instrument||s.boostSection);
+      const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood);
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
       return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong> — ${escHtml(s.text)}</span>${btnHtml}</div>`;
     }).join('');
