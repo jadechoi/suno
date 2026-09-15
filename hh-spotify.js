@@ -469,16 +469,10 @@ async function fetchBillboardHipHopChart(){
   }catch(e){console.warn('fetchBillboardHipHopChart error',e);return[];}
 }
 
-// /v1/search가 429(rate limit)를 주면 Retry-After만큼 기다렸다가 재시도 — 최대 2번까지 (Extended quota mode가 아닌
-// Development 등급 앱이라 허용치가 낮아서, pMapLimit로 페이싱을 줘도 짧은 순간 몰리면 여전히 걸릴 수 있음)
+// 429가 떴을 때 곧바로 재시도하면 아직 안 풀린 제한 구간을 한 번 더 건드려서 요청만 늘리고 회복에 도움이 안 됨 —
+// 재시도 대신 pMapLimit 쪽에서 애초에 완전 순차 + 충분한 간격으로 보내서 429 자체가 덜 나게 하는 쪽으로 대응
 async function fetchWithRetry429(url,tok){
-  let r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
-  for(let attempt=0;attempt<2&&r.status===429;attempt++){
-    const wait=Math.min(5,parseInt(r.headers.get('retry-after')||'2',10)||2)*1000;
-    await new Promise(res=>setTimeout(res,wait));
-    r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
-  }
-  return r;
+  return await fetch(url,{headers:{Authorization:'Bearer '+tok}});
 }
 // Billboard 차트엔 Spotify ID가 없어서 아티스트 이름으로 정확히 검색해 ID를 리졸브
 async function resolveArtistIdByName(name,tok){
@@ -631,8 +625,8 @@ async function buildTrendingArtistAccordion(artists,tok){
       container.appendChild(row);
       return{a,songsDiv};
     });
-    // 트랙 fetch(그중 일부는 Spotify /search)를 동시에 15개 다 쏘면 429가 나서, 여기도 동시성을 제한해 순차적으로 소화
-    pMapLimit(rows,2,async({a,songsDiv})=>{
+    // 트랙 fetch(그중 일부는 Spotify /search)를 여기도 완전 순차 + 간격을 둬서 429를 덜 유발하게
+    pMapLimit(rows,1,async({a,songsDiv})=>{
       // Billboard에서 확인된 "지금 차트인 곡"을 최우선으로 꽂는다
       let tracks=await fetchArtistTopTracks(a.id,tok,5);
       if(a.chartSong){
@@ -658,7 +652,7 @@ async function buildTrendingArtistAccordion(artists,tok){
         grid.appendChild(card);
       });
       songsDiv.innerHTML='';songsDiv.appendChild(grid);
-    },250);
+    },400);
   },0);
 }
 
@@ -733,11 +727,11 @@ async function fetchTrendingArtists(){
   });
 
   if(statusEl)statusEl.textContent=`Billboard 순위 아티스트 ${Math.min(chartEntries.length,15)}명 Spotify ID 조회 중…`;
-  // Billboard엔 Spotify ID가 없어서 이름으로 리졸브 (병렬)
-  const resolved=(await pMapLimit(chartEntries.slice(0,15),2,async s=>{
+  // Billboard엔 Spotify ID가 없어서 이름으로 리졸브 — 완전 순차 + 간격을 둬서 429를 덜 유발하게
+  const resolved=(await pMapLimit(chartEntries.slice(0,15),1,async s=>{
     const a=await resolveArtistIdByName(s.artist,tok);
     return a?{...a,chartSong:{name:s.name,position:s.position}}:null;
-  },250)).filter(Boolean);
+  },400)).filter(Boolean);
   const scoredTop=resolved.filter(a=>!isKoreanName(a.name)).slice(0,15);
 
   if(!scoredTop.length){
