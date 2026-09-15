@@ -666,6 +666,19 @@ function detectGenreFromSpotify(genres){
   return null;
 }
 
+// 한 번에 너무 많이 동시 요청하면 Spotify가 429(rate limit)로 응답 — 동시 실행 개수를 제한해서 순차적으로 소화
+async function pMapLimit(items,limit,fn){
+  const results=new Array(items.length);
+  let i=0;
+  async function worker(){
+    while(i<items.length){
+      const idx=i++;
+      results[idx]=await fn(items[idx],idx);
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(limit,items.length)},worker));
+  return results;
+}
 async function fetchTrendingArtists(){
   const btn=document.getElementById('trending-refresh-btn');
   const statusEl=document.getElementById('trending-status');
@@ -704,10 +717,10 @@ async function fetchTrendingArtists(){
 
   if(statusEl)statusEl.textContent=`Billboard 순위 아티스트 ${Math.min(chartEntries.length,15)}명 Spotify ID 조회 중…`;
   // Billboard엔 Spotify ID가 없어서 이름으로 리졸브 (병렬)
-  const resolved=(await Promise.all(chartEntries.slice(0,15).map(async s=>{
+  const resolved=(await pMapLimit(chartEntries.slice(0,15),5,async s=>{
     const a=await resolveArtistIdByName(s.artist,tok);
     return a?{...a,chartSong:{name:s.name,position:s.position}}:null;
-  }))).filter(Boolean);
+  })).filter(Boolean);
   const scoredTop=resolved.filter(a=>!isKoreanName(a.name)).slice(0,15);
 
   if(!scoredTop.length){
