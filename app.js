@@ -2484,10 +2484,10 @@ async function aiProducerReview(){
 - narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - removeRef: tag를 추가하는데 아래 [프로듀서 레퍼런스]에 있는 설명이 그 tag랑 상반되면(예: tag는 "log drum bassline"인데 레퍼런스 설명엔 "chiptune-esque synth leads, minimal spacey drums"처럼 정반대 톤이 이미 박혀있으면) 그 프로듀서의 정확한 이름을 넣어 — 이러면 새 tag만 붙고 기존 레퍼런스는 그대로 남아서 서로 모순되는 걸 방지함
 - removeTag: 조언이 "지금 있는 X를 줄이자/빼자"는 뜻도 담고 있으면(예: "sidechain pump가 강하면 무드가 죽으니 줄이자") X를 가리키는 핵심 단어(예: "sidechain")를 넣어 — 그 단어를 포함하는 기존 텍스처/스타일 태그를 전부 제거해. tag(추가)랑 같이 써도 됨 — "줄이고 대신 이걸 넣자"는 조언이면 둘 다 채워
-- bpm: 지금 BPM이 이 장르·레퍼런스랑 안 맞는다는 조언일 때 → 새 BPM 정수 하나
+- BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)","bpm":"(BPM 조언일 때만, 정수)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
     const dynamicText=`
 
 [적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
@@ -2523,7 +2523,6 @@ ${ctx}`;
       })(),
       removeRef:(s.removeRef&&st.refs.includes(s.removeRef))?s.removeRef:null,
       removeTag:(typeof s.removeTag==='string'&&s.removeTag.trim())?s.removeTag.trim().toLowerCase():null,
-      bpm:(Number.isFinite(Math.round(s.bpm))&&Math.round(s.bpm)>=40&&Math.round(s.bpm)<=220)?Math.round(s.bpm):null,
       applied:false,
     }));
     hhGenerate(false);
@@ -2583,11 +2582,6 @@ function applyAiSuggestion(idx){
     // tag(추가)와 달리 "지금 있는 걸 줄이자/빼자"는 조언은 새 문구가 없어서 위의 자동 충돌 제거가 못 잡음 — AI가 지목한 핵심 단어로 직접 제거
     st.texture=st.texture.filter(t=>!t.toLowerCase().includes(sug.removeTag));
     st.extraTags=st.extraTags.filter(t=>!t.toLowerCase().includes(sug.removeTag));
-  }
-  if(sug.bpm){
-    st.bpm=sug.bpm;
-    const bpmEl=document.getElementById('hh-bpm');
-    if(bpmEl)bpmEl.value=sug.bpm;
   }
   hhGenerate(`AI 리뷰 적용: ${sug.category}`);
 }
@@ -3339,7 +3333,7 @@ function hhGenerate(source){
   if(_aiSuggestions){
     const rowsHtml=_aiSuggestions.map((s,idx)=>{
       const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
-      const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag||s.bpm);
+      const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag);
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
       const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';
