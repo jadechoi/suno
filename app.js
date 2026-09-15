@@ -2369,6 +2369,16 @@ function anthropicText(data){
 // staticText(지시문/규칙/옵션 목록처럼 호출마다 안 바뀌는 부분)에 prompt caching을 걸어서 반복 호출 시 input 토큰을 아낌.
 // 이 모델/계정이 caching을 거부하면(400) 한 번만 감지하고, 그 세션 동안은 캐싱 없이 바로 요청 — 매번 두 번 쏘지 않도록.
 let _aiCachingUnsupported=false;
+// AI 버튼을 한 번이라도 눌러봐야 알 수 있음 — 캐싱 지원 여부는 콘솔에도 항상 찍히고(F12 → Console, "[AI 캐싱]" 검색),
+// 여기서는 🎧 SPOTIFY 연동 패널의 AI Key 밑에 요약 한 줄로 보여줌
+function reportCacheStatus(status,usage){
+  const el=document.getElementById('ai-cache-status');
+  if(!el)return;
+  el.hidden=false;
+  if(status==='rejected')el.textContent='⚠️ 이 모델은 프롬프트 캐싱 미지원 — 일반 모드로 전환됨 (기능은 정상 작동)';
+  else if(status==='active')el.textContent=`🎯 캐싱 작동 중 (생성 ${usage.cache_creation_input_tokens||0} / 재사용 ${usage.cache_read_input_tokens||0} 토큰)`;
+  else el.textContent='⚠️ 캐싱 요청이 거부되진 않았지만 실제 사용 흔적이 없음';
+}
 async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
   const url='https://api.anthropic.com/v1/messages';
   const headers={
@@ -2389,6 +2399,7 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
   let res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});
   if(!res.ok&&attemptCache){
     _aiCachingUnsupported=true;
+    reportCacheStatus('rejected');
     res=await fetch(url,{method:'POST',headers,body:body(false)});
   }
   if(!res.ok){
@@ -2396,6 +2407,13 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
     throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
   }
   const data=await res.json();
+  // usage.cache_creation_input_tokens/cache_read_input_tokens가 응답에 실제로 있어야 캐싱이 "진짜" 동작한 것 —
+  // 요청이 거부 안 됐다고 캐싱이 적용됐다는 보장은 없어서 (모델이 그냥 무시할 수도 있음) 직접 확인
+  if(attemptCache&&!_aiCachingUnsupported){
+    const u=data.usage||{};
+    console.log('[AI 캐싱]',u);
+    reportCacheStatus((u.cache_creation_input_tokens||u.cache_read_input_tokens)?'active':'ignored',u);
+  }
   if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
   const text=anthropicText(data);
   if(!text.trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
