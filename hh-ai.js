@@ -360,7 +360,7 @@ Suno는 추상적이거나 문학적인 표현("슬픔이 밀려오는 느낌")�
 
 [원본]
 ${original}`;
-    const polished=(await callAnthropic(key,{maxTokens:6000,staticText,dynamicText})).trim();
+    const polished=(await callAnthropic(key,{maxTokens:10000,staticText,dynamicText})).trim();
     if(!polished)throw new Error('빈 응답을 받았습니다');
     _polishOriginal=original;
     ta.value=polished;
