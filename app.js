@@ -3198,6 +3198,12 @@ function hhGenerate(source){
     `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+advHtml:advHtml+aiReviewHtml}`,
     null,'#6B7280'));
 
+  // MD 저장 — Generate마다 자동으로 쌓이는 프롬프트 히스토리(로컬 저장)와 별개로, 사용자가 직접 고른 것만 파일로 남기는 용도
+  const saveWrap=document.createElement('div');
+  saveWrap.style.cssText='text-align:center;padding:4px 0 10px';
+  saveWrap.innerHTML='<button onclick="saveHhPromptAsMd()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--text-1);font-family:\'Space Grotesk\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">💾 이 프롬프트 MD로 저장</button>';
+  container.appendChild(saveWrap);
+
   // Reset link
   const resetWrap=document.createElement('div');
   resetWrap.style.cssText='text-align:center;padding:10px 0 4px';
@@ -3206,6 +3212,62 @@ function hhGenerate(source){
   setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);
   updateFloatSummary();
   if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null});
+}
+
+// ============================================================
+// MD 저장 — "저장" 눌렀을 때만 실제 파일로 다운로드 (자동 히스토리와 별개)
+// ============================================================
+function downloadTextFile(filename,content,mime){
+  const blob=new Blob([content],{type:mime||'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function saveHhPromptAsMd(){
+  const g=st.genre!==null?GENRES[st.genre]:null;
+  const sectText=document.getElementById('hh-sect-ta')?.value||'';
+  const styleText=document.getElementById('hh-style-ta')?.value||'';
+  const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+  const keyStr=KEYS[st.key]||'A minor';
+  const bpmVal=document.getElementById('hh-bpm')?.value||st.bpm;
+  const d=new Date();
+  const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+
+  const rows=[['장르',g?g.kr:'-'],['BPM',bpmVal],['Key',keyStr],['무드',st.mood||'-']];
+  if(refSong)rows.push(['레퍼런스 곡',refSong]);
+  if(st.melody.length)rows.push(['멜로디',st.melody.join(', ')]);
+  if(st.melodyTone)rows.push(['악기 톤',st.melodyTone]);
+  if(st.texture.length)rows.push(['믹스 텍스처',st.texture.join(', ')]);
+  if(st.vocal&&st.vocal!=='No Vocal')rows.push(['보컬',st.vocal]);
+  if(st.refs.length)rows.push(['프로듀서 레퍼런스',st.refs.join(', ')]);
+  rows.push(['구조',st.structSegs.join(' → ')]);
+
+  const aiNote=(_aiSuggestions||[]).filter(s=>s.applied);
+  const aiSection=aiNote.length
+    ?`\n## 적용된 AI 프로듀서 리뷰\n${aiNote.map(s=>`- **${s.category}**: ${s.text}`).join('\n')}\n`
+    :'';
+
+  const md=`# ${g?g.kr:'힙합'} 프롬프트 — ${dateStr}
+
+## 선택 요약
+${rows.map(([k,v])=>`- **${k}**: ${v}`).join('\n')}
+${aiSection}
+## 섹션 프롬프트
+\`\`\`
+${sectText}
+\`\`\`
+
+## 스타일 프롬프트
+\`\`\`
+${styleText}
+\`\`\`
+`;
+  const safeGenre=(g?g.en:'hiphop').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  downloadTextFile(`suno-${safeGenre}-${d.getTime()}.md`,md,'text/markdown');
+  showToast('💾 MD 파일로 저장됨');
 }
 
 // ============================================================
