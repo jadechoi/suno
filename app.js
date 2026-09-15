@@ -2472,7 +2472,7 @@ async function aiProducerReview(){
     // 지시문/규칙은 호출마다 안 바뀌니 static — 상태에 따라 달라지는 건 전부 dynamic 쪽으로 몰아서 static이 매번 완전히 동일하게(캐싱 적중)
     const staticText=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘.
 
-"총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로.
+"총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로. 그리고 지금 프롬프트 구성 전체를 100점 만점으로 냉정하게 채점해서 score 필드에 정수로 넣어 — 후하게 주지 말고, 진짜 완성도 있는 트랙과 비교했을 때 기준으로.
 나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지). "전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야. 아래 [레퍼런스 곡]이 주어지면 "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해서, 그 곡의 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해 (부합 정도, 구체적 근거, 더 가깝게 만들 방법까지).
 
 중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
@@ -2483,7 +2483,7 @@ async function aiProducerReview(){
 - narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
     const dynamicText=`
 
 [적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
@@ -2506,6 +2506,7 @@ ${ctx}`;
     _aiSuggestions=list.map(s=>({
       category:s.category||'💡',
       text:s.text,
+      score:(Number.isFinite(Math.round(s.score))&&Math.round(s.score)>=1&&Math.round(s.score)<=100)?Math.round(s.score):null,
       tag:s.tag||null,
       boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
       addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
@@ -3255,7 +3256,9 @@ function hhGenerate(source){
       const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
       const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood||s.narrDir);
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
-      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong> — ${escHtml(s.text)}</span>${btnHtml}</div>`;
+      const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
+      const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.score}/100</strong>`:'';
+      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>`;
     }).join('');
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -3328,9 +3331,11 @@ function saveHhPromptAsMd(){
   if(st.refs.length)rows.push(['프로듀서 레퍼런스',st.refs.join(', ')]);
   rows.push(['구조',st.structSegs.join(' → ')]);
 
-  const aiNote=(_aiSuggestions||[]).filter(s=>s.applied);
+  // 총평·레퍼런스 부합도는 애초에 적용(액션) 대상이 아니라 평가 자체가 목적이라, applied 여부와 무관하게 항상 포함 —
+  // 점수 남겨두는 의미가 있으려면 여기 안 빠지고 저장돼야 함
+  const aiNote=(_aiSuggestions||[]).filter(s=>s.applied||s.category==='총평'||s.category==='레퍼런스 부합도');
   const aiSection=aiNote.length
-    ?`\n## 적용된 AI 프로듀서 리뷰\n${aiNote.map(s=>`- **${s.category}**: ${s.text}`).join('\n')}\n`
+    ?`\n## 적용된 AI 프로듀서 리뷰\n${aiNote.map(s=>`- **${s.category}**${s.score!=null?` (${s.score}/100)`:''}: ${s.text}`).join('\n')}\n`
     :'';
 
   const md=`# ${g?g.kr:'힙합'} 프롬프트 — ${dateStr}
