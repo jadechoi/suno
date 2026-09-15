@@ -2356,7 +2356,7 @@ ${ctx}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:1000,
+        max_tokens:1600,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2365,6 +2365,7 @@ ${ctx}
       throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
     }
     const data=await res.json();
+    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     const raw=data.content?.[0]?.text||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
@@ -2464,6 +2465,7 @@ ${original}
       throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
     }
     const data=await res.json();
+    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     const polished=(data.content?.[0]?.text||'').trim();
     if(!polished)throw new Error('빈 응답을 받았습니다');
     _polishOriginal=original;
@@ -2534,6 +2536,7 @@ ${HH_TEXTURE.join(', ')}
       throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
     }
     const data=await res.json();
+    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     const raw=data.content?.[0]?.text||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
@@ -2605,6 +2608,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
       throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
     }
     const data=await res.json();
+    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     const raw=data.content?.[0]?.text||'';
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
