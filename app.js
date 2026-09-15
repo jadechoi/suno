@@ -2526,7 +2526,14 @@ function applyAiSuggestion(idx){
   if(!sug||sug.applied)return;
   sug.applied=true;
   if(sug.mood){applyAdvMood(sug.mood);return;}   // 자체적으로 hhGenerate까지 처리함
-  if(sug.tag&&!st.extraTags.includes(sug.tag))st.extraTags.push(sug.tag);
+  if(sug.tag&&!st.extraTags.includes(sug.tag)){
+    // 새 태그가 기존 텍스처/태그를 문구째로 포함하면("sidechain pump" 안에 "sidechain pump") 그건 "추가"가 아니라 "교체" 의도 —
+    // 그대로 두면 "항상 강하게"(기존) vs "808에만 느리게"(신규) 같은 모순 지시가 동시에 남음
+    const tagLower=sug.tag.toLowerCase();
+    st.texture=st.texture.filter(t=>!tagLower.includes(t.toLowerCase()));
+    st.extraTags=st.extraTags.filter(t=>!tagLower.includes(t.toLowerCase()));
+    st.extraTags.push(sug.tag);
+  }
   if(sug.boostSection){
     st.sectionArrangeExtras=st.sectionArrangeExtras||{};
     st.sectionArrangeExtras[sug.boostSection]=true;
