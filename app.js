@@ -2366,6 +2366,41 @@ function anthropicText(data){
   const block=(data.content||[]).find(b=>b.type==='text');
   return block?.text||'';
 }
+// staticText(지시문/규칙/옵션 목록처럼 호출마다 안 바뀌는 부분)에 prompt caching을 걸어서 반복 호출 시 input 토큰을 아낌.
+// 이 모델/계정이 caching을 거부하면(400) 한 번만 감지하고, 그 세션 동안은 캐싱 없이 바로 요청 — 매번 두 번 쏘지 않도록.
+let _aiCachingUnsupported=false;
+async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
+  const url='https://api.anthropic.com/v1/messages';
+  const headers={
+    'content-type':'application/json',
+    'x-api-key':key,
+    'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true',
+  };
+  const body=useCache=>JSON.stringify({
+    model:'claude-sonnet-5',
+    max_tokens:maxTokens,
+    messages:[{role:'user',content:useCache
+      ?[{type:'text',text:staticText,cache_control:{type:'ephemeral'}},{type:'text',text:dynamicText}]
+      :staticText+dynamicText
+    }],
+  });
+  const attemptCache=!_aiCachingUnsupported;
+  let res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});
+  if(!res.ok&&attemptCache){
+    _aiCachingUnsupported=true;
+    res=await fetch(url,{method:'POST',headers,body:body(false)});
+  }
+  if(!res.ok){
+    const errText=await res.text().catch(()=>'');
+    throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+  }
+  const data=await res.json();
+  if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+  const text=anthropicText(data);
+  if(!text.trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
+  return text;
+}
 function saveAnthropicKey(){
   const el=document.getElementById('anthropic-key');
   const val=el?.value.trim()||'';
@@ -2416,49 +2451,36 @@ async function aiProducerReview(){
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
     const hasVocal=st.vocal&&st.vocal!=='No Vocal';
-    const critiqueLine=`- "총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로.`;
-    const refFitLine=refSong?`- "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해: 지금 설정으로 곡을 만들면 "${refSong}" 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해줘. 부합 정도(예: 상/중/하 또는 %)와 그렇게 판단한 구체적 근거(사운드·톤·편곡 중 뭐가 비슷하고 뭐가 다른지), 더 가깝게 만들려면 뭘 바꿔야 하는지까지 적어줘.`:'';
-    const prompt=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘.
+    // 지시문/규칙은 호출마다 안 바뀌니 static — 상태에 따라 달라지는 건 전부 dynamic 쪽으로 몰아서 static이 매번 완전히 동일하게(캐싱 적중)
+    const staticText=`너는 경험 많은 힙합 프로듀서야. 아래 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘.
 
-${critiqueLine}
-${refFitLine}
-- 나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지). "전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야.
+"총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로.
+나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지). "전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야. 아래 [레퍼런스 곡]이 주어지면 "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해서, 그 곡의 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해 (부합 정도, 구체적 근거, 더 가깝게 만들 방법까지).
 
 중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구 (예: "muted trumpet stabs", "short plate reverb", "airy whispered ad-libs")
-- boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → ${uniqueSegs.length?uniqueSegs.join('|'):'(현재 구조에 hook/verse/bridge 없음)'} 중 정확히 하나
+- boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입 하나, hook|verse|bridge 중 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
-- narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). ${hasVocal?'':'이 트랙은 보컬 없는 완전 인스트루멘탈이니 보컬·가사·노래 관련 묘사는 절대 넣지 마.'}
-
-[현재 설정]
-${ctx}
+- narrDir: "전개" 조언일 때 → {"인트로":"...","버스/훅":"...","클라이맥스/드롭":"...","아웃트로":"..."} 형식 객체, 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장. Suno는 텍스트→음악 변환 모델이라 추상적 비유("긴장감이 감돈다")보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹·공간감)로 쓴 지시를 훨씬 잘 반영해 (예: "energy ramps up gradually rather than hitting all at once"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평${refSong?'|레퍼런스 부합도':''}|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","tag":"(해당시)","boostSection":"(해당시)","addSection":"(해당시)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)"}]}`;
+    const dynamicText=`
 
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-5',
-        max_tokens:4000,
-        messages:[{role:'user',content:prompt}],
-      }),
-    });
-    if(!res.ok){
-      const errText=await res.text().catch(()=>'');
-      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
-    }
-    const data=await res.json();
-    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    if(!(anthropicText(data)||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw=anthropicText(data)||'';
+[적용 가능한 섹션 — boostSection에 쓸 수 있는 값]
+${uniqueSegs.length?uniqueSegs.join('|'):'(현재 구조에 hook/verse/bridge 없음 — boostSection 쓰지 마)'}
+
+[보컬 여부]
+${hasVocal?'보컬 있음: '+st.vocal:'인스트루멘탈 (보컬 없음)'}
+
+[레퍼런스 곡]
+${refSong?`"${refSong}"`:'없음 — "레퍼런스 부합도" 카테고리는 쓰지 마'}
+
+[현재 설정]
+${ctx}`;
+
+    const raw=await callAnthropic(key,{maxTokens:4000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
@@ -2532,7 +2554,7 @@ async function aiPolishSectionPrompt(){
   btn.disabled=true;btn.textContent='🤖 다듬는 중...';
   if(statusEl)statusEl.hidden=true;
   try{
-    const prompt=`너는 Suno AI(텍스트를 실제 음악으로 변환하는 모델)에 넣을 섹션별 편곡 프롬프트를 다듬는 힙합 프로듀서야. 아래 텍스트는 규칙 기반으로 조합돼서 어휘와 문장 구조가 반복적이고 표현이 납작해.
+    const staticText=`너는 Suno AI(텍스트를 실제 음악으로 변환하는 모델)에 넣을 섹션별 편곡 프롬프트를 다듬는 힙합 프로듀서야. 주어지는 텍스트는 규칙 기반으로 조합돼서 어휘와 문장 구조가 반복적이고 표현이 납작해.
 
 Suno는 추상적이거나 문학적인 표현("슬픔이 밀려오는 느낌")보다, 실제로 들리는 소리를 구체적인 프로덕션/오디오 엔지니어링 용어로 지시할 때("sparse piano notes, long reverb tail, minor key sustain") 훨씬 더 잘 알아듣고 반영해.
 
@@ -2547,31 +2569,12 @@ Suno는 추상적이거나 문학적인 표현("슬픔이 밀려오는 느낌")�
 - BPM, Key, 악기 이름, ZERO/instrumental 같은 보컬 관련 지시는 단어 그대로 유지 (동의어 교체도 금지)
 - 줄 개수와 대략적인 문장 길이는 비슷하게 유지
 
-[원본]
-${original}
-
 다른 설명 없이 다듬어진 전체 텍스트만 답해.`;
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-5',
-        max_tokens:3000,
-        messages:[{role:'user',content:prompt}],
-      }),
-    });
-    if(!res.ok){
-      const errText=await res.text().catch(()=>'');
-      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
-    }
-    const data=await res.json();
-    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    const polished=(anthropicText(data)||'').trim();
+    const dynamicText=`
+
+[원본]
+${original}`;
+    const polished=(await callAnthropic(key,{maxTokens:3000,staticText,dynamicText})).trim();
     if(!polished)throw new Error('빈 응답을 받았습니다');
     _polishOriginal=original;
     ta.value=polished;
@@ -2608,10 +2611,7 @@ async function aiRecommendMelodyTexture(){
       st.density?`밀도: ${st.density}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const prompt=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개를 추천해줘. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
-
-[현재 선택]
-${ctx}
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개를 추천해줘. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -2630,29 +2630,12 @@ ${HH_GROOVE.join(', ')}
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
 {"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","reason":"한 문장 한국어 이유"}`;
+    const dynamicText=`
 
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-5',
-        max_tokens:1500,
-        messages:[{role:'user',content:prompt}],
-      }),
-    });
-    if(!res.ok){
-      const errText=await res.text().catch(()=>'');
-      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
-    }
-    const data=await res.json();
-    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    if(!(anthropicText(data)||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw=anthropicText(data)||'';
+[현재 선택]
+${ctx}`;
+
+    const raw=await callAnthropic(key,{maxTokens:1500,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
     if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
@@ -2715,7 +2698,7 @@ async function aiRecommendStructureFromRef(){
   btn.disabled=true;btn.textContent='🤖 분석 중...';
   if(statusEl)statusEl.hidden=true;
   try{
-    const prompt=`너는 힙합 프로듀서야. "${refSong}"라는 곡의 실제 섹션 구성(인트로/벌스/훅/브릿지/아웃트로 순서와 반복 횟수, 그리고 훅·벌스·브릿지 각각의 대략적인 마디 수)을 아는 대로 알려줘.
+    const staticText=`너는 힙합 프로듀서야. 아래 [레퍼런스 곡]으로 주어지는 곡의 실제 섹션 구성(인트로/벌스/훅/브릿지/아웃트로 순서와 반복 횟수, 그리고 훅·벌스·브릿지 각각의 대략적인 마디 수)을 아는 대로 알려줘.
 
 Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표현해야 해: intro, verse, hook, bridge, outro (프리코러스·브레이크처럼 애매한 구간은 가장 가까운 타입으로 매핑).
 
@@ -2723,29 +2706,12 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해 (bars는 hook 4-32, verse 4-32, bridge 2-16 범위):
 {"segs":["intro","verse","hook","verse","hook","bridge","hook","outro"],"bars":{"hook":8,"verse":12,"bridge":4},"confident":true,"reason":"한국어 한두 문장 — 이 곡 구조의 특징(훅이 몇 번인지, 브릿지 위치·마디 수 등)"}`;
+    const dynamicText=`
 
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-5',
-        max_tokens:1200,
-        messages:[{role:'user',content:prompt}],
-      }),
-    });
-    if(!res.ok){
-      const errText=await res.text().catch(()=>'');
-      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
-    }
-    const data=await res.json();
-    if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    if(!(anthropicText(data)||'').trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
-    const raw=anthropicText(data)||'';
+[레퍼런스 곡]
+${refSong}`;
+
+    const raw=await callAnthropic(key,{maxTokens:1200,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
     if(segs.length<2||segs.length>16)throw new Error('AI가 유효한 구조를 반환하지 못했습니다');
