@@ -2562,6 +2562,67 @@ ${HH_TEXTURE.join(', ')}
   }
 }
 
+// 룰 테이블(GENRE_STRUCTURE/MOOD_STRUCTURE)은 장르+무드로 고른 고정 프리셋일 뿐, 레퍼런스로 지정한
+// "그 곡" 자체의 실제 섹션 구성(훅이 몇 번인지, 브릿지 위치 등)은 룰로 담을 수 없는 지식이라 AI가 유일한 경로
+async function aiRecommendStructureFromRef(){
+  const key=getAnthropicKey();
+  const btn=document.getElementById('hh-ai-struct-btn');
+  const statusEl=document.getElementById('hh-ai-struct-status');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+  if(!refSong){fail('위 🎵 레퍼런스 곡 입력란에 곡을 먼저 입력하세요');return;}
+
+  btn.disabled=true;btn.textContent='🤖 분석 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const prompt=`너는 힙합 프로듀서야. "${refSong}"라는 곡의 실제 섹션 구성(인트로/벌스/훅/브릿지/아웃트로 순서와 반복 횟수)을 아는 대로 알려줘.
+
+Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표현해야 해: intro, verse, hook, bridge, outro (프리코러스·브레이크처럼 애매한 구간은 가장 가까운 타입으로 매핑).
+
+이 곡을 정확히 모르면 절대 지어내지 말고 confident를 false로 하고, 그 장르에서 흔한 구조로 최선의 추정만 해.
+
+다른 텍스트 없이 아래 JSON 형식으로만 답해:
+{"segs":["intro","verse","hook","verse","hook","bridge","hook","outro"],"confident":true,"reason":"한국어 한두 문장 — 이 곡 구조의 특징(훅이 몇 번인지, 브릿지 위치 등)"}`;
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:400,
+        messages:[{role:'user',content:prompt}],
+      }),
+    });
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'');
+      throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+    }
+    const data=await res.json();
+    const raw=data.content?.[0]?.text||'';
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
+    if(segs.length<2||segs.length>16)throw new Error('AI가 유효한 구조를 반환하지 못했습니다');
+
+    st.structSegs=segs;
+    st.structIdx=null;
+    st._structAutoManaged=false;
+    renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+    hhGenerate();
+    const confidenceNote=parsed.confident===false?' <span style="opacity:.75">(⚠ 정확히 아는 곡이 아니라 추정치)</span>':'';
+    showToast(`✅ <strong>${escHtml(refSong)}</strong> 구조 적용됨${confidenceNote}${parsed.reason?'<br>'+escHtml(parsed.reason):''}`,6000);
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 레퍼런스 곡 구조로 추천';
+  }
+}
+
 async function getAudioFeaturesViaRapidAPI(trackId){
   const key=getRapidApiKey();
   if(!key)return null;
