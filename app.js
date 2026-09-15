@@ -2433,7 +2433,7 @@ ${ctx}
       body:JSON.stringify({
         model:'claude-sonnet-5',
         max_tokens:2500,
-        messages:[{role:'user',content:prompt}],
+        messages:[{role:'user',content:prompt},{role:'assistant',content:'{'}],
       }),
     });
     if(!res.ok){
@@ -2442,8 +2442,8 @@ ${ctx}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
-    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const raw='{'+(data.content?.[0]?.text||'');
+    const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
     const narrCats=['인트로','버스/훅','클라이맥스/드롭','아웃트로'];
@@ -2626,7 +2626,7 @@ ${HH_GROOVE.join(', ')}
       body:JSON.stringify({
         model:'claude-sonnet-5',
         max_tokens:900,
-        messages:[{role:'user',content:prompt}],
+        messages:[{role:'user',content:prompt},{role:'assistant',content:'{'}],
       }),
     });
     if(!res.ok){
@@ -2635,8 +2635,8 @@ ${HH_GROOVE.join(', ')}
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
-    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const raw='{'+(data.content?.[0]?.text||'');
+    const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
     if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
     const tex=(parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)).slice(0,2);
@@ -2718,7 +2718,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
       body:JSON.stringify({
         model:'claude-sonnet-5',
         max_tokens:700,
-        messages:[{role:'user',content:prompt}],
+        messages:[{role:'user',content:prompt},{role:'assistant',content:'{'}],
       }),
     });
     if(!res.ok){
@@ -2727,8 +2727,8 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     }
     const data=await res.json();
     if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-    const raw=data.content?.[0]?.text||'';
-    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const raw='{'+(data.content?.[0]?.text||'');
+    const parsed=JSON.parse(raw.slice(0,raw.lastIndexOf('}')+1));
     const segs=(parsed.segs||[]).filter(s=>HH_SEG_PALETTE.includes(s));
     if(segs.length<2||segs.length>16)throw new Error('AI가 유효한 구조를 반환하지 못했습니다');
 
