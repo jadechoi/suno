@@ -2545,7 +2545,7 @@ ${original}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:1200,
+        max_tokens:1800,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2625,7 +2625,7 @@ ${HH_GROOVE.join(', ')}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:500,
+        max_tokens:900,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2717,7 +2717,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:400,
+        max_tokens:700,
         messages:[{role:'user',content:prompt}],
       }),
     });
