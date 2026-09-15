@@ -2530,7 +2530,7 @@ async function aiRecommendMelodyTexture(){
       st.density?`밀도: ${st.density}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const prompt=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개를 추천해줘. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 악기가 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const prompt=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개를 추천해줘. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [현재 선택]
 ${ctx}
@@ -2541,8 +2541,17 @@ ${HH_MELODY.join(', ')}
 [믹스 텍스처 목록]
 ${HH_TEXTURE.join(', ')}
 
+[악기 톤/음색 목록 — 리드 악기 자체의 질감]
+${HH_MELODY_TONE.join(', ')}
+
+[전환효과 목록 — 섹션 전환 시 쓰는 효과음, 1~2개]
+${HH_TRANSITION_FX.join(', ')}
+
+[스윙/그루브 목록 — 리듬감]
+${HH_GROOVE.join(', ')}
+
 다른 텍스트 없이 아래 JSON 형식으로만 답해:
-{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"reason":"한 문장 한국어 이유"}`;
+{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","reason":"한 문장 한국어 이유"}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2554,7 +2563,7 @@ ${HH_TEXTURE.join(', ')}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:300,
+        max_tokens:500,
         messages:[{role:'user',content:prompt}],
       }),
     });
@@ -2570,6 +2579,9 @@ ${HH_TEXTURE.join(', ')}
     if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
     const tex=(parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)).slice(0,2);
     if(!tex.length)throw new Error('AI가 목록에 없는 텍스처를 반환했습니다');
+    const tone=HH_MELODY_TONE.includes(parsed.melodyTone)?parsed.melodyTone:null;
+    const fx=(parsed.transitionFx||[]).filter(f=>HH_TRANSITION_FX.includes(f)).slice(0,2);
+    const groove=HH_GROOVE.includes(parsed.groove)?parsed.groove:null;
 
     st.melody=[lead,bg];
     // computeMelodyRoles가 내부적으로 같은 조건식을 한번 더 걸어서 뒤집기 때문에, 이 값을 그 조건식과 동일하게 주면
@@ -2582,6 +2594,21 @@ ${HH_TEXTURE.join(', ')}
     chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
     clearAutoHint('hh-melody-hint');
     clearAutoHint('hh-texture-hint');
+    if(tone){
+      st.melodyTone=tone;
+      chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
+      clearAutoHint('hh-melody-tone-hint');
+    }
+    if(fx.length){
+      st.transitionFx=fx;
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
+      clearAutoHint('hh-fx-hint');
+    }
+    if(groove){
+      st.groove=groove;
+      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
+      clearAutoHint('hh-groove-hint');
+    }
     if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 악기 추천 적용');
 
     if(statusEl){
