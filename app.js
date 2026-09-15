@@ -2432,7 +2432,7 @@ ${ctx}
       },
       body:JSON.stringify({
         model:'claude-sonnet-5',
-        max_tokens:1600,
+        max_tokens:2500,
         messages:[{role:'user',content:prompt}],
       }),
     });
