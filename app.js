@@ -2501,7 +2501,7 @@ async function aiRecommendMelodyTexture(){
       st.density?`밀도: ${st.density}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const prompt=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개를 추천해줘. 매번 똑같이 고르지 말고 맥락에 맞게 창의적으로 — 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const prompt=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개를 추천해줘. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 악기가 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [현재 선택]
 ${ctx}
@@ -2550,6 +2550,7 @@ ${HH_TEXTURE.join(', ')}
     chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
     clearAutoHint('hh-melody-hint');
     clearAutoHint('hh-texture-hint');
+    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate();
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';
