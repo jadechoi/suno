@@ -2355,7 +2355,7 @@ ${ctx}
         'anthropic-dangerous-direct-browser-access':'true',
       },
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
+        model:'claude-sonnet-5',
         max_tokens:1000,
         messages:[{role:'user',content:prompt}],
       }),
@@ -2454,7 +2454,7 @@ ${original}
         'anthropic-dangerous-direct-browser-access':'true',
       },
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
+        model:'claude-sonnet-5',
         max_tokens:1200,
         messages:[{role:'user',content:prompt}],
       }),
@@ -2524,7 +2524,7 @@ ${HH_TEXTURE.join(', ')}
         'anthropic-dangerous-direct-browser-access':'true',
       },
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
+        model:'claude-sonnet-5',
         max_tokens:300,
         messages:[{role:'user',content:prompt}],
       }),
@@ -2595,7 +2595,7 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
         'anthropic-dangerous-direct-browser-access':'true',
       },
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
+        model:'claude-sonnet-5',
         max_tokens:400,
         messages:[{role:'user',content:prompt}],
       }),
