@@ -2054,6 +2054,11 @@ function toggleSpPanel(){
     if(rKeyEl&&rKey)rKeyEl.value='••••••••••••••••';
     const rSt=document.getElementById('rapidapi-status');
     if(rSt&&rKey){rSt.textContent='✅ RapidAPI Key 저장됨 — 403 시 자동 사용';rSt.hidden=false;rSt.style.color='var(--success)';}
+    const aKey=getAnthropicKey();
+    const aKeyEl=document.getElementById('anthropic-key');
+    if(aKeyEl&&aKey)aKeyEl.value='••••••••••••••••';
+    const aSt=document.getElementById('anthropic-key-status');
+    if(aSt&&aKey){aSt.textContent='✅ Anthropic API Key 저장됨';aSt.hidden=false;aSt.style.color='var(--success)';}
     if(_spDirectToken)setSpTab('token');
   }
 }
@@ -2269,8 +2274,13 @@ function getRapidApiKey(){
   try{return localStorage.getItem('rapidapi_key')||'';}catch(_){return'';}
 }
 function saveRapidApiKey(){
-  const val=document.getElementById('rapidapi-key')?.value.trim()||'';
+  const el=document.getElementById('rapidapi-key');
+  const val=el?.value.trim()||'';
   const msgEl=document.getElementById('rapidapi-status');
+  if(val==='••••••••••••••••'){ // 패널 열 때 채워둔 마스킹 표시일 뿐, 안 건드렸으면 그대로 둠
+    if(msgEl){msgEl.textContent='✅ 이미 저장된 Key 그대로 유지됨';msgEl.hidden=false;msgEl.style.color='var(--success)';}
+    return;
+  }
   if(!val){
     if(msgEl){msgEl.textContent='❌ Key를 입력하세요';msgEl.hidden=false;msgEl.style.color='var(--danger)';}
     return;
@@ -2284,8 +2294,13 @@ function getAnthropicKey(){
   try{return localStorage.getItem('anthropic_api_key')||'';}catch(_){return'';}
 }
 function saveAnthropicKey(){
-  const val=document.getElementById('anthropic-key')?.value.trim()||'';
+  const el=document.getElementById('anthropic-key');
+  const val=el?.value.trim()||'';
   const msgEl=document.getElementById('anthropic-key-status');
+  if(val==='••••••••••••••••'){ // 패널 열 때 채워둔 마스킹 표시일 뿐, 안 건드렸으면 그대로 둠
+    if(msgEl){msgEl.textContent='✅ 이미 저장된 Key 그대로 유지됨';msgEl.hidden=false;msgEl.style.color='var(--success)';}
+    return;
+  }
   if(!val){
     if(msgEl){msgEl.textContent='❌ Key를 입력하세요';msgEl.hidden=false;msgEl.style.color='var(--danger)';}
     return;
