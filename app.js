@@ -2577,14 +2577,14 @@ async function aiRecommendStructureFromRef(){
   btn.disabled=true;btn.textContent='🤖 분석 중...';
   if(statusEl)statusEl.hidden=true;
   try{
-    const prompt=`너는 힙합 프로듀서야. "${refSong}"라는 곡의 실제 섹션 구성(인트로/벌스/훅/브릿지/아웃트로 순서와 반복 횟수)을 아는 대로 알려줘.
+    const prompt=`너는 힙합 프로듀서야. "${refSong}"라는 곡의 실제 섹션 구성(인트로/벌스/훅/브릿지/아웃트로 순서와 반복 횟수, 그리고 훅·벌스·브릿지 각각의 대략적인 마디 수)을 아는 대로 알려줘.
 
 Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표현해야 해: intro, verse, hook, bridge, outro (프리코러스·브레이크처럼 애매한 구간은 가장 가까운 타입으로 매핑).
 
-이 곡을 정확히 모르면 절대 지어내지 말고 confident를 false로 하고, 그 장르에서 흔한 구조로 최선의 추정만 해.
+이 곡을 정확히 모르면 절대 지어내지 말고 confident를 false로 하고, 그 장르에서 흔한 구조/마디 수로 최선의 추정만 해.
 
-다른 텍스트 없이 아래 JSON 형식으로만 답해:
-{"segs":["intro","verse","hook","verse","hook","bridge","hook","outro"],"confident":true,"reason":"한국어 한두 문장 — 이 곡 구조의 특징(훅이 몇 번인지, 브릿지 위치 등)"}`;
+다른 텍스트 없이 아래 JSON 형식으로만 답해 (bars는 hook 4-32, verse 4-32, bridge 2-16 범위):
+{"segs":["intro","verse","hook","verse","hook","bridge","hook","outro"],"bars":{"hook":8,"verse":12,"bridge":4},"confident":true,"reason":"한국어 한두 문장 — 이 곡 구조의 특징(훅이 몇 번인지, 브릿지 위치·마디 수 등)"}`;
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2614,6 +2614,15 @@ Suno AI 프롬프트에 쓸 거라 아래 5개 세그먼트 타입으로만 표�
     st.structIdx=null;
     st._structAutoManaged=false;
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+    const bars=parsed.bars||{};
+    const barRanges={hook:[4,32],verse:[4,32],bridge:[2,16]};
+    Object.entries(barRanges).forEach(([type,[lo,hi]])=>{
+      const n=Math.round(bars[type]);
+      if(Number.isFinite(n)&&n>=lo&&n<=hi){
+        const el=document.getElementById(`hh-bar-${type}`);
+        if(el)el.value=n;
+      }
+    });
     hhGenerate(`AI 구조 추천 적용: ${refSong}`);
     const confidenceNote=parsed.confident===false?' <span style="opacity:.75">(⚠ 정확히 아는 곡이 아니라 추정치)</span>':'';
     showToast(`✅ <strong>${escHtml(refSong)}</strong> 구조 적용됨${confidenceNote}${parsed.reason?'<br>'+escHtml(parsed.reason):''}`,6000);
