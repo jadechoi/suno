@@ -210,7 +210,8 @@ ${sectText||'(아직 생성 안 됨)'}
 [이전 라운드에서 이미 적용된 조언 — 이건 이미 반영됐으니 절대 똑같이 다시 제안하지 마, 그 위에 새로 찾은 걸 더해]
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
 
-    const raw=await callAnthropic(key,{maxTokens:8000,staticText,dynamicText});
+    // 최소 4~6개 제안 + narrDir 같은 다항목 필드를 요구하면서 출력이 꽤 길어짐 — 8000으로는 자주 잘려서 올림
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
@@ -332,7 +333,8 @@ ${hasVocal?'보컬 있음: '+st.vocal:'인스트루멘탈 (보컬 없음)'}
 [외부 피드백]
 ${feedback}`;
 
-    const raw=await callAnthropic(key,{maxTokens:8000,staticText,dynamicText});
+    // aiProducerReview와 같은 이유(최소 3~5개 다항목 제안 요구)로 출력이 길어질 수 있어서 같은 한도로 맞춤
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('피드백에서 반영할 내용을 찾지 못했습니다');
