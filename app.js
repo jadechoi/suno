@@ -1936,8 +1936,19 @@ function hhGenerate(source){
   } else {
     aiReviewHtml=''; // API Key 없으면 AI 버튼 자체를 안 보여줌 — 클릭해도 어차피 Key 넣으라는 안내만 뜨니 UI만 지저분해짐
   }
+  // 우리 AI 리뷰는 텍스트만 보고 짐작하지만, 실제로 완성된 곡을 들어본 외부 피드백(다른 AI 청취 평가, 사람 리뷰)이
+  // 있으면 그게 훨씬 신뢰도 높은 정보라 — 붙여넣으면 같은 적용 파이프라인을 그대로 태움. _aiSuggestions 유무와 무관하게
+  // Key만 있으면 항상 노출 (리뷰를 안 받아봤어도 외부 피드백은 바로 붙여넣을 수 있게)
+  const externalFeedbackHtml=hasAiKey?`<details style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
+      <summary style="cursor:pointer;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3)">🎧 들어본 피드백 붙여넣기 (클릭해서 펼치기)</summary>
+      <div style="margin-top:10px">
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:8px;font-style:normal">실제로 완성된 곡을 듣고 받은 평가(다른 AI 청취 리뷰, 사람 피드백 등)를 붙여넣으면, 그 내용을 바로 적용 가능한 제안으로 바꿔줘요.</div>
+        <textarea id="hh-external-feedback-ta" placeholder="예: 훅이 반복될 때 변화가 부족해서 두 번째 임팩트가 약하다..." style="width:100%;min-height:80px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--border-hi);background:var(--surface-2);color:var(--text-1);font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+        <button id="hh-ai-external-btn" onclick="aiParseExternalFeedback()" style="margin-top:8px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer">🎧 반영 제안 받기</button>
+      </div>
+    </details>`:'';
   container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
-    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+advHtml:advHtml+aiReviewHtml}`,
+    `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+externalFeedbackHtml+advHtml:advHtml+aiReviewHtml}`,
     null,'#6B7280'));
 
   // MD 저장 — Generate마다 자동으로 쌓이는 프롬프트 히스토리(로컬 저장)와 별개로, 사용자가 직접 고른 것만 파일로 남기는 용도
