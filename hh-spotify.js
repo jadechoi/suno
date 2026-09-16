@@ -368,6 +368,16 @@ async function doSpotifySearch(){
 function showSpotifyDropdown(results){
   const dd=document.getElementById('sp-dropdown');
   if(!dd)return;
+  // .section에 둥근 모서리용 overflow:hidden이 걸려있어서, 그 안에 있으면 검색 결과가 길 때 카드 경계에서 잘려 보임 —
+  // body로 꺼내서(포지션은 fixed로) 그 클리핑을 벗어나게 하고, 입력창 기준으로 매번 위치를 다시 계산
+  if(dd.parentElement!==document.body)document.body.appendChild(dd);
+  const wrap=document.getElementById('hh-ref-search-wrap');
+  if(wrap){
+    const r=wrap.getBoundingClientRect();
+    dd.style.left=r.left+'px';
+    dd.style.top=(r.bottom+4)+'px';
+    dd.style.width=r.width+'px';
+  }
   dd.innerHTML='';
   results.forEach(t=>{
     const row=document.createElement('div');
