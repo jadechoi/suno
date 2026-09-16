@@ -1338,11 +1338,23 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     if(!v)return'';
     return `, ${typeof v==='string'?v:genArrangeDir(st.genre,type,_ctx)}`;
   };
+  // 스테레오 폭·리버브 같은 공간감 묘사가 곡 전체에서 안 바뀌면(기존엔 텍스처 태그가 전역 1회 선택이라 매 섹션 그대로 반복됨)
+  // Suno가 다이나믹 변화를 덜 만듦 — 섹션 역할별로 명시적인 공간 프로파일을 줘서 인트로(넓고 리버브)→벌스(좁고 드라이)
+  // →훅(타이트하게 펀치)→클라이맥스 훅(가장 넓고 포화)→아웃트로(디케이) 아크를 기본 출력에 항상 포함시킴
+  const spaceArc=role=>({
+    intro:'wide reverberant space, open stereo field',
+    verse:'narrower, dry and intimate stereo image',
+    hook:'tight, punchy stereo image, controlled width',
+    climax:'widest stereo spread of the track, saturated and full',
+    outro:'reverb tail decaying, stereo field slowly collapsing to mono',
+  }[role]||'');
   const sAO=st.sectionArrangeOccurrence||{};
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
   // 이 타입의 진짜 클라이맥스 판정(isLast 등)과는 별개 — 그건 훅 서브타이틀/에너지 문구용으로 계속 그대로 씀
   const boostOccursHere=(type,current,total)=>(sAO[type]==='first'?current===1:current===total);
 
+  // 아웃트로가 인트로를 다시 불러와서 구조적으로 호응하게 — 인트로 3갈래 중 뭐가 쓰였는지 한 줄로 저장해뒀다가 아웃트로에서 참조
+  let introVibe='';
   segs.forEach(type=>{
     if(type==='intro'){
       lines.push('[Intro]');
@@ -1352,11 +1364,14 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const lowEnergy=gEnergy==='low'||gEnergy==='low-mid';
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up${aiNote('intro')+manualNote('인트로')})`);
+        introVibe='the immediate vocal entrance';
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else if(lowEnergy){
-        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar${aiNote('intro')+manualNote('인트로')})`);
+        introVibe='the mood-first, minimal-build opening';
+        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else {
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up${aiNote('intro')+manualNote('인트로')})`);
+        introVibe=`the ${fxOpen} cold open`;
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1370,7 +1385,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook')}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1379,7 +1394,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse')}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1395,7 +1410,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     } else if(type==='outro'){
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
-      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}${aiNote('outro')+manualNote('아웃트로')})`);
+      // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
+      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
