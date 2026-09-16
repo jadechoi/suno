@@ -1980,7 +1980,9 @@ function hhGenerate(source){
   container.appendChild(resetWrap);
   setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);
   updateFloatSummary();
-  if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null});
+  // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
+  // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
+  if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))});
 }
 
 // ============================================================
@@ -2071,6 +2073,26 @@ function updatePromptHistoryLabel(id,label){
   const e=list.find(x=>x.id===id);
   if(e){e.label=label;try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}}
 }
+// 옛날 생성 기록을 현재 작업 상태로 완전히 되돌려서(멜로디·구조·텍스처 등 st 전체) 다시 AI 리뷰를 받을 수 있게 함 —
+// 단순히 텍스트만 불러오면 st가 그 시점과 안 맞아서 "적용" 버튼들이 엉뚱한 상태에 적용됨
+function restorePromptHistoryEntry(id){
+  const entry=loadPromptHistory().find(e=>e.id===id);
+  if(!entry)return;
+  if(!entry.stSnapshot){showToast('⚠️ 이 기록은 옛날 버전이라 복원 정보가 없어요');return;}
+  Object.keys(st).forEach(k=>delete st[k]);
+  Object.assign(st,entry.stSnapshot);
+  const bpmEl=document.getElementById('hh-bpm');
+  if(bpmEl)bpmEl.value=st.bpm;
+  const keyEl=document.getElementById('hh-key');
+  if(keyEl)keyEl.value=st.key;
+  const refEl=document.getElementById('hh-ref-song');
+  if(refEl)refEl.value=entry.refSong||'';
+  _aiSuggestions=null;
+  renderHhChips();
+  hhGenerate(`기록에서 복원: ${entry.label||entry.genre}`);
+  document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});
+  showToast('↺ 이 기록으로 복원됨 — AI 프로듀서 리뷰를 다시 받아보세요');
+}
 function renderPromptHistory(){
   const el=document.getElementById('hh-prompt-history');
   if(!el)return;
@@ -2097,9 +2119,12 @@ function renderPromptHistory(){
         <table style="width:100%;border-collapse:collapse">
           ${(e.summaryRows||[]).map(([k,v],i)=>`<tr style="background:${i%2===0?'rgba(255,255,255,0.035)':'transparent'}"><td style="padding:4px 8px;color:var(--text-3);font-size:11px;white-space:nowrap;width:42%">${k}</td><td style="padding:4px 8px;color:var(--text-1);font-size:11px">${escHtml(v)}</td></tr>`).join('')}
         </table>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--accent-text);cursor:pointer;text-decoration:underline" class="ph-prompt-toggle">프롬프트 보기 ▾</span>
-          <button style="padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-3);font-size:10px;cursor:pointer" class="ph-delete">삭제</button>
+          <div style="display:flex;gap:6px">
+            <button style="padding:3px 9px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:10px;font-weight:700;cursor:pointer" class="ph-restore">↺ 다시 가져오기</button>
+            <button style="padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-3);font-size:10px;cursor:pointer" class="ph-delete">삭제</button>
+          </div>
         </div>
         <div class="ph-prompt" hidden style="flex-direction:column;gap:6px">
           <textarea readonly rows="6" style="width:100%;font-size:11px;padding:6px 8px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-1);color:var(--text-1);font-family:'Space Mono',monospace">${escHtml(e.section)}</textarea>
@@ -2118,6 +2143,7 @@ function renderPromptHistory(){
       p.style.display=p.hidden?'none':'flex';
       ev.target.textContent=p.hidden?'프롬프트 보기 ▾':'프롬프트 숨기기 ▴';
     };
+    row.querySelector('.ph-restore').onclick=()=>restorePromptHistoryEntry(e.id);
     row.querySelector('.ph-delete').onclick=()=>deletePromptHistoryEntry(e.id);
     el.appendChild(row);
   });
