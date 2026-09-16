@@ -1310,7 +1310,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const toneTagFull=toneTag&&toneNuance?`${toneTag}, ${toneNuance}`:toneTag;
   const melodyRef=(section)=>{
     const isFirst=mDescUses===0;
-    const ref=isFirst?mDescFull:(mDescUses===1?mDesc:mDescCallbacks[(mDescUses-2+mDescCallbackOffset)%mDescCallbacks.length]);
+    // 2번째 등장(대개 Hook 1)에서 mDesc("Dark synth & Ambient pad")처럼 위계 없이 나열하면, 둘 다 서스테인 계열
+    // 음색일 때 리드/백킹 구분이 사라져서 마스킹 위험 지적을 받음(실측 확인) — 위계 있는 표현(mDescFull) 다음엔
+    // 바로 콜백 로테이션으로 넘어가서, 이름을 나열하는 중간 단계 자체를 없앰
+    const ref=isFirst?mDescFull:mDescCallbacks[(mDescUses-1+mDescCallbackOffset)%mDescCallbacks.length];
     mDescUses++;
     const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
     const tone=isFirst?toneTagFull:toneTag;
@@ -1340,14 +1343,19 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   };
   // 스테레오 폭·리버브 같은 공간감 묘사가 곡 전체에서 안 바뀌면(기존엔 텍스처 태그가 전역 1회 선택이라 매 섹션 그대로 반복됨)
   // Suno가 다이나믹 변화를 덜 만듦 — 섹션 역할별로 명시적인 공간 프로파일을 줘서 인트로(넓고 리버브)→벌스(좁고 드라이)
-  // →훅(타이트하게 펀치)→클라이맥스 훅(가장 넓고 포화)→아웃트로(디케이) 아크를 기본 출력에 항상 포함시킴
-  const spaceArc=role=>({
-    intro:'wide reverberant space, open stereo field',
-    verse:'narrower, dry and intimate stereo image',
-    hook:'tight, punchy stereo image, controlled width',
-    climax:'widest stereo spread of the track, saturated and full',
-    outro:'reverb tail decaying, stereo field slowly collapsing to mono',
-  }[role]||'');
+  // →훅(타이트하게 펀치)→클라이맥스 훅(가장 넓고 포화)→아웃트로(디케이) 아크를 기본 출력에 항상 포함시킴.
+  // 훅이 3개 이상이면 첫 훅/클라이맥스 훅만 다르고 중간 훅들이 전부 "tight, punchy" 그대로 반복돼서 훅끼리
+  // 점진적 확장감이 없다는 지적을 받음(실측 확인) — 첫 훅 이후로는 "이전 훅보다 조금 더 넓어짐"으로 상대적으로
+  // 표현해서, 훅이 몇 개든 첫 훅→클라이맥스까지 계속 넓어지는 흐름이 되게 함
+  const spaceArc=(role,occ,total)=>{
+    if(role==='hook')return occ===1?'tight, punchy stereo image, controlled width':'slightly wider stereo image than the previous hook, energy building toward the final drop';
+    return({
+      intro:'wide reverberant space, open stereo field',
+      verse:'narrower, dry and intimate stereo image',
+      climax:'widest stereo spread of the track, saturated and full',
+      outro:'reverb tail decaying, stereo field slowly collapsing to mono',
+    }[role]||'');
+  };
   const sAO=st.sectionArrangeOccurrence||{};
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
   // 이 타입의 진짜 클라이맥스 판정(isLast 등)과는 별개 — 그건 훅 서브타이틀/에너지 문구용으로 계속 그대로 씀
@@ -1385,7 +1393,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook')}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
