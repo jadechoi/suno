@@ -1936,7 +1936,22 @@ function hhGenerate(source){
         const vIcon=s.verify.status==='pass'?'✅ 확인됨':s.verify.status==='partial'?'⚠️ 일부만 반영':'❌ 반영 안 됨';
         return `<div style="margin-top:5px;font-size:11px;color:${vColor}">${vIcon}${s.verify.note?' — '+escHtml(s.verify.note):''}</div>`;
       })():'';
-      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>${verifyHtml}</div>`;
+      // "필터나 리듬 변주를 넣어" 같은 조언 문구는 방향만 말하지 실제로 뭘 썼는지는 안 보여줘서, 적용된 실제 문구를
+      // 따로 보여줌 — 뭐가 바뀌었는지 프롬프트를 직접 뒤져보지 않아도 알 수 있게
+      const appliedContentHtml=s.applied?(()=>{
+        const parts=[];
+        if(s.melodyLead)parts.push(`멜로디 리드 → ${s.melodyLead}`);
+        if(s.boostText)parts.push(`"${s.boostText}"`);
+        else if(s.boostSection)parts.push(`${s.boostSection} 섹션 편곡 강화 (장르 기본 문구 적용)`);
+        if(s.tag)parts.push(s.tag.map(t=>`"${t}"`).join(', '));
+        if(s.narrDir)parts.push(Object.entries(s.narrDir).map(([k,v])=>`${k}: "${v}"`).join(' / '));
+        if(s.addSection)parts.push(`${s.addSection} 섹션 추가 (${s.addSectionPosition})`);
+        if(s.mood)parts.push(`무드 → ${s.mood}`);
+        if(s.removeRef)parts.push(`레퍼런스 제거: ${s.removeRef}`);
+        if(s.removeTag)parts.push(`"${s.removeTag}" 포함 태그 제거`);
+        return parts.length?`<div style="margin-top:5px;font-size:11px;color:var(--text-3)">✏️ 적용된 내용: ${parts.map(escHtml).join(' · ')}</div>`:'';
+      })():'';
+      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>${appliedContentHtml}${verifyHtml}</div>`;
     }).join('');
     const hasApplied=_aiSuggestions.some(s=>s.applied);
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
