@@ -1919,7 +1919,7 @@ function hhGenerate(source){
   if(_aiSuggestions){
     const rowsHtml=_aiSuggestions.map((s,idx)=>{
       const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
-      const actionable=!!(s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag);
+      const actionable=!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag);
       const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
       const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';

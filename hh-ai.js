@@ -96,8 +96,9 @@ let _aiSuggestions=null;
 const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯','악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶','전개':'🎬'};
 // aiProducerReview와 aiParseExternalFeedback(외부 피드백 파싱) 둘 다 "조언 → 실제 프롬프트에 적용 가능한 필드"로
 // 변환해야 해서, 그 필드 설명과 JSON 스키마를 공유 — 같은 스키마로 나와야 applyAiSuggestion이 출처 구분 없이 그대로 먹음
-const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 5개 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
-- tag: 악기·믹스·보컬 관련 조언 → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구들의 배열 (조언에서 언급한 요소마다 하나씩 따로 — 예를 들어 "콩가, 샤커, 토킹드럼"이면 하나로 뭉치지 말고 ["conga percussion loop","shaker groove layer","talking drum polyrhythm accent"]처럼 각각 넣어. 하나만 있으면 배열에 1개만)
+const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
+- melodyLead: 멜로디 악기가 정확히 2개 선택돼 있고, 조언이 "둘 중 어느 게 리드를 맡아야 하는지"(예: 주파수 대역이 겹쳐서 하나를 백킹으로 물려야 함)에 관한 거면 → 리드를 맡아야 할 악기 이름을 [현재 설정]의 멜로디 악기 목록에 있는 문자열 그대로 정확히 넣어. 중요: 아래 [현재 생성된 섹션 프롬프트]를 먼저 확인해서 이미 그 악기가 "lead melody"로, 다른 하나가 "layered softly beneath/background layer"로 명시돼 있으면(원하는 역할 배치가 이미 되어 있으면) 이 조언 자체를 만들지 마 — 이미 된 걸 tag로 또 추가하면 같은 얘기가 두 군데서 중복되고 뭉개짐. 역할을 바꿔야 할 때만 melodyLead를 채워.
+- tag: 악기·믹스·보컬 관련 조언 중 멜로디 리드/백킹 역할 재배치가 아닌 것(새 악기 추가, 믹스 텍스처, 보컬 처리 등) → Suno 스타일 태그에 그대로 넣을 영어 소문자 문구들의 배열 (조언에서 언급한 요소마다 하나씩 따로 — 예를 들어 "콩가, 샤커, 토킹드럼"이면 하나로 뭉치지 말고 ["conga percussion loop","shaker groove layer","talking drum polyrhythm accent"]처럼 각각 넣어. 하나만 있으면 배열에 1개만)
 - boostSection: 편곡/에너지 조언이고 특정 섹션을 더 키우자는 얘기일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나. 그리고 boostOccurrence로 그 타입 중 몇 번째를 말하는 건지도 반드시 같이 정해: first(그 타입의 첫 번째) | last(마지막 — 보통 클라이맥스, 기본값). 조언이 "첫 훅"이라고 하면 first, "마지막/클라이맥스 훅"이면 last — 조언 내용이랑 실제로 일치해야 해. 조언에 "악기 A와 B가 주고받는다"처럼 장르 고정 문구로는 못 담는 구체적인 아이디어가 있으면 boostText에 Suno 섹션 프롬프트에 그대로 이어붙일 영어 한 문장을 직접 써 (없으면 생략 — 그때는 장르 기본 편곡 문구가 대신 들어감). Suno는 텍스트→음악 변환 모델이라 추상적 비유보다 구체적인 프로덕션/오디오 용어(악기·이펙트·다이나믹)로 쓴 지시를 훨씬 잘 반영해 (예: "flute and synth trade short call-and-response phrases with increasing density"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입(hook|verse|bridge)과, 그걸 어디 넣을지 addSectionPosition도 같이 정해줘: beforeFirstHook(첫 훅 앞) | afterIntro(인트로 바로 뒤) | beforeLastHook(마지막 훅 직전 — 클라이맥스 텐션 빌드용) | end(아웃트로 직전) 중 조언 내용이랑 실제로 일치하는 위치 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
@@ -107,13 +108,15 @@ const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 한 문장)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 한 문장)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(전개일 때만, 위 형식 객체)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
 // aiProducerReview·aiParseExternalFeedback 둘 다 이 형태로 모델 응답을 정리 — 출처가 달라도 applyAiSuggestion 입장에선 동일한 객체
 function normalizeAiSuggestion(s,uniqueSegs,occKeys){
   return{
     category:s.category||'💡',
     text:s.text,
     score:(Number.isFinite(Math.round(s.score))&&Math.round(s.score)>=1&&Math.round(s.score)<=100)?Math.round(s.score):null,
+    // 멜로디 악기가 정확히 2개일 때만 의미 있음 — 1개거나 3개 이상이면 리드/백킹 개념 자체가 없음
+    melodyLead:(typeof s.melodyLead==='string'&&st.melody.length===2&&st.melody.includes(s.melodyLead))?s.melodyLead:null,
     // 배열이 정상 형태지만, 모델이 가끔 문자열 하나로 줄 수도 있어서 둘 다 받아 배열로 통일
     tag:(()=>{
       const arr=Array.isArray(s.tag)?s.tag:(typeof s.tag==='string'&&s.tag.trim()?[s.tag]:[]);
@@ -172,7 +175,7 @@ async function aiProducerReview(){
 
 "총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 칭찬 말고 실질적인 약점 위주로. 그리고 지금 프롬프트 구성 전체를 100점 만점으로 냉정하게 채점해서 score 필드에 정수로 넣어 — 후하게 주지 말고, 진짜 완성도 있는 트랙과 비교했을 때 기준으로.
 나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 2~4개 더 채워줘 (뻔한 일반론 금지). 모든 카테고리에서 "전문 음악 프로듀서가 실제로 트랙을 검토하듯" 다양한 각도로 봐 — 표면적인 칭찬이나 뻔한 조언 말고, 실제 텍스트에 근거한 구체적 지적이어야 해. 아래 네 가지는 반드시 실제 텍스트에서 확인해서, 문제가 있으면 해당 카테고리에 포함시켜:
-- (악기) 지금 고른 악기 조합이 서로 주파수 대역·역할(리드/백킹/리듬)이 겹치지 않고 조화롭게 배치돼 있는지, 곡에 어울리는데 빠진 악기 요소는 없는지, 과잉되거나 서로 마스킹할 수 있는 조합은 없는지 — 악기 "구성"뿐 아니라 "배치"(어느 섹션에서 어떤 역할로 등장하는지)까지 봐
+- (악기) 지금 고른 악기 조합이 서로 주파수 대역·역할(리드/백킹/리듬)이 겹치지 않고 조화롭게 배치돼 있는지, 곡에 어울리는데 빠진 악기 요소는 없는지, 과잉되거나 서로 마스킹할 수 있는 조합은 없는지 — 악기 "구성"뿐 아니라 "배치"(어느 섹션에서 어떤 역할로 등장하는지)까지 봐. 멜로디 악기가 2개라 [현재 생성된 섹션 프롬프트]에 이미 "A lead melody, B layered softly beneath"처럼 리드/백킹이 명시돼 있으면 그 역할 배정 자체가 적절한지만 판단하고(적절하면 지적하지 말고 넘어가), 바꿔야 한다고 판단되면 melodyLead로 — tag로 "B를 백킹으로 물려라"를 또 넣으면 이미 있는 역할 문구랑 중복돼서 뭉개짐
 - (믹스) 공간감·스테레오 폭·리버브 묘사가 섹션마다 다르게 진행되는지 — 인트로는 넓고, 벌스는 좁고 드라이하고, 훅은 타이트하고, 클라이맥스 훅은 가장 넓고, 아웃트로는 디케이되는 식의 아크가 실제 텍스트에 있는지. 이미 있으면 칭찬하지 말고 넘어가고, 없거나 약하면 "믹스"에서 지적
 - (전개) 인트로와 아웃트로가 서로 호응하는지(같은 이미지·질감을 다시 불러오는지) — 이미 있으면 넘어가고, 그냥 일반적인 페이드아웃이면 "전개"에서 지적
 - (편곡) 반복되는 섹션(훅끼리, 벌스끼리)이 리듬 패턴·필터·다이나믹 표현에서 실제로 다른 단어를 쓰는지, 아니면 같은 문구가 토씨만 바뀐 채 반복되는지 — 반복이면 "편곡"에서 구체적으로 지적
@@ -215,6 +218,13 @@ function applyAiSuggestion(idx){
   if(!sug||sug.applied)return;
   sug.applied=true;
   if(sug.mood){applyAdvMood(sug.mood);return;}   // 자체적으로 hhGenerate까지 처리함
+  if(sug.melodyLead){
+    // melodyLeadIdx는 "뒤집을지 말지" 플래그지 직접 인덱스가 아니라서, computeMelodyRoles로 원하는 악기가
+    // 실제로 lead가 될 때까지 토글 — MELODY_ROLE 테이블 내부 규칙을 여기서 또 계산할 필요 없음
+    st.melodyLeadIdx=0;
+    if(computeMelodyRoles(st.melody)?.lead!==sug.melodyLead)st.melodyLeadIdx=1;
+    renderMelodyRoleUI();
+  }
   if(sug.tag){
     // 태그가 여러 개일 수 있어서 하나씩 순서대로 처리 (예: 콩가/샤커/토킹드럼처럼 조언 하나가 여러 요소를 언급하는 경우)
     sug.tag.forEach(t=>{
