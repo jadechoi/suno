@@ -126,7 +126,10 @@ const HH_ARTISTS=[
 ];
 
 const HH_808=['None','Minimal','Balanced','Heavy','Dominant'];
-const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks'];
+// 트랩/붐뱁 계열 6개뿐이라 Jersey Club·Afrotrap·Hyperpop처럼 리듬 뼈대 자체가 다른 장르는 표현할 어휘가 없었음
+// (GENRE_AUTO 주석엔 "four-on-floor kick", "afro rolling percussion", "ghost kicks"라고 의도는 적혀있었는데
+// 실제로 고를 수 있는 옵션이 없어서 매번 트랩 옵션으로 대체돼 있었음, 실사용자 피드백으로 확인) — 3개 추가
+const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks','Four-on-the-floor kick','Jersey bounce kick','Afro log drum'];
 const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth','Flute','Harp','Music box','Organ','Vibraphone','Kalimba','Arp pluck synth','Cello','Sitar','Vocoder synth'];
 const HH_MOODS=[
   {kr:'어둡고 위압적',tag:'dark menacing'},
