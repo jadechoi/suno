@@ -1779,7 +1779,11 @@ function hhGenerate(source){
   container.appendChild(sectBlock);
 
   // ③ 스타일 프롬프트
-  // 순서: [Instrumental] → no vocals → genre → producer ref → mood → melody → 808/drums → Key → BPM → texture → anti-AI
+  // 순서: [Instrumental] → no vocals → genre → producer ref → mood → melody → 808/그루브/드럼(한 덩어리) → Key → BPM → texture → anti-AI
+  // Suno 실측: 스타일 박스는 콤마로 구분되는 태그가 10개 안팎을 넘으면 뒤쪽부터 무시되기 시작함(WebSearch로 확인) —
+  // 그래서 "선택 옵션 1개 = 콤마 태그 1개"로 쪼개던 걸 관련 있는 것끼리 ' & '로 묶어 콤마 개수 자체를 줄임.
+  // tags.join(', ')은 배열 개수가 아니라 각 항목 안에 콤마가 몇 개 있는지로 실제 태그 개수가 정해지므로,
+  // 나열형(콤마)이 아니라 결합형(&)으로 묶는 게 핵심 — 정보는 그대로 유지하면서 Suno가 세는 "태그 1개"로 압축
   const tags=[];
   const hhHasVocal=st.vocal&&st.vocal!=='No Vocal';
   if(!hhHasVocal){
@@ -1787,47 +1791,49 @@ function hhGenerate(source){
     tags.push('no vocals');                                         // 보컬 억제 보완 태그
   }
   if(g)tags.push(g.tag);
-  // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화)
+  // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화), 여러 명이어도 한 태그로
   if(st.refs.length){
     const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?p.en:kr;});
-    tags.push(refEns.join(', '));
+    tags.push(refEns.join(' & '));
   }
   if(mood)tags.push(mood.tag);
   if(st.melody.length){
     const roles=computeMelodyRoles(st.melody);
     const toneTagStyle=MELODY_TONE_TAG[st.melodyTone];
     const toneNuanceStyle=mood&&pick(MOOD_TONE_NUANCE[mood.kr]);
-    const toneCombinedStyle=toneTagStyle&&toneNuanceStyle?`${toneTagStyle}, ${toneNuanceStyle}`:toneTagStyle;
-    if(roles)tags.push(`${toneCombinedStyle?toneCombinedStyle+' ':''}${roles.lead.toLowerCase()} lead melody`,`${roles.bg.toLowerCase()} background layer`);
-    else tags.push(...st.melody.map(m=>m.toLowerCase()));
+    const toneCombinedStyle=toneTagStyle&&toneNuanceStyle?`${toneTagStyle} ${toneNuanceStyle}`:toneTagStyle;
+    // 리드·백킹도 별개 태그 2개 대신 " & "로 묶은 태그 1개로
+    if(roles)tags.push(`${toneCombinedStyle?toneCombinedStyle+' ':''}${roles.lead.toLowerCase()} lead melody & ${roles.bg.toLowerCase()} background layer`);
+    else tags.push(st.melody.map(m=>m.toLowerCase()).join(' & '));
   }
+  // 808 + 그루브 + 드럼 — 전부 "리듬 섹션" 한 카테고리라 태그 1개로 통합 (예전엔 최대 3~5개 콤마 태그였음)
   const nuance808=mood&&pick(MOOD_808_NUANCE[mood.kr]);
-  if(st._808&&st._808!=='None')tags.push(`${st._808} 808${nuance808?', '+nuance808:''}`);
   const nuanceGroove=mood&&pick(MOOD_GROOVE_NUANCE[mood.kr]);
-  if(st.groove)tags.push(`${GROOVE_TAG[st.groove]}${nuanceGroove?' '+nuanceGroove:''}`);
-  // g.drum은 드럼 칩 미선택 시 fallback으로만 사용
-  if(st.drums.length){
-    tags.push(...st.drums.map(d=>d.toLowerCase()));
-    const nuanceDrums=mood&&pick(MOOD_DRUMS_NUANCE[mood.kr]);
-    if(nuanceDrums)tags.push(`${nuanceDrums} drums`);
-  } else if(g)tags.push(g.drum);
+  const nuanceDrums=mood&&pick(MOOD_DRUMS_NUANCE[mood.kr]);
+  const rhythmParts=[];
+  if(st._808&&st._808!=='None')rhythmParts.push(`${nuance808?nuance808+' ':''}${st._808} 808`);
+  if(st.groove)rhythmParts.push(`${GROOVE_TAG[st.groove]}${nuanceGroove?' '+nuanceGroove:''}`);
+  if(st.drums.length)rhythmParts.push(`${st.drums.map(d=>d.toLowerCase()).join(' & ')}${nuanceDrums?' '+nuanceDrums:''}`);
+  else if(g)rhythmParts.push(g.drum);
+  if(rhythmParts.length)tags.push(rhythmParts.join(' & '));
   if(st.vocal&&st.vocal!=='No Vocal'){
-    tags.push(st.vocal.toLowerCase());
-    if(st.vocalStyle)tags.push(VOCAL_STYLE_TAG[st.vocalStyle]);
-    if(st.vocalChar)tags.push(VOCAL_CHAR_TAG[st.vocalChar]);
+    // 보컬 타입/스타일/톤도 태그 3개 대신 형용사처럼 붙여서 1개로
+    const vocalBits=[VOCAL_CHAR_TAG[st.vocalChar],VOCAL_STYLE_TAG[st.vocalStyle],st.vocal.toLowerCase()].filter(Boolean);
+    tags.push(vocalBits.join(' '));
   }
   tags.push(`Key of ${keyStr}`);
   tags.push(`${bpmVal} BPM`);
   if(st.texture.length){
-    tags.push(...st.texture.map(t=>t.toLowerCase()));
     const nuanceTexture=mood&&pick(MOOD_TEXTURE_NUANCE[mood.kr]);
-    if(nuanceTexture)tags.push(nuanceTexture);
+    tags.push(`${st.texture.map(t=>t.toLowerCase()).join(' & ')}${nuanceTexture?' '+nuanceTexture:''}`);
   }
-  if(st.era)tags.push(st.era+' era');
-  if(st.region)tags.push(st.region+' sound');
-  if(st.density)tags.push(st.density.toLowerCase()+' arrangement');
-  if(st.extraTags.length)tags.push(...st.extraTags);              // 피드백에서 적용된 태그
-  if(antiAI)tags.push('organic, warm, human-feel, analog imperfections, natural dynamics');
+  const contextParts=[];
+  if(st.era)contextParts.push(st.era+' era');
+  if(st.region)contextParts.push(st.region+' sound');
+  if(st.density)contextParts.push(st.density.toLowerCase()+' arrangement');
+  if(contextParts.length)tags.push(contextParts.join(' & '));
+  if(st.extraTags.length)tags.push(...st.extraTags);              // 피드백에서 적용된 태그 — 각각 독립적인 조언이라 태그 그대로 유지
+  if(antiAI)tags.push('organic warm human-feel & analog imperfections & natural dynamics');
   const styleText=tags.join(', ');
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
