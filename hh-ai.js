@@ -579,6 +579,10 @@ async function aiRecommendProducerRef(){
     const refList=HH_REF.map(p=>`${p.kr} (${p.vibes} — ${p.en})`).join('\n');
     const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 프로듀서 레퍼런스 1~2명을 아래 목록에서만 정확히 그대로 골라줘. 장르만 보지 말고 무드·멜로디·텍스처까지 종합해서 판단해 — 같은 장르라도 무드가 다르면 다른 프로듀서가 더 어울릴 수 있어.
 
+중요: 아래 [이미 적용된 스타일 태그]가 있으면(AI 프로듀서 리뷰에서 이미 적용된 조언들이야) 후보 프로듀서의 설명(괄호 안 영어)이 그 태그랑 서브장르 자체가 달라질 만큼 상반되지 않는지 먼저 걸러 — 예를 들어 적용된 태그가 "log drum bassline"인데 후보 설명이 "chiptune-esque synth leads, minimal spacey drums"면 그 프로듀서는 제외해.
+
+여러 프로듀서가 이 조합에 비슷하게 잘 어울릴 수 있으면, 매번 제일 유명하고 뻔한 조합(예: 트랩이면 항상 Metro Boomin·Wheezy)만 고르지 말고 무드·멜로디·텍스처 뉘앙스 차이를 살려서 다른 후보도 고려해 — 단, 억지로 안 맞는 걸 다양성 때문에 고르지는 마, 진짜 비슷하게 맞을 때만.
+
 [프로듀서 목록]
 ${refList}
 
@@ -598,7 +602,10 @@ ${refList}
     const dynamicText=`
 
 [현재 선택]
-${ctx}`;
+${ctx}
+
+[이미 적용된 스타일 태그 — 이거랑 상반되는 프로듀서는 제외]
+${st.extraTags.length?st.extraTags.join(', '):'(없음)'}`;
 
     const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
