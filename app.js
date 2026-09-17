@@ -114,7 +114,7 @@ function hhInit(){
 function renderHhChips(){
   renderHhGenres();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
@@ -384,6 +384,30 @@ const ERA_TEXTURE_BOOST={
   '90s':['Vintage tape','Lo-fi grain'], '2000s':['Vintage tape','Dry intimate'],
   '2010s':['Stereo wide','Sidechain pump'], '2020s':['Pristine digital','Stereo wide'],
 };
+// 드럼은 지금까지 GENRE_AUTO(장르 고정 2개)로만 정해지고 무드가 바뀌어도 다시 안 뽑혔음(멜로디/텍스처는 이미
+// scorePick으로 장르+무드 둘 다 봄) — 같은 패턴으로 드럼도 무드를 반영하도록 함. GENRE_DRUMS_TIPS는 기존
+// GENRE_AUTO[i].aDrums랑 그대로 맞춰서, 무드가 안 갈리면 결과가 똑같이 나옴(회귀 없음)
+const GENRE_DRUMS_TIPS={
+  0:'Trap rolls + Crisp hi-hats', 1:'Trap rolls + Sub-bass punch',
+  2:'Trap rolls + Crisp hi-hats', 3:'Rolling triplets + Crisp hi-hats',
+  4:'Rolling triplets + Crisp hi-hats', 5:'Memphis cowbell chop + Sub-bass punch',
+  6:'Boom Bap kick + Crisp hi-hats', 7:'Crisp hi-hats',
+  8:'Boom Bap kick', 9:'Jersey bounce kick + Crisp hi-hats',
+  10:'Trap rolls + Glitchy breaks', 11:'Afro log drum + Rolling triplets',
+  12:'Boom Bap kick + Crisp hi-hats', 13:'Sub-bass punch + Crisp hi-hats',
+  14:'Four-on-the-floor kick + Glitchy breaks', 15:'Glitchy breaks + Crisp hi-hats',
+  16:'Sub-bass punch', 17:'Live jazz drums + Crisp hi-hats',
+};
+const MOOD_DRUMS_FIT={
+  '어둡고 위압적':['Trap rolls','Sub-bass punch'], '감각적·관능적':['Crisp hi-hats','Sub-bass punch'],
+  '멜로딕·감성':['Trap rolls','Crisp hi-hats'], '에너제틱·하입':['Four-on-the-floor kick','Rolling triplets'],
+  '사이키델릭·몽환':['Glitchy breaks','Crisp hi-hats'], '칠·그루비':['Boom Bap kick','Crisp hi-hats'],
+  '분노·공격적':['Trap rolls','Sub-bass punch'], '내성적·사색':['Boom Bap kick','Sub-bass punch'],
+  '축제·환희':['Four-on-the-floor kick','Jersey bounce kick'], '승리감·웅장':['Trap rolls','Sub-bass punch'],
+  '슬프고·멜랑콜리':['Boom Bap kick','Crisp hi-hats'], '자신감·플렉스':['Trap rolls','Sub-bass punch'],
+  '로맨틱·달콤한':['Crisp hi-hats','Boom Bap kick'], '긴장감·서스펜스':['Rolling triplets','Glitchy breaks'],
+  '노스탤직·향수':['Live jazz drums','Boom Bap kick'], '미스터리·신비':['Glitchy breaks','Sub-bass punch'],
+};
 
 // 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
@@ -414,15 +438,24 @@ function recommendMelodyTexture(){
   const rankedTone=scorePick(HH_MELODY_TONE,GENRE_MELODY_TONE,MOOD_MELODY_TONE,st.genre,st.mood,null);
   st.melodyTone=rankedTone[0];
 
+  // 드럼도 멜로디/텍스처랑 같은 방식으로 장르+무드 둘 다 반영 — 예전엔 GENRE_AUTO(장르만) 값이 무드를 바꿔도 그대로였음
+  const rankedDrums=scorePick(HH_DRUMS,GENRE_DRUMS_TIPS,MOOD_DRUMS_FIT,st.genre,st.mood,null);
+  st.drums=rankedDrums.slice(0,2);
+
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
+  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
   setAutoHint('hh-melody-hint',`${lead} + ${bg}`);
   setAutoHint('hh-texture-hint',st.texture.join(', '));
   setAutoHint('hh-melody-tone-hint',st.melodyTone);
+  setAutoHint('hh-drums-hint',st.drums.join(', '));
   st._mtAutoManaged=true;
   recommendVocalChar();
+}
+function onDrumsManualChange(){
+  st._mtAutoManaged=false;
 }
 function onMelodyManualChange(){
   st._mtAutoManaged=false;
@@ -560,7 +593,7 @@ function selectGenre(i){
       st.transitionFx=[...auto.fx];
       st.groove=auto.groove;
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
       setAutoHint('hh-808-hint','808: '+auto.a808);
@@ -772,7 +805,7 @@ function applyArtistSong(tabKey,song,artist){
       st.transitionFx=[...auto.fx];
       st.groove=auto.groove;
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
+      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
       setAutoHint('hh-808-hint','808: '+auto.a808);
