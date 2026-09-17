@@ -193,6 +193,10 @@ const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb'
 const HH_ERA=['90s','2000s','2010s','2020s','Timeless'];
 const HH_REGION=['Atlanta','New York','LA','UK','Seoul','Miami','Chicago'];
 const HH_DENSITY=['Minimalist','Sparse','Balanced','Dense','Maximalist'];
+// "Polished production"(HH_TEXTURE)은 믹스 퀄리티 얘기고, 이건 같은 장르 안에서 상업적/언더그라운드 중
+// 어느 쪽 색깔인지(예: commercial hyperpop vs underground hyperpop) 짚어주는 축 — 서로 다른 개념이라 분리
+const HH_COMMERCIAL=['Commercial/Mainstream','Underground/Experimental'];
+const COMMERCIAL_TAG={'Commercial/Mainstream':'commercial mainstream sound','Underground/Experimental':'underground experimental sound'};
 const HH_LENGTH=['1:30','2:00','2:30','3:00','3:30'];
 
 // 프로듀서 피드백 → Suno 스타일 태그 매핑 (장르 인덱스 기준)

@@ -4,7 +4,7 @@
 const st={
   genre:null,key:7,bpm:140,
   _808:'Balanced',drums:[],melody:[],melodyTone:null,mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
-  refs:[],texture:[],era:null,region:null,density:null,length:null,
+  refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
   narrSt:{},narrAI:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
@@ -127,6 +127,7 @@ function renderHhChips(){
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
   chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
+  chipGrid(document.getElementById('hh-commercial'),HH_COMMERCIAL,st,'commercial',1,null);
   chipGrid(document.getElementById('hh-length'),HH_LENGTH,st,'length',1,null);
   renderHhNarr();
   renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
@@ -1793,6 +1794,7 @@ function hhGenerate(source){
   if(st.era)summaryRows.push(['📅 시대',st.era]);
   if(st.region)summaryRows.push(['📍 지역',st.region]);
   if(st.density)summaryRows.push(['⚖ 밀도',st.density]);
+  if(st.commercial)summaryRows.push(['🎯 색깔',st.commercial]);
   if(st.length)summaryRows.push(['⏱ 길이',st.length]);
   const narrEntries=HH_NARR.map(seg=>seg.label)
     .map(k=>[k, st.narrSt[k]])
@@ -1893,6 +1895,7 @@ function hhGenerate(source){
   if(st.era)contextParts.push(st.era+' era');
   if(st.region)contextParts.push(st.region+' sound');
   if(st.density)contextParts.push(st.density.toLowerCase()+' arrangement');
+  if(st.commercial)contextParts.push(COMMERCIAL_TAG[st.commercial]);
   if(contextParts.length)tags.push(contextParts.join(' & '));
   if(st.extraTags.length)tags.push(...st.extraTags);              // 피드백에서 적용된 태그 — 각각 독립적인 조언이라 태그 그대로 유지
   if(antiAI)tags.push('organic warm human-feel & analog imperfections & natural dynamics');
@@ -2244,7 +2247,7 @@ function hhReset(){
   _aiSuggestions=null;
   st.genre=null;st.key=7;st.bpm=140;
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
-  st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;
+  st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
   st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
