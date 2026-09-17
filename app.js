@@ -686,23 +686,39 @@ function renderArtists(containerId,artists,tabKey){
   });
 }
 
+// 음악 비전공자는 "다크 · 오케스트라 · 영화적" 같은 vibes 문구만 보고 지금 고른 장르랑 어울릴지 판단하기 어려움
+// (실사용자 피드백) — GENRE_REF(장르별 추천 2명, 이미 있던 데이터)를 활용해 추천 여부를 배지로 명시해줘서,
+// vibes 문구를 직접 해석 안 해도 "이건 이 장르에 잘 맞는다고 이미 검증된 선택"이라는 걸 바로 알 수 있게 함
 function renderProducerRef(){
   const container=document.getElementById('hh-ref');
   if(!container)return;
   container.innerHTML='';
-  container.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px';
-  HH_REF.forEach(p=>{
+  container.style.cssText='display:block'; // #hh-ref는 원래 .chip-grid(flex-row)라 힌트+카드그리드를 세로로 쌓으려면 덮어써야 함
+  const recommended=st.genre!==null?(GENRE_REF[st.genre]||[]):[];
+  if(recommended.length){
+    const hint=document.createElement('div');
+    hint.style.cssText='font-size:10px;color:var(--text-3);margin-bottom:6px';
+    hint.textContent='⭐ 표시 = 지금 고른 장르에 잘 맞는 추천 (뭘 골라야 할지 모르겠으면 이 중에서 선택하세요)';
+    container.appendChild(hint);
+  }
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px';
+  container.appendChild(grid);
+  // 추천 2명을 그리드 맨 앞으로 — 비전공자는 골라야 할 게 22개나 있으면 압도되니 기본값을 맨 위에 노출
+  const sorted=[...HH_REF].sort((a,b)=>recommended.includes(b.kr)-recommended.includes(a.kr));
+  sorted.forEach(p=>{
     const selected=st.refs.includes(p.kr);
+    const isRecommended=recommended.includes(p.kr);
     const el=document.createElement('div');
-    el.style.cssText=`background:${selected?'rgba(157,78,221,.18)':'var(--surface-2)'};border:1px solid ${selected?'var(--accent)':'var(--border)'};border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:.15s`;
-    el.innerHTML=`<div style="font-size:13px;font-weight:600;color:${selected?'var(--accent-text)':'var(--text-1)'};margin-bottom:4px">${p.kr}</div><div style="font-size:11px;color:var(--text-2);margin-bottom:3px">${p.vibes}</div><div style="font-size:10px;color:var(--text-3)">${p.artists}</div>`;
+    el.style.cssText=`background:${selected?'rgba(157,78,221,.18)':'var(--surface-2)'};border:1px solid ${selected?'var(--accent)':isRecommended?'rgba(245,158,11,.5)':'var(--border)'};border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:.15s`;
+    el.innerHTML=`<div style="font-size:13px;font-weight:600;color:${selected?'var(--accent-text)':'var(--text-1)'};margin-bottom:4px">${isRecommended?'⭐ ':''}${p.kr}</div><div style="font-size:11px;color:var(--text-2);margin-bottom:3px">${p.vibes}</div><div style="font-size:10px;color:var(--text-3)">${p.artists}</div>`;
     el.onclick=()=>{
       if(st.refs.includes(p.kr)){st.refs=st.refs.filter(x=>x!==p.kr);}
       else if(st.refs.length<2){st.refs.push(p.kr);}
       else{st.refs.shift();st.refs.push(p.kr);}
       renderProducerRef();
     };
-    container.appendChild(el);
+    grid.appendChild(el);
   });
 }
 // 장르 고르면 GENRE_REF로 프로듀서 레퍼런스 자동 채움 — 수동으로 클릭해서 언제든 바꿀 수 있음
