@@ -1298,7 +1298,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 멜로디 2개 선택 시 맨 처음 등장은 리드/배경 역할까지 명시해서 입체감 부여
   const melodyRoles=computeMelodyRoles(melody);
   const leadInstrument=melodyRoles?melodyRoles.lead:(melody&&melody[0]);
-  const mDescFull=melodyRoles?`${melodyRoles.lead} lead melody, ${melodyRoles.bg} layered softly beneath`:mDesc;
+  const mDescFull=melodyRoles?`${melodyRoles.lead} lead, ${melodyRoles.bg} background`:mDesc;
   const mDescCallbacks=['matching synth layers','consistent instrumentation','matching tonal palette'];
   const mDescCallbackOffset=Math.floor(Math.random()*mDescCallbacks.length); // Generate마다 시작점을 섞어서 반복 문구 순서도 달라지게
   let mDescUses=0;
@@ -1316,7 +1316,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     const ref=isFirst?mDescFull:mDescCallbacks[(mDescUses-1+mDescCallbackOffset)%mDescCallbacks.length];
     mDescUses++;
     const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
-    const tone=isFirst?toneTagFull:toneTag;
+    // 톤(예: "distorted gritty")은 최초 1회(인트로)에만 붙임 — 이후에도 매번 붙이면 전 섹션에 토씨 그대로
+    // 반복돼서(실측 확인: 8/8) 순수 중복이 됨. 스타일 박스에 이미 악기 톤이 한 번 들어가 있어 정보 손실 없음
+    const tone=isFirst?toneTagFull:'';
     // 악기 이름이 문구 안에 있으면 그 이름 앞뒤에 톤/연주법을 붙여서 "어느 악기"에 대한 설명인지 명확하게 (2개 악기 나열 시 오해 방지)
     if(leadInstrument&&ref.includes(leadInstrument)){
       const toned=tone?`${tone} ${leadInstrument}`:leadInstrument;
@@ -1348,12 +1350,12 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 점진적 확장감이 없다는 지적을 받음(실측 확인) — 첫 훅 이후로는 "이전 훅보다 조금 더 넓어짐"으로 상대적으로
   // 표현해서, 훅이 몇 개든 첫 훅→클라이맥스까지 계속 넓어지는 흐름이 되게 함
   const spaceArc=(role,occ,total)=>{
-    if(role==='hook')return occ===1?'tight, punchy stereo image, controlled width':'slightly wider stereo image than the previous hook, energy building toward the final drop';
+    if(role==='hook')return occ===1?'tight punchy stereo, controlled width':'wider than previous hook, building toward the drop';
     return({
-      intro:'wide reverberant space, open stereo field',
-      verse:'narrower, dry and intimate stereo image',
-      climax:'widest stereo spread of the track, saturated and full',
-      outro:'reverb tail decaying, stereo field slowly collapsing to mono',
+      intro:'wide reverb, open stereo',
+      verse:'narrow, dry, intimate stereo',
+      climax:'widest stereo, saturated, full',
+      outro:'reverb decay, stereo collapsing to mono',
     }[role]||'');
   };
   const sAO=st.sectionArrangeOccurrence||{};
@@ -1393,7 +1395,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      lines.push(`(${bH} Bars: ${energy}, ${eDesc}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
+      // eDesc/dDesc(808·드럼 전체 묘사)는 인트로에서 이미 한 번 서술되고 스타일 박스에도 있어서, 훅마다 다시 통째로
+      // 반복하면 순수 중복 — energy 문구 자체가 "808·드럼이 얼마나 세게 들어오는지"를 이미 담고 있어 정보 손실 없음
+      lines.push(`(${bH} Bars: ${energy}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
@@ -1406,7 +1410,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
-      const sub=isLastB?'Fast Build-up':'Tension Build';
+      // 마지막 브릿지는 이미 내용상(Quick break, chord echoing, fx, maximum tension) 빌드업 역할을 하고 있어서
+      // 새 섹션 타입은 안 만들고, 라벨만 "다음 드롭 직전"이라는 걸 더 명확히 드러내는 이름으로 보강
+      const sub=isLastB?'Pre-Drop Build-up':'Tension Build';
       // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값. 2개면 순서를 섞어서 Generate마다 문구가 조금 달라지게
       const fxList=(st.transitionFx&&st.transitionFx.length)?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f):['reverse cymbal swell','low-pass filter sweep down'];
       const fxPhrase=(fxList.length===2&&Math.random()<0.5?[fxList[1],fxList[0]]:fxList).join(', ');
