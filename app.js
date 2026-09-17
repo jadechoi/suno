@@ -1278,7 +1278,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const bV=+(document.getElementById('hh-bar-verse')?.value||12);
   const bB=+(document.getElementById('hh-bar-bridge')?.value||4);
   const keyName=keyStr||'minor key';
-  const eDesc=(eightOh&&eightOh!=='None')?eightOh+' 808 bass':'booming 808 bass';
+  // 808을 'None'으로 고르면(예: Conscious Hip Hop — 진짜 808 없는 장르) 스타일 태그엔 808 언급이 안 들어가는데
+  // 섹션 텍스트는 무조건 "booming 808 bass"라고 못박혀 있어서 직접 모순이 남 — 실측 확인. 808 없는 장르는
+  // g.instr에 실제 저음 악기(live bass 등)가 있으니 그걸 대신 씀
+  const eDesc=(eightOh&&eightOh!=='None')?eightOh+' 808 bass':(eightOh==='None'?(GENRES[st.genre]?.instr?.find(x=>/bass/i.test(x))||'warm bass'):'booming 808 bass');
   // 드럼을 직접 안 고르면(가장 흔한 경우) 장르 안 보고 무조건 "crisp trap drums"로 고정돼 있었음 —
   // 스타일 태그 쪽은 이미 GENRES[st.genre].drum(장르별 문구, 예: "hyperpop drums")을 쓰는데 섹션 텍스트만 안 맞춰져 있어서
   // 같은 프롬프트 안에서 "hyperpop drums"(스타일) vs "crisp trap drums"(섹션)로 모순이 남— 장르 기본 문구로 맞춤
