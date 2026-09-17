@@ -1417,9 +1417,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
       lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
-      // eDesc/dDesc(808·드럼 전체 묘사)는 인트로에서 이미 한 번 서술되고 스타일 박스에도 있어서, 훅마다 다시 통째로
-      // 반복하면 순수 중복 — energy 문구 자체가 "808·드럼이 얼마나 세게 들어오는지"를 이미 담고 있어 정보 손실 없음
-      lines.push(`(${bH} Bars: ${energy}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
+      // eDesc(808 bass 전체 묘사)는 빼도 energy 문구가 세기를 이미 담고 있어 괜찮지만, dDesc(드럼 "패턴 종류" —
+      // four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)까지 빼버리면 장르를 바꿔도
+      // 훅에서 리듬 정체성이 전혀 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — dDesc만 복원
+      lines.push(`(${bH} Bars: ${energy}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
