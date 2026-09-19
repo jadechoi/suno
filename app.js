@@ -1795,7 +1795,9 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
     const secBtns=uniqueSegs.map(s=>{
       const label={hook:'Hook',verse:'Verse',bridge:'Bridge'}[s]||(s.charAt(0).toUpperCase()+s.slice(1));
       const applied=!!(st.sectionArrangeExtras||{})[s];
-      return `<button onclick="applyArrangeTipToSection('${s}')" style="${sBtnStyle}background:${applied?'var(--accent-dim)':'var(--surface-3)'};color:${applied?'var(--accent-text)':'var(--text-2)'};">${applied?'✓ ':''} ${label}</button>`;
+      return applied
+        ?`<span style="${sBtnStyle}background:var(--accent-dim);color:var(--accent-text);cursor:default">✓ ${label}</span>`
+        :advCheckbox(`applyArrangeTipToSection('${s}')`,`편곡 ${label}`);
     }).join('');
     const dimBtn=`<button onclick="dismissArrangeTip()" style="${sBtnStyle}background:transparent;color:var(--text-3);border-color:var(--border)">✕</button>`;
     const feedback=dynamicArrangeFeedback(st.genre,bH,st.melody.length,st.texture.length);
@@ -1812,19 +1814,16 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
 function applyAdvBPM(bpm){
   st.bpm=bpm;
   document.getElementById('hh-bpm').value=bpm;
-  hhGenerate(`BPM ${bpm} 적용`);
 }
 function applyAdv808(level){
   st._808=level;
   st._mtAutoManaged=false;
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
   setAutoHint('hh-808-hint','808: '+level);
-  hhGenerate(`808 ${level} 적용`);
 }
 function applyAdvKey(){
   st.key=7; // A minor
   document.getElementById('hh-key').value=7;
-  hhGenerate('Key 변경 적용');
 }
 function applyAdvMelody(melStr){
   const parts=melStr.split(' + ');
@@ -1832,21 +1831,17 @@ function applyAdvMelody(melStr){
   st._mtAutoManaged=false;
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',null,onMelodyManualChange);
   renderMelodyRoleUI();
-  hhGenerate(`멜로디 변경: ${melStr}`);
 }
 function applyAdvMood(moodKr){
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   if(st._mtAutoManaged)recommendMelodyTexture();
   if(st._structAutoManaged)recommendStructure();
-  hhGenerate(`무드 변경: ${moodKr}`);
 }
 function applyAdvTagsIdx(idx){
   const tags=(window._advTagSets||[])[idx]||[];
   tags.forEach(t=>{if(!st.extraTags.includes(t))st.extraTags.push(t);});
   st._appliedAdvTipGenre=st.genre;
-  showToast(`✅ 스타일 태그 ${tags.length}개 반영됨 — 피드백 적용 완료`);
-  hhGenerate('스타일 태그 반영');
 }
 function applyArrangeTipToSection(sectionType){
   st.sectionArrangeExtras=st.sectionArrangeExtras||{};
@@ -1854,13 +1849,62 @@ function applyArrangeTipToSection(sectionType){
   st.sectionArrangeExtras[sectionType]=true;
   st.sectionArrangeOccurrence=st.sectionArrangeOccurrence||{};
   st.sectionArrangeOccurrence[sectionType]='last'; // 이 무료 팁은 항상 클라이맥스(마지막) 대상 — 기존 동작 그대로
-  const label={hook:'Hook',verse:'Verse',bridge:'Bridge'}[sectionType]||sectionType;
-  showToast(`✅ ${label} 섹션에 편곡 포인트 반영됨`);
-  hhGenerate(`편곡 포인트 반영: ${label}`);
 }
 function dismissArrangeTip(){
   st._appliedArrangeTipGenre=st.genre;
-  hhGenerate(false);
+  hhGenerate(false,{noScroll:true});
+}
+// 룰 기반 피드백도 AI 리뷰와 같은 방식 — 항목마다 버튼을 눌러 그때그때 재생성하면 화면이 튀고 기록이 클릭 수만큼 쌓여서,
+// 체크박스로 고른 것들을 한 번에 적용하고 재생성·기록은 1번만. 키는 예전 onclick 문자열("applyAdvBPM(140)") 그대로라 파싱만 하면 됨
+const ADV_FN={applyAdvMood,applyAdvMelody,applyAdv808,applyAdvBPM,applyAdvKey,applyAdvTagsIdx,applyArrangeTipToSection};
+const ADV_ORDER=Object.keys(ADV_FN); // 무드가 멜로디·808·드럼 재추천을 다시 돌리니 가장 먼저, 나머지가 그 위에 덮음
+let _advSel=new Set();
+function advCheckbox(key,label){
+  window._advKeys.push(key);
+  window._advLabels[key]=label;
+  return `<label style="display:flex;align-items:center;gap:5px;margin-left:10px;cursor:pointer;flex-shrink:0;font-size:11px;font-weight:600;color:var(--accent-text);white-space:nowrap"><input type="checkbox" class="hh-adv-cb" data-adv="${key.replace(/"/g,'&quot;')}" ${_advSel.has(key)?'checked':''} onchange="toggleAdvPick(this.dataset.adv,this.checked)">${label}</label>`;
+}
+function toggleAdvPick(key,checked){
+  if(checked){
+    // 멜로디 교체·무드 변경은 서로 대안이라(예: 멜로디 제안이 2개) 둘 다 고르면 나중 것만 남고 앞의 건 조용히 사라짐 — 같은 종류는 하나만 선택되게
+    const name=key.split('(')[0];
+    if(name==='applyAdvMelody'||name==='applyAdvMood'){
+      [..._advSel].forEach(k=>{if(k!==key&&k.startsWith(name+'('))_advSel.delete(k);});
+      document.querySelectorAll('.hh-adv-cb').forEach(cb=>{if(cb.dataset.adv!==key&&cb.dataset.adv.startsWith(name+'('))cb.checked=false;});
+    }
+    _advSel.add(key);
+  }else _advSel.delete(key);
+  updateAdvApplyBtn();
+}
+function selectAllAdv(flag){
+  _advSel=flag?new Set(window._advKeys):new Set();
+  document.querySelectorAll('.hh-adv-cb').forEach(cb=>{cb.checked=flag;});
+  updateAdvApplyBtn();
+}
+function updateAdvApplyBtn(){
+  const btn=document.getElementById('hh-adv-apply-btn');
+  if(!btn)return;
+  const n=[..._advSel].filter(k=>window._advKeys.includes(k)).length;
+  btn.textContent=`✅ 선택 적용 (${n})`;
+  btn.disabled=!n;
+  btn.style.opacity=n?'1':'.5';
+  btn.style.cursor=n?'pointer':'default';
+}
+function applySelectedAdv(){
+  const keys=[..._advSel].filter(k=>window._advKeys.includes(k));
+  if(!keys.length)return;
+  keys.sort((x,y)=>ADV_ORDER.indexOf(x.split('(')[0])-ADV_ORDER.indexOf(y.split('(')[0]));
+  const labels=[];
+  keys.forEach(k=>{
+    const m=k.match(/^(\w+)\((.*)\)$/);
+    let arg=m[2].trim();
+    if(/^'.*'$/.test(arg))arg=arg.slice(1,-1);else arg=(arg!==''&&!isNaN(arg))?+arg:undefined;
+    ADV_FN[m[1]](arg);
+    labels.push(window._advLabels[k]||m[1]);
+  });
+  _advSel=new Set();
+  hhGenerate(`룰 피드백 ${keys.length}개 적용: ${labels.slice(0,3).join(' · ')}${labels.length>3?` 외 ${labels.length-3}`:''}`,{noScroll:true});
+  showToast(`✅ 피드백 ${keys.length}개 적용됨`);
 }
 function removeAdvTag(tag){
   st.extraTags=st.extraTags.filter(t=>t!==tag);
@@ -2088,21 +2132,28 @@ function hhGenerate(source,opts){
 
   // 프로듀서 피드백
   window._advTagSets=[];  // 매 generate마다 초기화
+  window._advKeys=[];window._advLabels={};
   const adv=buildProducerAdvice(g,st,mood,bpmVal,keyStr);
-  const advBtn=(label,fn)=>fn?`<button onclick="${fn}" style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s" onmouseover="this.style.background='var(--accent-dim)'" onmouseout="this.style.background='var(--surface-3)'">${label}</button>`:'';
+  const advBtn=(label,fn)=>fn?advCheckbox(fn,label):'';
   let advHtml='';
   if(adv.warns.length||adv.tips.length){
     const advRows=`${adv.warns.map(w=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.3);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${w.html}</span>${advBtn(w.btnLabel,w.btnFn)}</div>`).join('')}
       ${adv.tips.map(t=>`<div style="margin-bottom:7px;padding:9px 11px;background:rgba(0,198,255,.07);border:1px solid rgba(0,198,255,.22);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${t.html}</span>${t.btnHtml||advBtn(t.btnLabel,t.btnFn)}</div>`).join('')}`;
+    _advSel=new Set([..._advSel].filter(k=>window._advKeys.includes(k)));   // 사라진 항목의 선택은 버림
+    const advBar=window._advKeys.length?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;font-style:normal">
+        <button id="hh-adv-apply-btn" onclick="applySelectedAdv()" style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:700;white-space:nowrap">✅ 선택 적용 (${_advSel.size})</button>
+        <a href="#" onclick="selectAllAdv(true);return false" style="font-size:11px;color:var(--text-2)">전체 선택</a>
+        <a href="#" onclick="selectAllAdv(false);return false" style="font-size:11px;color:var(--text-2)">선택 해제</a>
+      </div>`:'';
     // AI Key가 있으면 AI 프로듀서 리뷰가 우선이니, 룰 기반 피드백은 접어두고 클릭해야 펼쳐지게 (details는 네이티브 접기라 JS 불필요)
     advHtml=hasAiKey
       ?`<details style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
           <summary style="cursor:pointer;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3)">🎧 룰 기반 피드백 (클릭해서 펼치기)</summary>
-          <div style="margin-top:10px">${advRows}</div>
+          <div style="margin-top:10px">${advBar}${advRows}</div>
         </details>`
       :`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent-text);margin-bottom:10px;font-style:normal">🎧 프로듀서 피드백</div>
-          ${advRows}
+          ${advBar}${advRows}
         </div>`;
   }
 
@@ -2195,6 +2246,7 @@ function hhGenerate(source,opts){
   if(!opts?.noScroll)setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);   // AI 리뷰 패널 안에서 누른 동작은 이미 결과를 보고 있으니 화면을 옮기지 않음
   updateFloatSummary();
   updateAiApplyBtn();
+  updateAdvApplyBtn();
   // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
   // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
   if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))});
