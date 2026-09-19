@@ -478,6 +478,14 @@ const MOOD_GROOVE_FIT={
   '노스탤직·향수':['헤비 스윙','레이드백 포켓'],'미스터리·신비':['레이드백 포켓','타이트 그리드'],
 };
 
+// 악기 톤 카테고리와 무드 뉘앙스가 서로 반대일 수 있음(예: "distorted gritty" + "gently breathing" — 리뷰가 "부드러운지 거친지 모호"하다고 지적, 320조합 중 38건) —
+// 톤과 충돌하는 뉘앙스 후보는 빼고 고름 (남는 게 없으면 톤만)
+const SOFT_NUANCE=/gentl|tender|silky|soft|delicate|quiet|fragile|thin|faint|hush|breath|smooth|dream|swirl|loose|easygoing|mourn/i;
+const HARSH_NUANCE=/harsh|violent|biting|saturated|menac|raw|coiled/i;
+function compatibleToneNuance(mood){
+  const opts=(MOOD_TONE_NUANCE[mood]||[]).filter(n=>!(st.melodyTone==='디스토티드·그릿'&&SOFT_NUANCE.test(n))&&!(st.melodyTone==='소프트·머플드'&&HARSH_NUANCE.test(n)));
+  return opts.length?pick(opts):'';
+}
 // 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
 
@@ -511,6 +519,11 @@ function recommendMelodyTexture(){
   if(st.genre===null)return;
   const rankedMelody=scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null);
   let [lead,bg]=rankedMelody;
+  // 둘 다 저역 지속음이면 상위 후보 중 대역이 다른 악기로 배경을 교체 (예: Dark synth + Ambient pad → 밝은 플럭/벨 계열)
+  if(MELODY_REGISTER[lead]==='low'&&MELODY_REGISTER[bg]==='low'){
+    const alt=rankedMelody.slice(2,5).find(m=>MELODY_REGISTER[m]!=='low');
+    if(alt)bg=alt;
+  }
   if(GENRE_LEAD[st.genre]&&GENRE_LEAD[st.genre]===bg)[lead,bg]=[bg,lead];
   st.melody=[lead,bg];
   st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
@@ -1479,18 +1492,20 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 각 무드당 2개씩 — pick()으로 Generate할 때마다 무작위 하나 골라서 같은 무드라도 훅/벌스 이름이 매번 조금씩 달라짐
   // 인덱스는 HH_MOODS 순서와 정확히 1:1 매칭 (무드 8→16개로 늘릴 때 중간에 새 무드가 끼어들면서 일부가 밀렸던 걸 재정렬함)
   const hookSubMap=[['Dark Drop','Shadow Drop'],['Sensual Chorus','Smooth Chorus'],['Melodic Chorus','Emotional Chorus'],['Hype Drop','Maximum Hype'],['Cinematic Drop','Dreamy Drop'],['Chill Peak','Smooth Peak'],['Hard Drop','Aggressive Drop'],['Conscious Peak','Introspective Peak'],['Euphoric Anthem','Festival Anthem'],['Triumphant Peak','Victory Peak'],['Melancholic Peak','Sorrowful Peak'],['Flex Anthem','Cocky Chorus'],['Romantic Chorus','Tender Chorus'],['Suspense Peak','Anxious Peak'],['Nostalgic Chorus','Wistful Chorus'],['Mysterious Drop','Enigmatic Drop']];
-  const hookEngMap=[['dark explosive','ominous explosive'],['sensual smooth','silky smooth'],['melodic euphoric','melodic emotional'],['maximum hype','peak hype'],['psychedelic dreamy','hazy cinematic'],['smooth peak','laid-back peak'],['aggressive hard','aggressive hard-hitting'],['conscious introspective','contemplative peak'],['euphoric explosive','festival explosive'],['triumphant anthemic','victorious anthemic'],['melancholic emotional','sorrowful emotional'],['confident flexing','cocky flexing'],['romantic sweet','tender sweet'],['tense suspenseful','anxious suspenseful'],['nostalgic wistful','sentimental wistful'],['mysterious enigmatic','cryptic enigmatic']];
+  const hookEngMap=[['dark explosive','ominous explosive'],['sensual smooth','silky smooth'],['melodic uplifting','melodic emotional'],['maximum hype','peak hype'],['psychedelic dreamy','hazy cinematic'],['smooth peak','laid-back peak'],['aggressive hard','aggressive hard-hitting'],['conscious introspective','contemplative peak'],['euphoric explosive','festival explosive'],['triumphant anthemic','victorious anthemic'],['melancholic emotional','sorrowful emotional'],['confident flexing','cocky flexing'],['romantic sweet','tender sweet'],['tense suspenseful','anxious suspenseful'],['nostalgic wistful','sentimental wistful'],['mysterious enigmatic','cryptic enigmatic']];
   const verseSubMap=[['Grimy Pocket','Shadowy Pocket'],['Sensual Pocket','Smooth Pocket'],['Melodic Pocket','Emotional Pocket'],['Coiled Energy','Restrained Hype'],['Cinematic Build','Dreamy Drift'],['Chill Pocket','Groovy Pocket'],['Hard Pocket','Aggressive Pocket'],['Conscious Flow','Introspective Flow'],['Building Hype','Festival Flow'],['Rising Anthem','Victory Build'],['Sorrowful Pocket','Melancholic Pocket'],['Cocky Pocket','Flexing Pocket'],['Tender Pocket','Romantic Pocket'],['Anxious Pocket','Suspense Pocket'],['Wistful Pocket','Nostalgic Pocket'],['Enigmatic Pocket','Mysterious Pocket']];
   const hookSub=moodIdx>=0?pick(hookSubMap[moodIdx%hookSubMap.length]):'Euphoric Drop';
   const hookEng=moodIdx>=0?pick(hookEngMap[moodIdx%hookEngMap.length]):'euphoric';
   const verseSub=moodIdx>=0?pick(verseSubMap[moodIdx%verseSubMap.length]):'Stripped Pocket';
   // 마지막 훅(클라이맥스) 문구가 항상 "Maximum ~energy, heaviest impact"로 고정이면 몽환/차분한 무드엔 안 어울림 —
   // 이런 무드는 "제일 시끄러운 순간"이 아니라 "제일 몰입감 있는 순간"이 클라이맥스가 되어야 함
-  const MELLOW_CLIMAX_MOODS=['감각적·관능적','사이키델릭·몽환','칠·그루비','내성적·사색','슬프고·멜랑콜리','로맨틱·달콤한','노스탤직·향수','미스터리·신비'];
+  const MELLOW_CLIMAX_MOODS=['멜로딕·감성','감각적·관능적','사이키델릭·몽환','칠·그루비','내성적·사색','슬프고·멜랑콜리','로맨틱·달콤한','노스탤직·향수','미스터리·신비'];
   const isMellowMood=MELLOW_CLIMAX_MOODS.includes(st.mood);
 
   const cnt={hook:0,verse:0,bridge:0};
-  const dyn=MOOD_DYNAMICS[st.mood]||{};   // 무드별 다이내믹 성격 (진입/훅 어택/벌스 거동/브릿지 긴장/끝맺음)
+  const dyn=MOOD_DYNAMICS[st.mood]||{};
+  const fxAll=(st.transitionFx&&st.transitionFx.length)?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f):['reverse cymbal swell','low-pass filter sweep down'];
+  let preBuildN=0;   // 무드별 다이내믹 성격 (진입/훅 어택/벌스 거동/브릿지 긴장/끝맺음)
   const totalHooks=segs.filter(s=>s==='hook').length;
   const totalVerses=segs.filter(s=>s==='verse').length;
   const totalBridges=segs.filter(s=>s==='bridge').length;
@@ -1509,7 +1524,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
   // + 리드 악기 자체의 톤(웜·아날로그 등)은 첫 등장(인트로)에서만 무드 뉘앙스까지 얹음 (매번 붙이면 전 섹션에 토씨 그대로 반복)
   const toneTag=MELODY_TONE_TAG[st.melodyTone]||'';
-  const toneNuance=pick(MOOD_TONE_NUANCE[st.mood]);
+  const toneNuance=compatibleToneNuance(st.mood);
   const toneTagFull=toneTag&&toneNuance?`${toneTag}, ${toneNuance}`:toneTag;
   const artOf=section=>leadInstrument&&(GENRE_ARTICULATION[st.genre]?.[leadInstrument]||MELODY_ARTICULATION[leadInstrument])?.[section];
   const withArt=(name,section)=>{const x=artOf(section);return x?`${name} (${x})`:name;};
@@ -1531,9 +1546,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const melodyRef=(section,occ,total)=>{
     if(section==='intro')return introRef();
     if(section==='hook'){
-      if(occ===total)return `${withArt(leadName,'hook')}${bgName?` & ${bgName} both at full power`:' at full power'}`;
+      // 마지막 훅에서 리드와 배경이 둘 다 풀파워면 808과 함께 로우~로우미드에 몰림(리뷰 반복 지적) — 리드만 풀파워, 배경은 저역을 비워주게 필터
+      if(occ===total)return `${withArt(leadName,'hook')} at full power${bgName?`, ${bgName} filtered to leave room for the ${eDesc}`:`, ${leadName} doubled an octave up`}`;
       if(occ===1)return `${withArt(leadName,'hook')}${bgName?`, ${bgName} layered underneath`:''}`;
-      return `${withArt(leadName,'hook')}, ${bgName?`${bgName} stepping forward as a counter-line`:'new counter-melody layer'}`;
+      return `${withArt(leadName,'hook')}, ${bgName?`${bgName} stepping forward as a counter-line`:`${leadName} answering itself an octave higher`}`;   // 배경 악기가 없으면 "new counter-melody layer"처럼 악기 미지정 문구 대신 리드 자체의 변주로
     }
     if(section==='verse'){
       if(occ===1)return withArt(leadName,'verse');
@@ -1602,7 +1618,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
 
   // 아웃트로가 인트로를 다시 불러와서 구조적으로 호응하게 — 인트로 3갈래 중 뭐가 쓰였는지 한 줄로 저장해뒀다가 아웃트로에서 참조
   let introVibe='';
-  segs.forEach(type=>{
+  segs.forEach((type,si)=>{
     if(type==='intro'){
       lines.push('[Intro]');
       // 스킵 방지 — 잔잔한 페이드인 빌드업은 Suno가 기본으로 만드는 "안전한" 패턴이라 가장 먼저 스킵당함
@@ -1643,8 +1659,12 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push(`[${hasVocal?'':'Instrumental '}Hook ${cnt.hook}: ${sub}]`);
       // dDesc(드럼 "패턴 종류" — four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)를 빼면 장르를 바꿔도
       // 훅에서 리듬 정체성이 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — 이제 고른 드럼 전부(메인 & 보조)
-      const grooveLine=cnt.hook===1||isLast?(GROOVE_TAG[st.groove]||''):(GROOVE_VARY[st.groove]||'');
-      const hookBody=[energy,hookDrums,grooveLine,isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+      // 마지막 훅이 첫 훅과 리듬·장르·레퍼런스 문구를 그대로 공유해서(측정: 평균 66% 겹침) 리뷰가 세 장르 모두 "훅1과 훅3가 복붙"이라고 지적 —
+      // 마지막 훅은 첫 훅에 이미 쓴 문구를 반복하지 않고 "무엇이 더 커졌는지"만 쓴다: 드럼 필 밀도, 그루브 최대치, 무드별 정점, 리드 옥타브 더블링
+      const lastOfMany=isLast&&cnt.hook>1;
+      const hookBody=lastOfMany
+        ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
+        :[energy,hookDrums,cnt.hook===1?(GROOVE_TAG[st.groove]||''):(GROOVE_VARY[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
@@ -1654,8 +1674,15 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,texLine('verse')].filter(Boolean).join(', ')
         :[`Slightly varied ${dDesc} bounce, ${bassWord==='bass'||GENRES[st.genre]?.energy==='low'||GENRES[st.genre]?.energy==='low-mid'?'steady warm bassline':'deeper continuous sub-bass'}`,melodyRef('verse',cnt.verse),'intimate groove',isMellowMood?'':'still coiled, anticipation building quietly toward the next hook'].filter(Boolean).join(', ');
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:'purely instrumental pocket';
+      // 다음이 바로 훅이면(브릿지 없는 구조) 벌스 끝 2마디에 전환효과 빌드 — 없으면 클라이맥스가 갑자기 튀어나오고, 고른 전환효과 2번째는 어디에도 안 쓰임(리뷰 반복 지적)
+      let preBuild='';
+      if(segs[si+1]==='hook'){
+        const finalDrop=segs.slice(si+1).filter(x=>x==='hook').length===1;
+        const fx=finalDrop?fxAll.join(', '):fxAll[preBuildN%fxAll.length];preBuildN++;   // 마지막 드롭 직전엔 고른 전환효과 전부
+        preBuild=`last 2 bars: ${fx}${finalDrop&&dRoll?`, ${dRoll} accelerating`:''} into the ${finalDrop?'final drop':'drop'}`;
+      }
       lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${preBuild?', '+preBuild:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1664,7 +1691,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const sub=isLastB?'Pre-Drop Build-up':'Tension Build';
       // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값. 브릿지마다 시작 효과를 돌려서(1번은 A→B, 2번은 B→A)
       // 두 브릿지가 같은 효과음 조합·순서로 반복되지 않게 함
-      const fxList=(st.transitionFx&&st.transitionFx.length)?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f):['reverse cymbal swell','low-pass filter sweep down'];
+      const fxList=fxAll;
       const off=(cnt.bridge-1)%fxList.length;
       const fxPhrase=[...fxList.slice(off),...fxList.slice(0,off)].join(', ');
       const rollPhrase=dRoll?`${dRoll} accelerating`:'';
@@ -2115,7 +2142,7 @@ function hhGenerate(source,opts){
   if(st.melody.length){
     const roles=computeMelodyRoles(st.melody);
     const toneTagStyle=MELODY_TONE_TAG[st.melodyTone];
-    const toneNuanceStyle=mood&&pick(MOOD_TONE_NUANCE[mood.kr]);
+    const toneNuanceStyle=mood&&compatibleToneNuance(mood.kr);
     const toneCombinedStyle=toneTagStyle&&toneNuanceStyle?`${toneTagStyle} ${toneNuanceStyle}`:toneTagStyle;
     // 리드·백킹도 별개 태그 2개 대신 " & "로 묶은 태그 1개로
     if(roles)tags.push(`${toneCombinedStyle?toneCombinedStyle+' ':''}${roles.lead.toLowerCase()} lead melody & ${roles.bg.toLowerCase()} background layer`);
@@ -2145,12 +2172,15 @@ function hhGenerate(source,opts){
   const contextParts=[];
   if(st.era)contextParts.push(st.era+' era');
   if(st.region)contextParts.push(st.region+' sound');
-  if(st.density)contextParts.push(st.density.toLowerCase()+' arrangement');
+  if(st.density)contextParts.push(DENSITY_TAG[st.density]||st.density.toLowerCase()+' arrangement');   // 'dense arrangement' 단독은 벌스의 stripped-back 지시와 충돌한다는 리뷰 — 밀도는 훅에만
   if(commMod&&!g)contextParts.push(commMod+' sound');
   if(contextParts.length)tags.push(contextParts.join(' & '));
   if(st.extraTags.length)tags.push(st.extraTags.join(' & '));      // 피드백에서 적용된 태그 — AI 라운드를 여러 번 돌려도 스타일 박스 태그 수가 안 늘도록 하나로 묶음(칩은 개별 제거 가능)
   // 장르 공통 문구("organic warm & analog")는 디지털 장르와 충돌하고 "이 곡만의 디테일이 없다"는 리뷰 지적이 반복돼서, 그 장르 리듬 요소의 구체적인 불완전함으로 (GENRE_HUMAN)
-  if(antiAI)tags.push(`${GENRE_HUMAN[st.genre]||'organic warm human-feel & analog imperfections'} & natural dynamics`);
+  if(antiAI){
+    const leadHuman=st.melody.length?INSTR_HUMAN[computeMelodyRoles(st.melody)?.lead||st.melody[0]]:null;
+    tags.push([GENRE_HUMAN[st.genre]||'organic warm human-feel & analog imperfections',leadHuman].filter(Boolean).join(' & '));
+  }
   const styleText=tags.join(', ');
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';

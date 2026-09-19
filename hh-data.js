@@ -241,22 +241,22 @@ const HH_LENGTH=['1:30','2:00','2:30','3:00','3:30'];
 // — 무드는 곡의 "다이내믹 성격"(어떻게 들어오고, 훅이 어떻게 치고, 벌스가 어떻게 꺼지고, 브릿지가 어떻게 긴장하고, 어떻게 끝나는지)을 결정하므로 무드별로 5개 슬롯을 둠
 // entry=인트로 진입 동사, hook=훅 어택, verse=벌스 거동, bridge=브릿지 긴장 방식, outro=끝맺음
 const MOOD_DYNAMICS={
-  '어둡고 위압적':{entry:'lurch in heavily',hook:'crushing downbeat impact, low end dominating',verse:'stripped to a menacing low end, long dark silences between hits',bridge:'low-pass filter swallowing the beat, ominous drone rising',outro:'low end lingering as everything else vanishes'},
-  '감각적·관능적':{entry:'ease in smoothly',hook:'silky full groove, bass rolling underneath',verse:'intimate close pocket, space between the notes',bridge:'filter slowly opening and closing like a breath',outro:'groove melting away slowly'},
-  '멜로딕·감성':{entry:'roll in gently',hook:'melody soaring over the full beat, emotional lift',verse:'melody thinned to a single line, beat cushioned underneath',bridge:'melody climbing over a held chord, drums pulling out',outro:'melody fading last, one lingering note'},
-  '에너제틱·하입':{entry:'slam in immediately',hook:'hard downbeat impact, relentless forward drive',verse:'energy held back and coiled, tight stripped groove',bridge:'riser and snare roll accelerating, filter sweeping up',outro:'last hit ringing then a hard stop'},
-  '사이키델릭·몽환':{entry:'swim in',hook:'full but hazy, layers smearing together',verse:'drums dissolving into reverb, pads floating',bridge:'phaser sweeping, pitch bending downward',outro:'dissolving into a reverb wash'},
-  '칠·그루비':{entry:'settle in casually',hook:'relaxed full groove, no hard attack',verse:'loose pocket, drums breathing',bridge:'gentle filter dip, groove holding steady',outro:'groove fading out unhurried'},
-  '분노·공격적':{entry:'crash in aggressively',hook:'violent downbeat hits, distorted and pounding',verse:'raw and tense, clipped hits, no comfort',bridge:'distortion rising, drums stuttering into a wall',outro:'abrupt cut, distortion ringing out'},
-  '내성적·사색':{entry:'creep in quietly',hook:'restrained lift, still spacious',verse:'nearly bare, single sounds against silence',bridge:'a held note with room to breathe',outro:'last note alone in the room'},
-  '축제·환희':{entry:'burst in brightly',hook:'euphoric burst, everything lifting together',verse:'bouncy groove kept light and playful',bridge:'clap-along build-up, riser climbing',outro:'celebratory last hit, bright decay'},
-  '승리감·웅장':{entry:'march in proudly',hook:'towering full-scale drop, brass and strings rising',verse:'steady marching pulse, gathering strength',bridge:'swelling crescendo, rolling drums',outro:'majestic final chord ringing'},
-  '슬프고·멜랑콜리':{entry:'sink in slowly',hook:'heavy-hearted full drop, melody weeping over it',verse:'thin and fragile, beat dragging',bridge:'melody sinking, filter closing slowly',outro:'sinking away, last note trailing off'},
-  '자신감·플렉스':{entry:'strut in confidently',hook:'confident swagger drop, bass leading',verse:'cool restrained groove, letting the space breathe',bridge:'tension held with a knowing pause',outro:'nonchalant final hit'},
-  '로맨틱·달콤한':{entry:'drift in warmly',hook:'warm full groove, melody swaying',verse:'soft intimate bed, beat cushioned',bridge:'filter opening slowly like a sigh',outro:'soft fade, warmth lingering'},
-  '긴장감·서스펜스':{entry:'tick in ominously',hook:'tense driving drop, no release',verse:'sparse and unsettling, gaps of silence',bridge:'tension tightening, pitch rising, sudden silence',outro:'unresolved, cutting off mid-tension'},
-  '노스탤직·향수':{entry:'crackle in warmly',hook:'warm full loop, nostalgic sample forward',verse:'crackly thin pocket, beat receding',bridge:'tape wobble, filter dipping like a memory',outro:'needle-lift fade into static'},
-  '미스터리·신비':{entry:'emerge eerily',hook:'cryptic full drop, hidden layers revealing',verse:'sparse with strange gaps, whispers of melody',bridge:'reversed sounds and a swelling drone, pitch drifting',outro:'dissolving into darkness'},
+  '어둡고 위압적':{entry:'lurch in heavily',hook:'crushing downbeat impact, low end dominating',peak:'everything crushing at once, low end shaking',verse:'stripped to a menacing low end, long dark silences between hits',bridge:'low-pass filter swallowing the beat, ominous drone rising',outro:'low end lingering as everything else vanishes'},
+  '감각적·관능적':{entry:'ease in smoothly',hook:'silky full groove, bass rolling underneath',peak:'groove at its fullest, silky and enveloping',verse:'intimate close pocket, space between the notes',bridge:'filter slowly opening and closing like a breath',outro:'groove melting away slowly'},
+  '멜로딕·감성':{entry:'roll in gently',hook:'melody soaring over the full beat, emotional lift',peak:'melody at its most emotional peak, everything swelling behind it',verse:'melody thinned to a single line, beat cushioned underneath',bridge:'melody climbing over a held chord, drums pulling out',outro:'melody fading last, one lingering note'},
+  '에너제틱·하입':{entry:'slam in immediately',hook:'hard downbeat impact, relentless forward drive',peak:'full-speed peak, every element hitting together',verse:'energy held back and coiled, tight stripped groove',bridge:'riser and snare roll accelerating, filter sweeping up',outro:'last hit ringing then a hard stop'},
+  '사이키델릭·몽환':{entry:'swim in',hook:'full but hazy, layers smearing together',peak:'layers blooming into a wide hazy peak',verse:'drums dissolving into reverb, pads floating',bridge:'phaser sweeping, pitch bending downward',outro:'dissolving into a reverb wash'},
+  '칠·그루비':{entry:'settle in casually',hook:'relaxed full groove, no hard attack',peak:'groove fully settled in, the richest layers of the track',verse:'loose pocket, drums breathing',bridge:'gentle filter dip, groove holding steady',outro:'groove fading out unhurried'},
+  '분노·공격적':{entry:'crash in aggressively',hook:'violent downbeat hits, distorted and pounding',peak:'maximum violence, distortion at its peak',verse:'raw and tense, clipped hits, no comfort',bridge:'distortion rising, drums stuttering into a wall',outro:'abrupt cut, distortion ringing out'},
+  '내성적·사색':{entry:'creep in quietly',hook:'restrained lift, still spacious',peak:'the loudest the track gets, still restrained',verse:'nearly bare, single sounds against silence',bridge:'a held note with room to breathe',outro:'last note alone in the room'},
+  '축제·환희':{entry:'burst in brightly',hook:'euphoric burst, everything lifting together',peak:'confetti-burst peak, everything lifting together',verse:'bouncy groove kept light and playful',bridge:'clap-along build-up, riser climbing',outro:'celebratory last hit, bright decay'},
+  '승리감·웅장':{entry:'march in proudly',hook:'towering full-scale drop, brass and strings rising',peak:'full anthemic scale, everything at triumphant height',verse:'steady marching pulse, gathering strength',bridge:'swelling crescendo, rolling drums',outro:'majestic final chord ringing'},
+  '슬프고·멜랑콜리':{entry:'sink in slowly',hook:'heavy-hearted full drop, melody weeping over it',peak:'the deepest emotional weight, melody breaking open',verse:'thin and fragile, beat dragging',bridge:'melody sinking, filter closing slowly',outro:'sinking away, last note trailing off'},
+  '자신감·플렉스':{entry:'strut in confidently',hook:'confident swagger drop, bass leading',peak:'peak swagger, every element locked in',verse:'cool restrained groove, letting the space breathe',bridge:'tension held with a knowing pause',outro:'nonchalant final hit'},
+  '로맨틱·달콤한':{entry:'drift in warmly',hook:'warm full groove, melody swaying',peak:'the warmest fullest moment, melody in full bloom',verse:'soft intimate bed, beat cushioned',bridge:'filter opening slowly like a sigh',outro:'soft fade, warmth lingering'},
+  '긴장감·서스펜스':{entry:'tick in ominously',hook:'tense driving drop, no release',peak:'tension at its breaking point, no release',verse:'sparse and unsettling, gaps of silence',bridge:'tension tightening, pitch rising, sudden silence',outro:'unresolved, cutting off mid-tension'},
+  '노스탤직·향수':{entry:'crackle in warmly',hook:'warm full loop, nostalgic sample forward',peak:'the warmest, richest loop of the track',verse:'crackly thin pocket, beat receding',bridge:'tape wobble, filter dipping like a memory',outro:'needle-lift fade into static'},
+  '미스터리·신비':{entry:'emerge eerily',hook:'cryptic full drop, hidden layers revealing',peak:'hidden layers fully revealed',verse:'sparse with strange gaps, whispers of melody',bridge:'reversed sounds and a swelling drone, pitch drifting',outro:'dissolving into darkness'},
 };
 // 기본 생성물의 섹션 텍스트가 장르 무관 범용 문구(Beat strips back, low-pass filter…)뿐이라 "Afro Trap인지 Trap인지" 섹션만 봐선 알 수 없었음 —
 // 장르별 섹션 편곡 방향을 기본으로 넣음. {e}=808/베이스만 토큰 — 드럼·악기 이름은 섹션이 따로 나열하니 여기서 또 쓰면 같은 이름이 두세 번 반복됨. 훅은 첫·마지막, 벌스·브릿지는 첫 등장에만 쓰고
@@ -293,6 +293,22 @@ const REF_SIG={
   'Whitearmor':'detuned glitchy leads','Mike Dean':'wall-of-synth pads','Kenny Beats':'playful punchy drum programming','Ronny J':'distorted pitched drums',
 };
 // Anti-AI 태그를 장르 공통 문구("organic warm & analog") 대신 그 장르 리듬 요소의 구체적인 불완전함으로 — 리뷰에서 "범용적이라 이 곡만의 디테일이 없다"는 지적이 반복됨 (GENRES 인덱스 순서)
+// Anti-AI를 장르 문구 하나로 끝내면 "이 곡만의 디테일이 없다"는 리뷰가 세 장르 모두에서 반복됨 — 실제로 고른 리드 악기의 불완전함도 같이 (스타일 태그 하나에 ' & '로 융합)
+const INSTR_HUMAN={
+  'Dark synth':'slow filter drift','Emotional piano':'uneven key velocity','Guitar loop':'small pick-timing drift','Sample chop':'chop transients slightly ahead of the grid',
+  'Ambient pad':'slow detune drift','Brass stab':'ragged stab timing','Strings':'slight bow-attack variation','Psychedelic FX':'random modulation drift',
+  'Rhodes keys':'uneven key velocity','Saxophone':'breath and pitch drift','Supersaw synth':'detune drift between voices','Flute':'breath noise and pitch drift',
+  'Harp':'uneven pluck velocity','Music box':'slightly uneven note spacing','Organ':'slow leslie wobble','Vibraphone':'uneven mallet velocity',
+  'Kalimba':'uneven pluck velocity','Arp pluck synth':'arp notes slightly off the grid','Cello':'slight bow-attack variation','Sitar':'sympathetic string buzz','Vocoder synth':'formant drift',
+};
+// 멜로디 2개가 둘 다 저역 지속음이면(예: Dark synth + Ambient pad) 808과 함께 로우~로우미드에 몰려 마스킹 — 리뷰에서 반복 지적. 대역이 겹치지 않게 짝을 고르기 위한 분류
+const MELODY_REGISTER={
+  'Dark synth':'low','Ambient pad':'low','Strings':'low','Cello':'low','Organ':'low','Sitar':'low',
+  'Emotional piano':'mid','Guitar loop':'mid','Sample chop':'mid','Rhodes keys':'mid','Saxophone':'mid','Brass stab':'mid','Vocoder synth':'mid','Psychedelic FX':'mid','Supersaw synth':'mid',
+  'Flute':'high','Harp':'high','Music box':'high','Vibraphone':'high','Kalimba':'high','Arp pluck synth':'high',
+};
+const DENSITY_TAG={'Minimalist':'minimalist arrangement','Sparse':'sparse arrangement','Balanced':'balanced arrangement','Dense':'dense hook layers with stripped-back verses','Maximalist':'maximalist hook layers with stripped-back verses'};
+const GROOVE_PEAK={'타이트 그리드':'ghost-note syncopation on every off-beat','살짝 스윙':'swing at its most pronounced','헤비 스윙':'MPC swing at full looseness','레이드백 포켓':'snare dragging at its furthest behind the beat','푸시드 포켓':'kick at its most urgent, ahead of the beat'};
 const GENRE_HUMAN=[
   'slightly late snare & uneven hi-hat velocity','irregular 808 decay lengths & loose ghost hats','gently rubato melody timing & uneven chord velocity',
   'slightly early sliding 808 entries & uneven hat rolls','behind-the-beat snare & imperfect hat spacing','unquantized cowbell hits & worn tape wobble',
