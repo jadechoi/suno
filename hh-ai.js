@@ -601,7 +601,7 @@ ${ctx}`;
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
     if(!HH_MELODY.includes(lead)||(bg!=null&&!HH_MELODY.includes(bg))||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
-    const tex=(parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)).slice(0,2);
+    const tex=pickCompatibleTextures((parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)));
     if(!tex.length)throw new Error('AI가 목록에 없는 텍스처를 반환했습니다');
     const tone=HH_MELODY_TONE.includes(parsed.melodyTone)?parsed.melodyTone:null;
     const fx=(parsed.transitionFx||[]).filter(f=>HH_TRANSITION_FX.includes(f)).slice(0,2);

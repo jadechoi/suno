@@ -196,6 +196,16 @@ const TRANSITION_FX_TAG={
 // 스윙/그루브 느낌(리듬 타이밍) — 장르 고르면 GENRE_AUTO.groove로 자동 선택, 직접 바꿀 수도 있음
 const HH_GROOVE=['타이트 그리드','살짝 스윙','헤비 스윙','레이드백 포켓','푸시드 포켓'];
 // 훅 2 이후에 그루브가 어떻게 달라지는지 — 스타일 태그엔 스윙이 있는데 훅 섹션엔 언급이 없어서 훅이 그리드형으로 밋밋해질 위험 지적
+const TEXTURE_SECTION={
+  'Sidechain pump':{hook:'sidechain pumping on bass and pads',verse:'pump eased off'},
+  'Bass-heavy':{hook:'sub-heavy low end',verse:'sub weight kept underneath'},
+  'Punchy mix':{hook:'punchy transients'},
+  'Lo-fi grain':{hook:'gritty grain',verse:'dusty grain',outro:'grain and hiss lingering'},
+  'Vintage tape':{hook:'tape-saturated warmth',bridge:'tape wobble',outro:'tape hiss lingering'},
+  'Pristine digital':{hook:'clean digital top end'},
+  'Polished production':{hook:'glossy polished sheen'},
+  'Raw sound':{hook:'raw unpolished edge'},
+};
 const GROOVE_VARY={
   '타이트 그리드':'ghost-note syncopation added on the off-beats',
   '살짝 스윙':'swing pushed slightly harder in the last 2 bars',
@@ -483,6 +493,19 @@ function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
   return options.slice().sort((a,b)=>scores[b]-scores[a]||options.indexOf(a)-options.indexOf(b));
 }
 
+// 텍스처 추천이 서로 모순되는 쌍을 고를 수 있었음 — 장르 표(Trap Soul: Heavy reverb + Dry intimate)와 무드 표(감각적·슬픈·로맨틱·긴장감: Dry intimate + Heavy reverb)가
+// 스스로 상반된 쌍을 내놔서 스타일 태그에 "dry intimate & heavy reverb"가 같이 들어갔음 (측정: 640조합 중 다수). 상위부터 채우되 이미 고른 것과 충돌하는 건 건너뜀
+const TEXTURE_CLASH=[['Dry intimate','Heavy reverb'],['Dry intimate','Stereo wide'],['Pristine digital','Lo-fi grain'],['Pristine digital','Vintage tape'],['Pristine digital','Raw sound'],['Polished production','Raw sound'],['Polished production','Lo-fi grain']];
+const texturesClash=(x,y)=>TEXTURE_CLASH.some(([p,q])=>(p===x&&q===y)||(p===y&&q===x));
+function pickCompatibleTextures(ranked,n=2){
+  const chosen=[];
+  for(const t of ranked){
+    if(chosen.length>=n)break;
+    if(chosen.some(c=>texturesClash(c,t)))continue;
+    chosen.push(t);
+  }
+  return chosen;
+}
 // 장르·무드(+시대감)를 보고 멜로디 리드/배경 + 믹스 텍스처 2개를 자동 추천 — 음악 지식 없이도 기본값이 채워지도록
 function recommendMelodyTexture(){
   if(st.genre===null)return;
@@ -493,7 +516,7 @@ function recommendMelodyTexture(){
   st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
 
   const rankedTexture=scorePick(HH_TEXTURE,GENRE_TEXTURE_TIPS,MOOD_TEXTURE_FIT,st.genre,st.mood,ERA_TEXTURE_BOOST[st.era]);
-  st.texture=rankedTexture.slice(0,2);
+  st.texture=pickCompatibleTextures(rankedTexture);
 
   const rankedTone=scorePick(HH_MELODY_TONE,GENRE_MELODY_TONE,MOOD_MELODY_TONE,st.genre,st.mood,null);
   st.melodyTone=rankedTone[0];
@@ -1543,16 +1566,27 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 훅이 3개 이상이면 첫 훅/클라이맥스 훅만 다르고 중간 훅들이 전부 "tight, punchy" 그대로 반복돼서 훅끼리
   // 점진적 확장감이 없다는 지적을 받음(실측 확인) — 첫 훅 이후로는 "이전 훅보다 조금 더 넓어짐"으로 상대적으로
   // 표현해서, 훅이 몇 개든 첫 훅→클라이맥스까지 계속 넓어지는 흐름이 되게 함
+  // 공간감 문구가 텍스처와 무관하게 고정이라, 스타일 태그엔 "dry intimate"인데 섹션엔 "wide reverb / widest stereo"가 박히는 모순이 있었음
+  // (실측: 320개 조합 중 Dry intimate 125·Heavy reverb 101·Stereo wide 56건이 섹션 문구와 정면 충돌) — 고른 텍스처에 맞춰 같은 아크(인트로→훅→벌스→브릿지→클라이맥스→아웃트로)를 그 질감으로 표현
+  const hasTex=t=>(st.texture||[]).includes(t);
+  const dryTex=hasTex('Dry intimate'),revTex=hasTex('Heavy reverb'),wideTex=hasTex('Stereo wide');
   const spaceArc=(role,occ,total)=>{
-    if(role==='hook')return occ===1?'tight punchy stereo, controlled width':'wider than previous hook, building toward the drop';
+    if(role==='hook'){
+      if(occ===1)return wideTex?'wide punchy stereo':(dryTex?'tight punchy stereo, dry':'tight punchy stereo, controlled width');
+      return `wider than previous hook, building toward the drop${dryTex?', still dry':(revTex?', reverb blooming':'')}`;
+    }
     return({
-      intro:'wide reverb, open stereo',
-      verse:occ>1?'slightly wider than the previous verse, still dry and close':'narrow, dry, intimate stereo',
+      intro:dryTex?'close dry mix, minimal reverb':(revTex?'wide reverb wash, open stereo':'wide reverb, open stereo'),
+      verse:occ>1
+        ?`slightly wider than the previous verse, still ${revTex?'reverb-soaked':(wideTex?'open':'dry and close')}`
+        :(revTex?'narrow but reverb-soaked, intimate stereo':(wideTex?'narrower than the hooks but still open stereo':'narrow, dry, intimate stereo')),
       bridge:occ===total?'stereo collapsing toward mono just before the drop':(occ===1?'stereo narrowing as the filter closes, reverb tail cut short':'stereo pulling in tighter than the last bridge'),
-      climax:'widest stereo, saturated, full',
-      outro:'reverb decay, stereo collapsing to mono',
+      climax:dryTex?'widest stereo yet still dry, saturated, full':(hasTex('Raw sound')?'widest stereo, raw and overdriven':'widest stereo, saturated, full'),
+      outro:dryTex?'short reverb decay, stereo collapsing to mono':(revTex?'long reverb tail, stereo collapsing to mono':'reverb decay, stereo collapsing to mono'),
     }[role]||'');
   };
+  // 공간계가 아닌 텍스처(펌핑·저역·테이프 등)는 섹션마다 다르게 동작 — 훅에선 살고 벌스에선 물러나는 식으로 그 섹션 역할에 맞는 한 구절씩
+  const texLine=role=>(st.texture||[]).map(t=>TEXTURE_SECTION[t]?.[role]).filter(Boolean).join(', ');
   // 같은 타입 섹션이 3번 이상 나오면 기본 문구가 토씨 그대로 반복돼서(훅2=훅3, 벌스2=벌스3, 브릿지1=2) Suno가 같은 루프를 복붙함 —
   // 두 번째부터는 occurrence마다 다른 소소한 변주를 얹어서 반복 속에서도 곡이 진행되게 함
   const VERSE_VARY=['new percussion accent, bassline rhythm variation','melody drops an octave, half-time feel in the last 4 bars'];
@@ -1610,14 +1644,14 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       // dDesc(드럼 "패턴 종류" — four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)를 빼면 장르를 바꿔도
       // 훅에서 리듬 정체성이 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — 이제 고른 드럼 전부(메인 & 보조)
       const grooveLine=cnt.hook===1||isLast?(GROOVE_TAG[st.groove]||''):(GROOVE_VARY[st.groove]||'');
-      const hookBody=[energy,hookDrums,grooveLine,isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+      const hookBody=[energy,hookDrums,grooveLine,isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
       const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
-        ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`].filter(Boolean).join(', ')
+        ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,texLine('verse')].filter(Boolean).join(', ')
         :[`Slightly varied ${dDesc} bounce, ${bassWord==='bass'||GENRES[st.genre]?.energy==='low'||GENRES[st.genre]?.energy==='low-mid'?'steady warm bassline':'deeper continuous sub-bass'}`,melodyRef('verse',cnt.verse),'intimate groove',isMellowMood?'':'still coiled, anticipation building quietly toward the next hook'].filter(Boolean).join(', ');
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:'purely instrumental pocket';
       lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
@@ -1637,7 +1671,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const desc=isLastB
         ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} chord echoing`,rollPhrase,fxPhrase,'maximum tension',spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
         :(cnt.bridge===1
-          ?[dyn.bridge||'Heavy low-pass filter muffles the beat',cue('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
+          ?[dyn.bridge||'Heavy low-pass filter muffles the beat',cue('bridge'),texLine('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
           :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_VARY,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', '));
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
@@ -1645,7 +1679,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
       // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
-      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${dyn.outro?`, ${dyn.outro}`:''}${aiNote('outro')+manualNote('아웃트로')})`);
+      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
