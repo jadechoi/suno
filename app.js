@@ -137,7 +137,7 @@ function renderHhChips(){
 // ⚠️ UPDATE NOTE: HH_ARTISTS 업데이트 시 이 배열도 함께 갱신 (각 장르 핫 곡 5개)
 const HH_GENRE_SONGS=[
   ['Travis Scott - FE!N','Future & Metro Boomin - We Still Don\'t Trust You','Drake - Rich Flex','21 Savage - redrum','Gunna - fukumean'],          // 0 Trap
-  ['Travis Scott - SICKO MODE','Drake - Knife Talk','Playboi Carti - Vamp Anthem','Lil Durk - All My Life','Fredo Bang - Slide'],                    // 1 Dark Trap
+  ['Playboi Carti - Vamp Anthem','Ghostemane - Mercury','Night Lovell - Dark Light','SpaceGhostPurrp - Terror Gang','Ski Mask the Slump God - Catch Me Outside'],  // 1 Dark Trap
   ['Rod Wave - Tombstone','Don Toliver - No Idea','Polo G - Hall of Fame','Drake - Rich Baby Daddy','Lil Baby & Gunna - Drip Too Hard'],               // 2 Melodic Trap
   ['Pop Smoke - Welcome to the Party','Pop Smoke - Dior','Sheff G - No Suburban','Fivio Foreign - Big Drip','Kay Flock - No Suburban, Pt. 2'],  // 3 NY Drill
   ['Headie One - 18HUNNA','Unknown T - Homerton B','Digga D - Woi','Central Cee - Doja','Digga D - 6 + 4'],  // 4 UK Drill
@@ -151,7 +151,7 @@ const HH_GENRE_SONGS=[
   ['Kendrick Lamar - euphoria','J. Cole - Middle Child','Cordae - The Parables','Lil Baby - The Bigger Picture','Noname - Song 33'],                 // 12 Conscious
   ['Summer Walker - No Love','SZA - Shirt','Kehlani - Nights Like This','The Weeknd - Sacrifice','Don Toliver - Tore Up'],                           // 13 Trap Soul
   ['Charli XCX - 360','Ericdoa - Fool Around','glaive - 1984','100 gecs - Hand Crushed by a Mallet','Jane Remover - Haunted'],                      // 14 Hyperpop
-  ['glaive - astrid','midwxst - no effort','Ericdoa - nostalgia shit','Lil Tracy - Like a Glock','bbno$ - edamame'],                                 // 15 Digicore
+  ['glaive - astrid','midwxst - Trying','glaive & ericdoa - Cloak n Dagger','glaive & ericdoa - Fuck This Town','glaive - Asheville'],  // 15 Digicore
   ['Autumn! - Knock Knock','SSGKobe - Thrax','Summrs - Right Now','Homixide Gang - 2am','Lil Seeto - Closer'],  // 16 Pluggnb
   ['Tyler the Creator - EARFQUAKE','Earl Sweatshirt - Grief','Brockhampton - SUGAR','Injury Reserve - Knees','Frank Ocean - Ivy'],                   // 17 Westwood
 ];
