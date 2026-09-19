@@ -1868,7 +1868,7 @@ function removeAdvTag(tag){
 }
 
 // source: undefined = 사용자가 직접 Generate 누름 (기록에 라벨 없음), 문자열 = 어떤 적용 액션이 실제로 프롬프트를 바꿔서 다시 생성됐는지 (기록에 라벨로 남음), false = 프롬프트 내용은 안 바뀌고 UI만 갱신 (기록 안 남김)
-function hhGenerate(source){
+function hhGenerate(source,opts){
   const hasAiKey=!!getAnthropicKey();
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
@@ -2110,8 +2110,10 @@ function hhGenerate(source){
   if(_aiSuggestions){
     const rowsHtml=_aiSuggestions.map((s,idx)=>{
       const emoji=AI_CATEGORY_EMOJI[s.category]||'💡';
-      const actionable=!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag);
-      const btnHtml=actionable?`<button onclick="applyAiSuggestion(${idx})" ${s.applied?'disabled':''} style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:${s.applied?'var(--accent-dim)':'var(--surface-3)'};color:var(--accent-text);font-size:11px;font-weight:600;cursor:${s.applied?'default':'pointer'};white-space:nowrap;flex-shrink:0">${s.applied?'✓ 적용됨':'적용'}</button>`:'';
+      const actionable=aiSuggestionActionable(s);
+      const btnHtml=actionable?(s.applied
+        ?`<span style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0">✓ 적용됨</span>`
+        :`<label style="display:flex;align-items:center;gap:5px;margin-left:10px;cursor:pointer;flex-shrink:0;font-size:11px;font-weight:600;color:var(--accent-text);white-space:nowrap"><input type="checkbox" class="hh-ai-cb" ${s.selected?'checked':''} onchange="toggleAiSuggestion(${idx},this.checked)">선택</label>`):'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
       const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';
       const verifyHtml=s.verify?(()=>{
@@ -2146,6 +2148,12 @@ function hhGenerate(source){
           <button onclick="clearAiSuggestions()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:transparent;color:var(--text-3);font-size:11px;cursor:pointer">✕</button>
         </div>
       </div>
+      ${_aiSuggestions.some(s=>aiSuggestionActionable(s)&&!s.applied)?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <button id="hh-ai-apply-btn" onclick="applySelectedAiSuggestions()" style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:700;white-space:nowrap">✅ 선택 적용 (${_aiSuggestions.filter(s=>s.selected&&!s.applied&&aiSuggestionActionable(s)).length})</button>
+        <a href="#" onclick="selectAllAiSuggestions(true);return false" style="font-size:11px;color:var(--text-2)">전체 선택</a>
+        <a href="#" onclick="selectAllAiSuggestions(false);return false" style="font-size:11px;color:var(--text-2)">선택 해제</a>
+        <span style="font-size:10px;color:var(--text-3)">원하는 조언만 골라 한 번에 적용하면 프롬프트 기록도 1번만 남아요</span>
+      </div>`:''}
       ${rowsHtml}
       <div id="hh-ai-arrange-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
     </div>`;
@@ -2184,8 +2192,9 @@ function hhGenerate(source){
   resetWrap.style.cssText='text-align:center;padding:10px 0 4px';
   resetWrap.innerHTML='<a href="#" style="color:var(--text-2);font-size:12px;text-decoration:none;transition:.15s" onmouseover="this.style.color=\'var(--text-1)\'" onmouseout="this.style.color=\'var(--text-2)\'" onclick="hhReset();return false">↑ 처음부터 다시 선택하기</a>';
   container.appendChild(resetWrap);
-  setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);
+  if(!opts?.noScroll)setTimeout(()=>{container.scrollIntoView({behavior:'smooth',block:'start'});},50);   // AI 리뷰 패널 안에서 누른 동작은 이미 결과를 보고 있으니 화면을 옮기지 않음
   updateFloatSummary();
+  updateAiApplyBtn();
   // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
   // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
   if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))});

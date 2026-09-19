@@ -95,7 +95,7 @@ function saveAnthropicKey(){
 let _aiSuggestions=null;
 const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯','악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶','전개':'🎬'};
 // aiProducerReview와 aiParseExternalFeedback(외부 피드백 파싱) 둘 다 "조언 → 실제 프롬프트에 적용 가능한 필드"로
-// 변환해야 해서, 그 필드 설명과 JSON 스키마를 공유 — 같은 스키마로 나와야 applyAiSuggestion이 출처 구분 없이 그대로 먹음
+// 변환해야 해서, 그 필드 설명과 JSON 스키마를 공유 — 같은 스키마로 나와야 applyAiSuggestionCore가 출처 구분 없이 그대로 먹음
 const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - melodyLead: 멜로디 악기가 정확히 2개 선택돼 있고, 조언이 "둘 중 어느 게 리드를 맡아야 하는지"(예: 주파수 대역이 겹쳐서 하나를 백킹으로 물려야 함)에 관한 거면 → 리드를 맡아야 할 악기 이름을 [현재 설정]의 멜로디 악기 목록에 있는 문자열 그대로 정확히 넣어. 중요: 아래 [현재 생성된 섹션 프롬프트]를 먼저 확인해서 이미 그 악기가 "lead melody"로, 다른 하나가 "layered softly beneath/background layer"로 명시돼 있으면(원하는 역할 배치가 이미 되어 있으면) 이 조언 자체를 만들지 마 — 이미 된 걸 tag로 또 추가하면 같은 얘기가 두 군데서 중복되고 뭉개짐. 역할을 바꿔야 할 때만 melodyLead를 채워.
 - **먼저 판단**: 조언이 편곡·악기·에너지·믹스·텍스처·리듬 중 뭐든, **"이 곡 전체에 해당하는가" vs "특정 섹션/occurrence 하나에만 해당하는가"**부터 갈라. 특정 섹션 하나 얘기(예: "Hook 2에서 비트크러시", "브릿지에서 스테레오가 넓어짐", "두 번째 훅만 리듬 변주")면 **tag를 쓰지 마 — boostSection+boostOccurrence+boostText(편곡/에너지 톤이면) 또는 narrDir(그 외 전부: 믹스·텍스처·악기 변화도 포함)**를 써. tag는 스타일 박스는 한 번만 존재해서 "이 디테일은 Hook 2에만"이라는 정보 자체가 사라지고, 게다가 스타일 박스는 실측상 10개 안팎 넘으면 Suno가 뒤쪽부터 무시하기 시작해서 자리도 아깝다 — 섹션 전용 디테일을 정확한 섹션 텍스트 옆에 두는 게 Suno가 더 정확히 반영하고, 곡 전체에서도 더 입체적으로 들림.
@@ -110,7 +110,7 @@ const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
 {"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 짧은 구/키워드 결합)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 영어 짧은 구/키워드 결합)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
-// aiProducerReview·aiParseExternalFeedback 둘 다 이 형태로 모델 응답을 정리 — 출처가 달라도 applyAiSuggestion 입장에선 동일한 객체
+// aiProducerReview·aiParseExternalFeedback 둘 다 이 형태로 모델 응답을 정리 — 출처가 달라도 applyAiSuggestionCore 입장에선 동일한 객체
 function normalizeAiSuggestion(s,uniqueSegs,occKeys){
   // 인스트루멘탈인데 "vocal chop" 같은 보컬 요소가 tag로 들어오면 섹션마다 박힌 "ZERO vocal chops"와 정면충돌 — 프롬프트로만 막지 않고 코드로도 거름
   const vocalWord=/vocal|choir|ad-?lib|\bsung\b|singing|lyric|\bvoice/i;
@@ -247,18 +247,53 @@ ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}
     // "다시" 눌러서 재리뷰할 때 이전에 적용한 조언까지 통째로 갈아치우면 🔍 적용 검증이 추적할 이력이 사라짐 —
     // 이미 적용된 건 남기고 새로 받은 라운드만 그 뒤에 이어붙임
     _aiSuggestions=[...appliedSoFar,...list.map(s=>normalizeAiSuggestion(s,uniqueSegs,occKeys))];
-    hhGenerate(false);
+    hhGenerate(false,{noScroll:true});
   }catch(e){
     fail(e.message);
     if(btn){btn.disabled=false;btn.textContent='🤖 AI 프로듀서 리뷰 받기';}
   }
 }
-function applyAiSuggestion(idx){
-  const sug=(_aiSuggestions||[])[idx];
-  if(!sug||sug.applied)return;
+const aiSuggestionActionable=s=>!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag);
+// 조언마다 버튼을 눌러 그때그때 hhGenerate하면 클릭 수만큼 화면이 프롬프트로 튀고 히스토리도 그만큼 쌓였음 —
+// 체크박스로 고른 것들을 한 번에 적용하고 재생성·히스토리 기록은 1번만
+function toggleAiSuggestion(idx,checked){
+  const s=(_aiSuggestions||[])[idx];
+  if(s)s.selected=!!checked;
+  updateAiApplyBtn();
+}
+function selectAllAiSuggestions(flag){
+  (_aiSuggestions||[]).forEach(s=>{if(aiSuggestionActionable(s)&&!s.applied)s.selected=flag;});
+  document.querySelectorAll('.hh-ai-cb').forEach(cb=>{cb.checked=flag;});
+  updateAiApplyBtn();
+}
+function updateAiApplyBtn(){
+  const btn=document.getElementById('hh-ai-apply-btn');
+  if(!btn)return;
+  const n=(_aiSuggestions||[]).filter(s=>s.selected&&!s.applied&&aiSuggestionActionable(s)).length;
+  btn.textContent=`✅ 선택 적용 (${n})`;
+  btn.disabled=!n;
+  btn.style.opacity=n?'1':'.5';
+  btn.style.cursor=n?'pointer':'default';
+}
+function applySelectedAiSuggestions(){
+  const picked=(_aiSuggestions||[]).filter(s=>s.selected&&!s.applied&&aiSuggestionActionable(s));
+  if(!picked.length)return;
+  // 무드 변경은 멜로디·808·드럼 룰 재추천을 다시 돌리니, 같이 고른 다른 조언(멜로디 리드 등)이 덮이지 않게 가장 먼저
+  picked.sort((x,y)=>!!y.mood-!!x.mood);
+  picked.forEach(applyAiSuggestionCore);
+  hhGenerate(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`,{noScroll:true});
+}
+function applyAiSuggestionCore(sug){
   sug.applied=true;
-  if(sug.mood){applyAdvMood(sug.mood);return;}   // 자체적으로 hhGenerate까지 처리함
-  if(sug.melodyLead){
+  sug.selected=false;
+  if(sug.mood){
+    st.mood=sug.mood;
+    moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);
+    onMoodChange();
+    return;
+  }
+  // 같은 묶음에 무드 변경이 있으면 멜로디가 재추천으로 바뀌어 지목된 악기가 이미 없을 수 있음 — 그땐 역할 조언 자체가 무의미하니 건너뜀
+  if(sug.melodyLead&&st.melody.includes(sug.melodyLead)){
     // melodyLeadIdx는 "뒤집을지 말지" 플래그지 직접 인덱스가 아니라서, computeMelodyRoles로 원하는 악기가
     // 실제로 lead가 될 때까지 토글 — MELODY_ROLE 테이블 내부 규칙을 여기서 또 계산할 필요 없음
     st.melodyLeadIdx=0;
@@ -324,15 +359,14 @@ function applyAiSuggestion(idx){
     st.texture=st.texture.filter(t=>!t.toLowerCase().includes(sug.removeTag));
     st.extraTags=st.extraTags.filter(t=>!t.toLowerCase().includes(sug.removeTag));
   }
-  hhGenerate(`AI 리뷰 적용: ${sug.category}`);
 }
 function clearAiSuggestions(){
   _aiSuggestions=null;
-  hhGenerate(false);
+  hhGenerate(false,{noScroll:true});
 }
 // 우리 AI 리뷰는 텍스트 프롬프트만 보고 짐작하지만, 사용자가 실제로 완성된 곡을 듣고 받은 외부 피드백
 // (다른 AI 청취 평가, 사람 리뷰 등)은 오디오 근거가 있어서 훨씬 신뢰도 높은 정보 — 그걸 붙여넣으면
-// aiProducerReview와 같은 스키마로 파싱해서 같은 적용 파이프라인(applyAiSuggestion)을 그대로 태움
+// aiProducerReview와 같은 스키마로 파싱해서 같은 적용 파이프라인(applyAiSuggestionCore)을 그대로 태움
 async function aiParseExternalFeedback(){
   const key=getAnthropicKey();
   const btn=document.getElementById('hh-ai-external-btn');
@@ -382,7 +416,7 @@ ${feedback}`;
     const added=list.map(s=>normalizeAiSuggestion(s,uniqueSegs,occKeys));
     _aiSuggestions=[...(_aiSuggestions||[]),...added];
     if(ta)ta.value='';
-    hhGenerate(false);
+    hhGenerate(false,{noScroll:true});
   }catch(e){
     fail(e.message);
   }finally{
@@ -445,7 +479,7 @@ ${styleText}`;
         totalRow.score=newScore;
       }
     }
-    hhGenerate(false);
+    hhGenerate(false,{noScroll:true});
   }catch(e){
     fail(e.message);
     if(btn){btn.disabled=false;btn.textContent='🔍 적용 검증';}
