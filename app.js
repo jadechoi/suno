@@ -113,7 +113,7 @@ function hhInit(){
 // hhInit·hhReset이 공통으로 쓰는 칩/그리드 렌더 블록 — 한쪽만 고치고 잊어버리는 걸 방지
 function renderHhChips(){
   renderHhGenres();
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
@@ -123,7 +123,7 @@ function renderHhChips(){
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
-  chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
+  chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
   chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
@@ -410,6 +410,27 @@ const MOOD_DRUMS_FIT={
   '노스탤직·향수':['Live jazz drums','Boom Bap kick'], '미스터리·신비':['Glitchy breaks','Sub-bass punch'],
 };
 
+// 808 강도·그루브도 드럼과 같은 패턴으로 무드를 반영 — 예전엔 GENRE_AUTO(장르 고정값)가 무드를 바꿔도 그대로여서
+// 같은 장르면 "어두운"이든 "로맨틱"이든 808 세기·타이밍 감이 똑같았음(문구 뉘앙스만 무드별로 달랐음).
+// 장르가 기준점이고 무드는 그 안에서만 움직임: 808은 ±1단계(장르가 808 자체를 안 쓰면 None 유지), 그루브는 장르가 허용하는 2개 안에서만 선택
+const MOOD_808_DELTA={
+  '어둡고 위압적':1,'분노·공격적':1,'승리감·웅장':1,
+  '내성적·사색':-1,'슬프고·멜랑콜리':-1,'로맨틱·달콤한':-1,'노스탤직·향수':-1,'미스터리·신비':-1,
+};
+// 장르별로 어울리는 그루브 2개(첫 번째 = GENRE_AUTO 기본값, 두 번째 = 무드에 따라 바뀔 수 있는 대안) — 무드가 장르 정체성(예: 드릴은 레이드백 X)을 깨지 않게
+const GENRE_GROOVE_ALT=['살짝 스윙','레이드백 포켓','레이드백 포켓','푸시드 포켓','살짝 스윙','레이드백 포켓','레이드백 포켓','레이드백 포켓','헤비 스윙','타이트 그리드','푸시드 포켓','푸시드 포켓','레이드백 포켓','살짝 스윙','푸시드 포켓','푸시드 포켓','레이드백 포켓','살짝 스윙'];
+const GENRE_GROOVE_TIPS=Object.fromEntries(GENRE_AUTO.map((a,i)=>[i,`${a.groove} + ${GENRE_GROOVE_ALT[i]}`]));
+const MOOD_GROOVE_FIT={
+  '어둡고 위압적':['타이트 그리드','레이드백 포켓'],'감각적·관능적':['레이드백 포켓','살짝 스윙'],
+  '멜로딕·감성':['살짝 스윙','레이드백 포켓'],'에너제틱·하입':['푸시드 포켓','타이트 그리드'],
+  '사이키델릭·몽환':['레이드백 포켓','헤비 스윙'],'칠·그루비':['레이드백 포켓','헤비 스윙'],
+  '분노·공격적':['푸시드 포켓','타이트 그리드'],'내성적·사색':['레이드백 포켓','살짝 스윙'],
+  '축제·환희':['푸시드 포켓','살짝 스윙'],'승리감·웅장':['타이트 그리드','푸시드 포켓'],
+  '슬프고·멜랑콜리':['레이드백 포켓','살짝 스윙'],'자신감·플렉스':['살짝 스윙','타이트 그리드'],
+  '로맨틱·달콤한':['살짝 스윙','레이드백 포켓'],'긴장감·서스펜스':['타이트 그리드','푸시드 포켓'],
+  '노스탤직·향수':['헤비 스윙','레이드백 포켓'],'미스터리·신비':['레이드백 포켓','타이트 그리드'],
+};
+
 // 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
 
@@ -443,6 +464,7 @@ function recommendMelodyTexture(){
   const rankedDrums=scorePick(HH_DRUMS,GENRE_DRUMS_TIPS,MOOD_DRUMS_FIT,st.genre,st.mood,null);
   st.drums=rankedDrums.slice(0,2);
 
+  recommendRhythm();
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
@@ -454,6 +476,22 @@ function recommendMelodyTexture(){
   setAutoHint('hh-drums-hint',st.drums.join(', '));
   st._mtAutoManaged=true;
   recommendVocalChar();
+}
+function recommendRhythm(){
+  const auto=GENRE_AUTO[st.genre];
+  if(!auto)return;
+  const base=HH_808.indexOf(auto.a808);
+  st._808=base>0?HH_808[Math.min(HH_808.length-1,Math.max(1,base+(MOOD_808_DELTA[st.mood]||0)))]:auto.a808;
+  // bonus: 무드의 1순위 그루브에 +1 — 장르 기본값과 동점일 때(예: 하이퍼팝 타이트 vs 에너제틱의 푸시드) 조용히 장르 쪽으로 밀리지 않게
+  st.groove=scorePick(HH_GROOVE,GENRE_GROOVE_TIPS,MOOD_GROOVE_FIT,st.genre,st.mood,MOOD_GROOVE_FIT[st.mood]?.slice(0,1))[0];
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+  chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
+  setAutoHint('hh-808-hint','808: '+st._808);
+  setAutoHint('hh-groove-hint',st.groove);
+}
+// 808/그루브를 직접 만지면 이후 무드 변경이 덮어쓰지 않게 — 드럼과 같은 플래그
+function onRhythmManualChange(){
+  st._mtAutoManaged=false;
 }
 function onDrumsManualChange(){
   st._mtAutoManaged=false;
@@ -593,10 +631,10 @@ function selectGenre(i){
       st.drums=[...auto.aDrums];
       st.transitionFx=[...auto.fx];
       st.groove=auto.groove;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
-      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
+      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
       setAutoHint('hh-fx-hint',auto.fx.join(', '));
@@ -805,10 +843,10 @@ function applyArtistSong(tabKey,song,artist){
       st.drums=[...auto.aDrums];
       st.transitionFx=[...auto.fx];
       st.groove=auto.groove;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
-      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
+      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
       setAutoHint('hh-fx-hint',auto.fx.join(', '));
@@ -1715,7 +1753,8 @@ function applyAdvBPM(bpm){
 }
 function applyAdv808(level){
   st._808=level;
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+  st._mtAutoManaged=false;
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
   setAutoHint('hh-808-hint','808: '+level);
   hhGenerate(`808 ${level} 적용`);
 }
