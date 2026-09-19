@@ -138,21 +138,21 @@ function renderHhChips(){
 const HH_GENRE_SONGS=[
   ['Travis Scott - FE!N','Future & Metro Boomin - We Still Don\'t Trust You','Drake - Rich Flex','21 Savage - redrum','Gunna - fukumean'],          // 0 Trap
   ['Travis Scott - SICKO MODE','Drake - Knife Talk','Playboi Carti - Vamp Anthem','Lil Durk - All My Life','Fredo Bang - Slide'],                    // 1 Dark Trap
-  ['Rod Wave - Tombstone','Don Toliver - No Idea','Polo G - Hall of Fame','Drake - Rich Baby Daddy','Lil Uzi Vert - Just Wanna Rock'],               // 2 Melodic Trap
+  ['Rod Wave - Tombstone','Don Toliver - No Idea','Polo G - Hall of Fame','Drake - Rich Baby Daddy','Lil Baby & Gunna - Drip Too Hard'],               // 2 Melodic Trap
   ['Ice Spice - Munch','Pop Smoke - Welcome to the Party','Fivio Foreign - Big Drip','Lil TJay - Calling My Phone','Coi Leray - Players'],          // 3 NY Drill
   ['Central Cee - Doja','Dave - Sprinter','Headie One - Ain\'t It Different','Digga D - Chinaman','Unknown T - Jungle'],                             // 4 UK Drill
   ['Kordhell - Murder In My Mind','SHADXWBXRN - VILLAIN','Ghostemane - Mercury','Night Lovell - Dark Light','$uicideboy$ - Paris'],                  // 5 Phonk
   ['Kendrick Lamar - Not Like Us','J. Cole - No Role Modelz','Drake - Fear','J.I.D - Surround Sound','Little Simz - Gorilla'],                      // 6 Boom Bap
   ['Lil Uzi Vert - XO Tour Llif3','Don Toliver - After Party','Trippie Redd - Miss The Rage','Juice WRLD - Lucid Dreams','Carti - Magnolia'],        // 7 Cloud Rap
   ['Joji - Glimpse of Us','Keshi - Right Here','Powfu - death bed','Still Woozy - Goodie Bag','Rex Orange County - Loving is Easy'],                // 8 Lo-fi
-  ['Ice Spice - In Ha Mood','Ken Carson - A Great Chaos','Destroy Lonely - BANE','Flo Milli - Conceited','BIA - WHOLE LOTTA MONEY'],                // 9 Jersey Club
-  ['Playboi Carti - Sky','Ken Carson - ikon','Destroy Lonely - BANE','Yeat - Rich Minion','Summrs - Outside'],                                       // 10 Rage/Plugg
+  ['Lil Uzi Vert - Just Wanna Rock','Ice Spice - In Ha Mood','Flo Milli - Conceited','BIA - WHOLE LOTTA MONEY'],                // 9 Jersey Club
+  ['Playboi Carti - Sky','Ken Carson - Yale','Destroy Lonely - BANE','Yeat - Rich Minion','Summrs - Outside'],                                       // 10 Rage/Plugg
   ['Burna Boy - Last Last','Rema & Selena Gomez - Calm Down','WizKid - Essence ft. Tems','Asake - Organise','Davido - UNAVAILABLE'],                 // 11 Afrotrap
   ['Kendrick Lamar - euphoria','J. Cole - Middle Child','Cordae - The Parables','Lil Baby - The Bigger Picture','Noname - Song 33'],                 // 12 Conscious
   ['Summer Walker - No Love','SZA - Shirt','Kehlani - Nights Like This','The Weeknd - Sacrifice','Don Toliver - Tore Up'],                           // 13 Trap Soul
   ['Charli XCX - 360','Ericdoa - Fool Around','glaive - 1984','100 gecs - Hand Crushed by a Mallet','Jane Remover - Haunted'],                      // 14 Hyperpop
   ['glaive - astrid','midwxst - no effort','Ericdoa - nostalgia shit','Lil Tracy - Like a Glock','bbno$ - edamame'],                                 // 15 Digicore
-  ['Summrs - Right Now','Homixide Gang - 2am','Autumn! - Wasted','Lil Seeto - Closer','Destroy Lonely - Bane (Slowed)'],                            // 16 Pluggnb
+  ['Summrs - Right Now','Homixide Gang - 2am','Autumn! - Wasted','Lil Seeto - Closer'],                            // 16 Pluggnb
   ['Tyler the Creator - EARFQUAKE','Earl Sweatshirt - Grief','Brockhampton - SUGAR','Injury Reserve - Knees','Frank Ocean - Ivy'],                   // 17 Westwood
 ];
 
@@ -644,7 +644,6 @@ function selectGenre(i){
     recommendProducerRef();
     recommendStructure();
   } else {
-    _grsToken++;// 진행 중이던 실시간 인기곡 요청 무효화
     const sg=document.getElementById('hh-ref-suggestions');
     if(sg)sg.innerHTML='';
     clearAutoHint('hh-808-hint');
@@ -675,59 +674,38 @@ function suggestionChip(text,onClick){
   return btn;
 }
 
-// 장르명으로 트랙 검색하면 "DARK TRAP 2016" 같은 컴필레이션/비트팩만 잡히고 popularity도 안 내려옴(실측 확인).
-// 대신 HH_GENRE_SONGS에 큐레이션된 "대표 아티스트"들을 실제로 검색해서 그들의 최신곡을 라이브로 가져온다
-// (트렌딩 아티스트에서 검증된 이름검색→Musicae top-tracks 파이프라인 재사용, 1 아티스트 = 1곡으로 5명분)
-async function fetchGenreHotTracks(genreIdx){
-  const tok=await getSpotifyToken();
-  if(!tok)return null;
-  const seedNames=(HH_GENRE_SONGS[genreIdx]||[]).map(s=>s.split(' - ')[0].trim()).filter(Boolean);
-  if(!seedNames.length)return null;
-  try{
-    const resolved=(await Promise.all(seedNames.map(n=>resolveArtistIdByName(n,tok)))).filter(Boolean);
-    if(!resolved.length)return[];
-    const withTrack=await Promise.all(resolved.map(async a=>{
-      const tracks=await fetchArtistTopTracksRaw(a.id);
-      return tracks[0]?{id:tracks[0].id,name:tracks[0].name,artist:a.name}:null;
-    }));
-    return withTrack.filter(Boolean).slice(0,5);
-  }catch(e){console.warn('fetchGenreHotTracks error',e);return null;}
-}
-
-let _grsToken=0;
-async function renderGenreRefSuggestions(genreIdx){
+// 예전엔 큐레이션 목록에서 "아티스트 이름"만 뽑아 그 아티스트의 최신 인기곡을 가져왔는데, 그러면 곡 자체(장르에 맞게 골라둔 것)는 버려지고
+// 여러 장르에 걸쳐 활동하는 아티스트(Drake가 4개 장르 목록에 있음)는 어느 장르에서든 같은 곡이 나왔음 → 목록의 곡을 그대로 보여주고,
+// Spotify는 클릭했을 때만 그 곡을 찾아서 Key·BPM·무드에 씀 (장르 선택 때마다 나가던 검색·API 호출도 사라짐)
+function renderGenreRefSuggestions(genreIdx){
   const sg=document.getElementById('hh-ref-suggestions');
   if(!sg)return;
-  const myToken=++_grsToken;
-  sg.innerHTML='<div style="width:100%;font-size:10px;color:var(--text-3)">🔥 실시간 인기곡 불러오는 중…</div>';
-
-  const tracks=await fetchGenreHotTracks(genreIdx);
-  if(myToken!==_grsToken)return;// 그 사이 다른 장르를 클릭했으면 버림
-
   sg.innerHTML='';
   const label=document.createElement('div');
   label.style.cssText='width:100%;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:2px';
+  label.textContent='추천 레퍼런스 곡 · 클릭 시 곡 이름 입력 (Spotify 연결 시 Key·BPM·무드도 자동 적용)';
   sg.appendChild(label);
-
-  if(tracks&&tracks.length){
-    label.textContent='🔥 대표 아티스트 최신곡 · 클릭 시 Key·BPM·무드 자동 적용';
-    tracks.forEach(t=>{
-      sg.appendChild(suggestionChip(`${t.artist} - ${t.name}`,()=>applySpotifyTrack(t.id,`${t.artist} - ${t.name}`)));
-    });
-  } else {
-    label.textContent='추천 레퍼런스 곡'+(tracks===null?' (Spotify 미연결 — 참고용)':'');
-    (HH_GENRE_SONGS[genreIdx]||[]).forEach(song=>{
-      sg.appendChild(suggestionChip(song,e=>{
-        const btn=e.currentTarget;
-        const refEl=document.getElementById('hh-ref-song');
-        if(refEl)refEl.value=song;
-        sg.querySelectorAll('button').forEach(b=>{b.style.background='var(--surface-3)';b.style.borderColor='var(--border)';});
-        btn.style.background='var(--accent-dim)';
-        btn.style.borderColor='var(--accent)';
-        btn.style.color='var(--accent-text)';
-      }));
-    });
-  }
+  (HH_GENRE_SONGS[genreIdx]||[]).forEach(song=>{
+    sg.appendChild(suggestionChip(song,e=>{
+      const btn=e.currentTarget;
+      sg.querySelectorAll('button').forEach(b=>{b.style.background='var(--surface-3)';b.style.borderColor='var(--border)';b.style.color='var(--text-2)';});
+      btn.style.background='var(--accent-dim)';
+      btn.style.borderColor='var(--accent)';
+      btn.style.color='var(--accent-text)';
+      pickRefSong(song);
+    }));
+  });
+}
+async function pickRefSong(song){
+  const refEl=document.getElementById('hh-ref-song');
+  if(refEl)refEl.value=song;
+  const tok=await getSpotifyToken();
+  if(!tok)return;                                   // 미연결이면 텍스트만
+  const statusEl=document.getElementById('sp-search-status');
+  const [artist,...rest]=song.split(' - ');
+  const t=await resolveTrackByArtistAndTitle(artist.trim(),rest.join(' - ').trim(),tok);
+  if(t)applySpotifyTrack(t.id,song);
+  else if(statusEl){statusEl.textContent='Spotify에서 이 곡을 찾지 못해 곡 이름만 입력했어요';statusEl.hidden=false;}
 }
 
 function renderArtists(containerId,artists,tabKey){

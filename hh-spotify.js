@@ -434,19 +434,22 @@ async function applySpotifyTrack(trackId,label){
   // 808
   const level=af._808||sp808FromEnergy(af.energy);
   st._808=level;
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
-  setAutoHint('hh-808-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+level);
   // 드럼 — 장르 고정값(GENRE_AUTO) 대신 이 곡의 실제 에너지·댄서빌리티로 판단
   const drums=spDrumsFromFeatures(af.energy,af.danceability);
   st.drums=drums;
-  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-  setAutoHint('hh-drums-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+drums.join(', '));
   // Mood
   const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
   st.mood=moodKr;
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
   if(st._mtAutoManaged)recommendMelodyTexture();
   if(st._structAutoManaged)recommendStructure();
+  // recommendMelodyTexture가 808/드럼도 장르+무드 룰로 다시 뽑아서 곡에서 직접 읽은 값을 덮어쓰므로, 곡 값을 그 뒤에 확정
+  st._808=level;
+  st.drums=drums;
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+  setAutoHint('hh-808-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+level);
+  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
+  setAutoHint('hh-drums-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+drums.join(', '));
   if(statusEl){
     const keyStr=KEYS[st.key]||'?';
     const sfx=_spAudioFeaturesBlocked?' (장르 기반 추정)':'';
