@@ -1414,6 +1414,11 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       outro:'reverb decay, stereo collapsing to mono',
     }[role]||'');
   };
+  // 같은 타입 섹션이 3번 이상 나오면 기본 문구가 토씨 그대로 반복돼서(훅2=훅3, 벌스2=벌스3, 브릿지1=2) Suno가 같은 루프를 복붙함 —
+  // 두 번째부터는 occurrence마다 다른 소소한 변주를 얹어서 반복 속에서도 곡이 진행되게 함
+  const HOOK_VARY=['new counter-melody layer, drum fill into the downbeat','extra percussion layer, variation on the lead phrase'];
+  const VERSE_VARY=['new percussion accent, bassline rhythm variation','melody drops an octave, half-time feel in the last 4 bars'];
+  const BRIDGE_VARY='riser rising in pitch, one held sustained note';
   const sAO=st.sectionArrangeOccurrence||{};
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
   // 이 타입의 진짜 클라이맥스 판정(isLast 등)과는 별개 — 그건 훅 서브타이틀/에너지 문구용으로 계속 그대로 씀
@@ -1450,20 +1455,20 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
           :`Maximum ${hookEng.replace(/^maximum /i,'')} energy, all layers activated, heaviest impact`)
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
-      lines.push(`[Instrumental Hook ${cnt.hook}: ${sub}]`);
+      lines.push(`[${hasVocal?'':'Instrumental '}Hook ${cnt.hook}: ${sub}]`);
       // eDesc(808 bass 전체 묘사)는 빼도 energy 문구가 세기를 이미 담고 있어 괜찮지만, dDesc(드럼 "패턴 종류" —
       // four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)까지 빼버리면 장르를 바꿔도
       // 훅에서 리듬 정체성이 전혀 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — dDesc만 복원
-      lines.push(`(${bH} Bars: ${energy}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
+      lines.push(`(${bH} Bars: ${energy}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${!isLast&&cnt.hook>=2?', '+HOOK_VARY[(cnt.hook-2)%HOOK_VARY.length]:''}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
       const desc=cnt.verse===1
-        ?`Beat strips back, sparse 808s, lighter drum pattern, ${melodyRef('verse')} softened, spacious and clean arrangement`
+        ?`Beat strips back, sparse ${eightOh==='None'?'bass':'808s'}, lighter drum pattern, ${melodyRef('verse')} softened, spacious and clean arrangement`
         :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
-      lines.push(`[Instrumental Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse')}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
+      lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse')}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1475,7 +1480,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const fxPhrase=(fxList.length===2&&Math.random()<0.5?[fxList[1],fxList[0]]:fxList).join(', ');
       const desc=isLastB
         ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
-        :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation`;
+        :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation${cnt.bridge>=2?', '+BRIDGE_VARY:''}`;
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
     } else if(type==='outro'){
@@ -1854,11 +1859,13 @@ function hhGenerate(source){
     tags.push('[Instrumental]');
     tags.push('no vocals');                                         // 보컬 억제 보완 태그
   }
-  if(g)tags.push(g.tag);
+  // 색깔 수식어는 장르 단어 바로 앞에 붙임("commercial hyperpop") — 멀리 떨어진 별도 태그보다 장르에 확실히 걸림
+  const commMod=st.commercial&&COMMERCIAL_TAG[st.commercial];
+  if(g)tags.push(commMod?`${commMod} ${g.tag}`:g.tag);
   // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화), 여러 명이어도 한 태그로
   if(st.refs.length){
     const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?p.en:kr;});
-    tags.push(refEns.join(' & '));
+    tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
   }
   if(mood)tags.push(mood.tag);
   if(st.melody.length){
@@ -1895,10 +1902,12 @@ function hhGenerate(source){
   if(st.era)contextParts.push(st.era+' era');
   if(st.region)contextParts.push(st.region+' sound');
   if(st.density)contextParts.push(st.density.toLowerCase()+' arrangement');
-  if(st.commercial)contextParts.push(COMMERCIAL_TAG[st.commercial]);
+  if(commMod&&!g)contextParts.push(commMod+' sound');
   if(contextParts.length)tags.push(contextParts.join(' & '));
   if(st.extraTags.length)tags.push(...st.extraTags);              // 피드백에서 적용된 태그 — 각각 독립적인 조언이라 태그 그대로 유지
-  if(antiAI)tags.push('organic warm human-feel & analog imperfections & natural dynamics');
+  // 디지털/글리치 계열은 "organic warm & analog"가 Pristine digital·hyperpop 등과 정면충돌 — 타이밍/다이내믹 중심 문구로 교체
+  const digitalLean=[9,14,15].includes(st.genre)||st.texture.some(t=>/digital|sidechain/i.test(t))||st.drums.some(d=>/glitch/i.test(d));
+  if(antiAI)tags.push(digitalLean?'natural dynamics & human-feel timing & subtle imperfections':'organic warm human-feel & analog imperfections & natural dynamics');
   const styleText=tags.join(', ');
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
