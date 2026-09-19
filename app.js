@@ -212,6 +212,10 @@ const MELODY_ROLE={
   'Cello':'background','Sitar':'background','Vocoder synth':'background',
 };
 // 리드 멜로디 악기가 섹션마다 어떤 느낌으로 연주되면 좋을지 — 같은 악기라도 인트로/훅/벌스/브릿지/아웃트로마다 다르게
+// 장르가 정하는 연주법이 악기 기본값보다 우선 — 기본 기타(핑거피킹·스트러밍)는 트랩 메탈의 다운튜닝 리프와 정반대
+const GENRE_ARTICULATION={
+  18:{'Guitar loop':{intro:'downtuned distorted riff ringing out',hook:'heavy palm-muted chugging riff',verse:'sparse muted single-note riff',bridge:'sustained feedback drone',outro:'riff decaying into feedback'}},
+};
 const MELODY_ARTICULATION={
   'Dark synth':{intro:'slow sustained tone',hook:'staccato stabs',verse:'sparse sustained notes',bridge:'rising arpeggiated pattern',outro:'fading sustained tone'},
   'Emotional piano':{intro:'soft single sustained chord',hook:'rhythmic chord stabs',verse:'sparse single-note melody',bridge:'flowing legato run',outro:'slow fading chord'},
@@ -269,6 +273,8 @@ const GENRE_DEFAULT_MOOD=[
 // 멜로디·믹스 텍스처 추천 스코어링 — 장르 하나만 보는 고정 룰이 아니라
 // 장르(1순위) + 무드(2순위) + 시대감(보정) 신호를 합산해서 매번 조합에 맞게 상위 2개를 고름
 // ============================================================
+// 장르의 정체성이 특정 악기의 리드 역할에 달린 경우(트랩 메탈=기타 리프) — 그 악기가 추천 2개 안에 들면 리드로
+const GENRE_LEAD={18:'Guitar loop'};
 const GENRE_MELODY_TIPS={
   0:'Dark synth + Guitar loop', 1:'Dark synth + Ambient pad',
   2:'Emotional piano + Ambient pad', 3:'Dark synth + Strings',
@@ -279,7 +285,7 @@ const GENRE_MELODY_TIPS={
   12:'Saxophone + Emotional piano', 13:'Rhodes keys + Ambient pad',
   14:'Psychedelic FX + Supersaw synth', 15:'Supersaw synth + Psychedelic FX',
   16:'Ambient pad + Emotional piano', 17:'Saxophone + Guitar loop',
-  18:'Dark synth + Guitar loop', 19:'Rhodes keys + Sample chop',
+  18:'Guitar loop + Dark synth', 19:'Rhodes keys + Sample chop',
 };
 const MOOD_MELODY_FIT={
   '어둡고 위압적':['Dark synth','Strings'], '감각적·관능적':['Rhodes keys','Guitar loop'],
@@ -461,7 +467,8 @@ function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
 function recommendMelodyTexture(){
   if(st.genre===null)return;
   const rankedMelody=scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null);
-  const lead=rankedMelody[0],bg=rankedMelody[1];
+  let [lead,bg]=rankedMelody;
+  if(GENRE_LEAD[st.genre]&&GENRE_LEAD[st.genre]===bg)[lead,bg]=[bg,lead];
   st.melody=[lead,bg];
   st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
 
@@ -1459,7 +1466,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     // 바로 콜백 로테이션으로 넘어가서, 이름을 나열하는 중간 단계 자체를 없앰
     const ref=isFirst?mDescFull:mDescCallbacks[(mDescUses-1+mDescCallbackOffset)%mDescCallbacks.length];
     mDescUses++;
-    const art=leadInstrument&&MELODY_ARTICULATION[leadInstrument]?.[section];
+    const art=leadInstrument&&(GENRE_ARTICULATION[st.genre]?.[leadInstrument]||MELODY_ARTICULATION[leadInstrument])?.[section];
     // 톤(예: "distorted gritty")은 최초 1회(인트로)에만 붙임 — 이후에도 매번 붙이면 전 섹션에 토씨 그대로
     // 반복돼서(실측 확인: 8/8) 순수 중복이 됨. 스타일 박스에 이미 악기 톤이 한 번 들어가 있어 정보 손실 없음
     const tone=isFirst?toneTagFull:'';
@@ -1956,7 +1963,8 @@ function hhGenerate(source){
   }
   // 색깔 수식어는 장르 단어 바로 앞에 붙임("commercial hyperpop") — 멀리 떨어진 별도 태그보다 장르에 확실히 걸림
   const commMod=st.commercial&&COMMERCIAL_TAG[st.commercial];
-  if(g)tags.push(commMod?`${commMod} ${g.tag}`:g.tag);
+  // sig = 이 장르를 다른 장르와 가르는 핵심 사운드(예: 트랩 메탈의 다운튜닝 기타) — 장르 단어에 ' & '로 붙여 태그 개수는 안 늘림
+  if(g)tags.push(`${commMod?commMod+' ':''}${g.tag}${g.sig?' & '+g.sig:''}`);
   // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화), 여러 명이어도 한 태그로
   if(st.refs.length){
     const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?p.en:kr;});
@@ -1984,7 +1992,7 @@ function hhGenerate(source){
   if(rhythmParts.length)tags.push(rhythmParts.join(' & '));
   if(st.vocal&&st.vocal!=='No Vocal'){
     // 보컬 타입/스타일/톤도 태그 3개 대신 형용사처럼 붙여서 1개로
-    const vocalBits=[VOCAL_CHAR_TAG[st.vocalChar],VOCAL_STYLE_TAG[st.vocalStyle],st.vocal.toLowerCase()].filter(Boolean);
+    const vocalBits=[VOCAL_CHAR_TAG[st.vocalChar],VOCAL_STYLE_TAG[st.vocalStyle],st.vocal.toLowerCase(),g?.vocalSig].filter(Boolean);
     tags.push(vocalBits.join(' '));
   }
   tags.push(`Key of ${keyStr}`);
@@ -2002,7 +2010,7 @@ function hhGenerate(source){
   if(st.extraTags.length)tags.push(st.extraTags.join(' & '));      // 피드백에서 적용된 태그 — AI 라운드를 여러 번 돌려도 스타일 박스 태그 수가 안 늘도록 하나로 묶음(칩은 개별 제거 가능)
   // 디지털/글리치 계열은 "organic warm & analog"가 Pristine digital·hyperpop 등과 정면충돌 — 타이밍/다이내믹 중심 문구로 교체
   const digitalLean=[9,14,15].includes(st.genre)||st.texture.some(t=>/digital|sidechain/i.test(t))||st.drums.some(d=>/glitch/i.test(d));
-  if(antiAI)tags.push(digitalLean?'natural dynamics & human-feel timing & subtle imperfections':'organic warm human-feel & analog imperfections & natural dynamics');
+  if(antiAI)tags.push(digitalLean?'natural dynamics & human-feel timing & subtle imperfections':st.genre===18?'raw human-feel & gritty imperfections & natural dynamics':'organic warm human-feel & analog imperfections & natural dynamics');
   const styleText=tags.join(', ');
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
