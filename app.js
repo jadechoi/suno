@@ -5,7 +5,7 @@ const st={
   genre:null,key:7,bpm:140,
   _808:'Balanced',drums:[],melody:[],melodyTone:null,mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
-  narrSt:{},narrAI:{},narrDirs:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
+  narrSt:{},narrAI:{},narrDirs:{},removedPhrases:[],structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
@@ -494,6 +494,23 @@ const HARSH_NUANCE=/harsh|violent|biting|saturated|menac|raw|coiled/i;
 function compatibleToneNuance(mood){
   const opts=(MOOD_TONE_NUANCE[mood]||[]).filter(n=>!(st.melodyTone==='디스토티드·그릿'&&SOFT_NUANCE.test(n))&&!(st.melodyTone==='소프트·머플드'&&HARSH_NUANCE.test(n)));
   return opts.length?pick(opts):'';
+}
+// 리뷰가 인용해서 삭제하기로 한 구(removePhrase)를 규칙 엔진 결과에서 뺌 — 새 지시를 넣으면서 모순되는 기존 문구를 지울 수 있어야 덧붙이기만 하다 일관성이 깨지지 않음
+const _rmHit=(ph,rp)=>{const l=ph.toLowerCase().trim();return rp.some(p=>l===p||(p.length>=12&&l.includes(p))||(l.length>=12&&p.includes(l)));};
+function applyRemovedPhrases(text){
+  const rp=(st.removedPhrases||[]).map(p=>p.toLowerCase().trim()).filter(Boolean);
+  if(!rp.length)return text;
+  return text.split('\n').map(line=>{
+    const m=line.match(/^(\(\d+ Bars: )([\s\S]*)\)$/)||line.match(/^(\()([\s\S]*)\)$/);
+    if(!m)return line;
+    const kept=m[2].split(/, (?![^()]*\))/).filter(p=>!_rmHit(p,rp));
+    return kept.length?m[1]+kept.join(', ')+')':line;
+  }).join('\n');
+}
+function applyRemovedStylePhrases(text){
+  const rp=(st.removedPhrases||[]).map(p=>p.toLowerCase().trim()).filter(Boolean);
+  if(!rp.length)return text;
+  return text.split(', ').map(tag=>tag.split(' & ').filter(seg=>!_rmHit(seg,rp)).join(' & ')).filter(Boolean).join(', ');
 }
 // 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
@@ -1030,7 +1047,7 @@ function renderHhNarr(){
   const container=document.getElementById('hh-narr');
   container.innerHTML='';
   const aiKeys=Object.keys(st.narrAI);
-  if(aiKeys.length){
+  if(aiKeys.length||(st.removedPhrases||[]).length){
     const aiBox=document.createElement('div');
     aiBox.style.cssText='margin-bottom:10px;padding:8px;border-radius:var(--r-sm);background:rgba(157,78,221,.08);border:1px solid rgba(157,78,221,.25)';
     aiBox.innerHTML=`<div style="font-size:11px;color:var(--text-3);margin-bottom:6px">🤖 AI 전개 디렉션 (섹션별)</div>`;
@@ -1039,6 +1056,13 @@ function renderHhNarr(){
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0';
       row.innerHTML=`<span style="font-size:11px;color:var(--text-3);min-width:44px">${k}</span><span style="font-size:11px;color:var(--accent-text);flex:1">${escHtml(st.narrAI[k])}</span><span style="cursor:pointer;color:var(--text-3);font-size:11px" title="AI 디렉션 지우기">✕</span>`;
       row.querySelector('span[title]').onclick=()=>{delete st.narrAI[k];if(st.narrDirs)delete st.narrDirs[k];renderHhNarr();};
+      aiBox.appendChild(row);
+    });
+    (st.removedPhrases||[]).forEach((p,i)=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0';
+      row.innerHTML=`<span style="font-size:11px;color:var(--text-3);min-width:44px">🗑 삭제</span><span style="font-size:11px;color:var(--text-2);flex:1;text-decoration:line-through">${escHtml(p)}</span><span style="cursor:pointer;color:var(--text-3);font-size:12px" title="삭제 취소(다시 포함)">↺</span>`;
+      row.querySelector('span[title]').onclick=()=>{st.removedPhrases.splice(i,1);renderHhNarr();};
       aiBox.appendChild(row);
     });
     container.appendChild(aiBox);
@@ -2140,6 +2164,7 @@ function hhGenerate(source,opts){
     g?g.tag:'trap',moodIdx,keyStr,bpmVal,st._808,
     st.drums.length?st.drums:null,st.melody,st.region
   );
+  sectText=applyRemovedPhrases(sectText);
   // AI 작성기: 위 결과는 "규칙 초안". 같은 입력 상태로 이미 검증 통과한 AI 작성본이 있으면 그걸 쓰고, 없으면 초안을 먼저 보여준 뒤 아래에서 비동기로 작성
   const _fps=hhWriteFingerprints();
   _hhDraft={sect:sectText,style:null,fpFull:_fps.fpFull,fpBase:_fps.fpBase};
@@ -2242,7 +2267,7 @@ function hhGenerate(source,opts){
     const leadHuman=st.melody.length?INSTR_HUMAN[computeMelodyRoles(st.melody)?.lead||st.melody[0]]:null;
     tags.push([GENRE_HUMAN[st.genre]||'organic warm human-feel & analog imperfections',leadHuman].filter(Boolean).join(' & '));
   }
-  let styleText=tags.join(', ');
+  let styleText=applyRemovedStylePhrases(tags.join(', '));
   _hhDraft.style=styleText;
   if(_wc)styleText=_wc.style;
   const charCount=styleText.length;
@@ -2641,7 +2666,7 @@ function hhReset(){
   st.genre=null;st.key=7;st.bpm=140;
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
-  st.narrSt={};st.narrAI={};st.narrDirs={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
+  st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
   st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');

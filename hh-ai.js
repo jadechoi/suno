@@ -111,11 +111,12 @@ const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
 - narrDir: 위 판단에서 "특정 섹션 하나"이고 편곡/에너지가 아닌 다른 카테고리(전개·믹스·텍스처·악기 등)이거나, 여러 occurrence에 걸친 점진적 변화일 때 → 아래 [narrDir에 쓸 수 있는 섹션 키]에 있는 키만 사용해서 {"hook1":"...","verse1":"...","hook2":"...",...} 형식 객체를 만들어. 서사가 특정 구간에만 해당하면 그 키만 넣어도 되고, 전체 곡에 걸친 점진적 변화(예: 밀도가 곡 전체에서 계속 증가)라면 관련된 모든 키에 각각 다른 내용을 채워 — 같은 내용을 여러 키에 반복 복사하지 말고, 그 구간이 전체 흐름에서 몇 번째인지에 맞게 서로 다르게 써(예: hook1은 "sparse, restrained", hook2는 "denser layering, energy builds", hook3은 "full density, all elements in"). 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 **영어 짧은 구/키워드 결합**(완결된 문장 아님, 콤마 구분 — 예: "energy ramps up gradually" 대신 "gradual energy ramp, no sudden hit"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
 - removeRef: tag를 추가할 때마다 아래 [프로듀서 레퍼런스]에 있는 설명을 한 번씩 대조해봐 — 장르/서브장르 자체가 달라지는 수준으로 상반되면(예: tag는 "log drum bassline"인데 레퍼런스 설명엔 "chiptune-esque synth leads"나 "disco samples, house-inflected bounce"처럼 완전히 다른 서브장르 색채가 이미 박혀있으면) 반드시 그 프로듀서의 정확한 이름을 넣어. 특히 "레퍼런스 부합도" 카테고리는 지금 레퍼런스가 타겟 곡이랑 안 맞는다는 게 핵심 지적이니, 그 안 맞는 레퍼런스를 tag만 추가하고 그대로 두면 안 돼 — 반드시 확인해서 빼
+- removePhrase: [현재 생성된 섹션/스타일 프롬프트]에 **실제로 있는 구를 글자 그대로** 인용한 배열(최대 3개, 각 60자 이하). tag/narrDir/boostText를 추가하면서 그것과 모순되거나 같은 말을 되풀이하는 기존 문구(예: 새로 "restrained until bar 5"를 넣는데 기존에 "full energy"가 있음, 새 "human micro-timing"과 기존 "tight quantized grid")가 있으면 반드시 같이 지정해 삭제해 — 추가만 하고 모순을 남기면 프롬프트 일관성이 떨어지고 길이만 늘어. 2라운드부터는 새 요소를 넣기 전에 겹치는 기존 문구를 빼는 게 우선이야
 - removeTag: 조언이 "지금 있는 X를 줄이자/빼자"는 뜻도 담고 있으면(예: "sidechain pump가 강하면 무드가 죽으니 줄이자") X를 가리키는 핵심 단어(예: "sidechain")를 넣어 — 그 단어를 포함하는 기존 텍스처/스타일 태그를 전부 제거해. tag(추가)랑 같이 써도 됨 — "줄이고 대신 이걸 넣자"는 조언이면 둘 다 채워
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(외부 피드백 총평일 때만, 1~100 정수)","criteria":"(프로듀서 리뷰 총평일 때만, {arc,variety,genre,coherence,roles,human,reference,parse} 각 0~10 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 짧은 구/키워드 결합)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 영어 짧은 구/키워드 결합)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(외부 피드백 총평일 때만, 1~100 정수)","criteria":"(프로듀서 리뷰 총평일 때만, {arc,variety,genre,coherence,roles,human,reference,parse} 각 0~10 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 짧은 구/키워드 결합)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 영어 짧은 구/키워드 결합)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)","removePhrase":"(추가하는 지시와 모순·중복되는 기존 문구를 글자 그대로 인용한 배열, 최대 3개)"}]}`;
 // aiProducerReview·aiParseExternalFeedback 둘 다 이 형태로 모델 응답을 정리 — 출처가 달라도 applyAiSuggestionCore 입장에선 동일한 객체
 function normalizeAiSuggestion(s,uniqueSegs,occKeys){
   // 인스트루멘탈인데 "vocal chop" 같은 보컬 요소가 tag로 들어오면 섹션마다 박힌 "ZERO vocal chops"와 정면충돌 — 프롬프트로만 막지 않고 코드로도 거름
@@ -148,6 +149,7 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
     })(),
     removeRef:(s.removeRef&&st.refs.includes(s.removeRef))?s.removeRef:null,
     removeTag:(typeof s.removeTag==='string'&&s.removeTag.trim())?s.removeTag.trim().toLowerCase():null,
+    removePhrase:(()=>{const arr=(Array.isArray(s.removePhrase)?s.removePhrase:(typeof s.removePhrase==='string'?[s.removePhrase]:[])).filter(p=>typeof p==='string'&&p.trim().length>=4&&p.length<=80).map(p=>p.trim()).slice(0,3);return arr.length?arr:null;})(),
     applied:false,
   };
 }
@@ -283,16 +285,24 @@ function capPhrases(text,max){
   }
   return out.join(', ');
 }
+// 지시를 Suno가 읽기 좋은 키워드 구로 정리 — 서술 문장·명령형·긴 구 제거 ("Suno 파싱 적합" 감점 요인)
+function sanitizeDirective(text){
+  return (text||'').replace(/\.\s+/g,', ').replace(/\.\s*$/,'').split(/, (?![^()]*\))/).map(p=>p.replace(/^(?:please |should |must |ensure |make sure |add |use |include |try to )/i,'').replace(/\.$/,'').trim())
+    .filter(p=>p&&p.replace(/\([^)]*\)/g,'').split(/\s+/).length<=9).join(', ');
+}
+const DIRECTIVE_CAP=k=>/^hook/.test(k)?200:/^(verse|bridge)/.test(k)?130:100;
 function setDirective(occKey,category,text){
   st.narrDirs=st.narrDirs||{};
-  (st.narrDirs[occKey]=st.narrDirs[occKey]||{})[category||'기타']=text;
-  const joined=capPhrases(Object.values(st.narrDirs[occKey]).join(', '),200);
+  const clean=sanitizeDirective(text);
+  if(!clean)return;
+  (st.narrDirs[occKey]=st.narrDirs[occKey]||{})[category||'기타']=clean;
+  const joined=capPhrases(Object.values(st.narrDirs[occKey]).join(', '),DIRECTIVE_CAP(occKey));
   if(joined)st.narrAI[occKey]=joined;else delete st.narrAI[occKey];
 }
 const RUBRIC_TEXT=()=>`채점은 아래 8개 항목을 각각 0~10 정수로 매겨 criteria에 넣어 (합계는 내가 계산하니 네가 합산하지 마). 앵커: 5=어떤 장르에도 붙는 범용 템플릿 수준 / 7=탄탄하지만 다듬을 곳이 분명히 있음 / 9=지금 바로 Suno에 넣어 곡을 만들어도 되는 수준. 실제로 결함이 없는 항목엔 8~10을 줘도 돼 — 억지로 깎지 마.
-${REVIEW_RUBRIC.map(r=>`- ${r.key}(${r.label}, 가중 ${r.w}): `).join('\n')}
+${REVIEW_RUBRIC.map(r=>`- ${r.key}(${r.label}, 가중 ${r.w}): ${r.def}`).join('\n')}
 (레퍼런스 곡이 없으면 reference는 생략)`;
-const aiSuggestionActionable=s=>!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag);
+const aiSuggestionActionable=s=>!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag||s.removePhrase);
 // 조언마다 버튼을 눌러 그때그때 hhGenerate하면 클릭 수만큼 화면이 프롬프트로 튀고 히스토리도 그만큼 쌓였음 —
 // 체크박스로 고른 것들을 한 번에 적용하고 재생성·히스토리 기록은 1번만
 function toggleAiSuggestion(idx,checked){
@@ -393,6 +403,12 @@ function applyAiSuggestionCore(sug){
     // AI가 직접 지목한 것만 제거
     st.refs=st.refs.filter(r=>r!==sug.removeRef);
     renderProducerRef();
+  }
+  if(sug.removePhrase){
+    // 인용한 구는 생성 결과에서 빼도록 저장 (규칙 엔진 텍스트에서 제거, AI 작성기에는 "다시 쓰지 말 것"으로 전달) — 최대 12개
+    const hay=((document.getElementById('hh-sect-ta')?.value||'')+' '+(document.getElementById('hh-style-ta')?.value||'')).toLowerCase();
+    const real=sug.removePhrase.filter(p=>hay.includes(p.toLowerCase()));   // 현재 프롬프트에 실제로 있는 구만
+    st.removedPhrases=[...new Set([...(st.removedPhrases||[]),...real])].slice(-12);
   }
   if(sug.removeTag){
     // tag(추가)와 달리 "지금 있는 걸 줄이자/빼자"는 조언은 새 문구가 없어서 위의 자동 충돌 제거가 못 잡음 — AI가 지목한 핵심 단어로 직접 제거
@@ -847,8 +863,8 @@ function aiWriteEnabled(){
 function hhWriteFingerprints(){
   const clean=o=>JSON.stringify(o,(k,v)=>k.startsWith('_')?undefined:v);
   const extra=[...['hh-bar-hook','hh-bar-verse','hh-bar-bridge','hh-ref-song'].map(id=>document.getElementById(id)?.value||''),antiAI];
-  const {narrAI,narrDirs,extraTags,...rest}=st;
-  return {fpBase:clean([rest,extra]),fpFull:clean([rest,extra,narrAI,extraTags])};
+  const {narrAI,narrDirs,extraTags,removedPhrases,...rest}=st;
+  return {fpBase:clean([rest,extra]),fpFull:clean([rest,extra,narrAI,extraTags,removedPhrases])};
 }
 function parseSections(text){
   const secs=[];
@@ -864,7 +880,7 @@ function parseSections(text){
 }
 function splitPhrases(body){return (body||'').replace(/^\(\d+ Bars: /,'').replace(/\)$/,'').split(/, (?![^()]*\))/).map(x=>x.trim().toLowerCase()).filter(Boolean);}
 // 명세: 고정 정보 + 힌트 — 검사기의 기준이기도 함
-function buildWriteSpec(draftSect,draftStyle){
+function buildWriteSpec(draftSect,draftStyle,prev){
   const g=GENRES[st.genre];
   const roles=computeMelodyRoles(st.melody);
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
@@ -885,6 +901,8 @@ function buildWriteSpec(draftSect,draftStyle){
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,styleTagsInDraft:styleTags.length,
     limits:{sectionTotal:WRITE_LIMITS.section,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
+    removedPhrases:[...(st.removedPhrases||[])],
+    prevLength:prev?prev.section.length:null,
   };
 }
 // 검사기 — 규칙 엔진이 만든 명세를 정답으로 AI 결과의 고정 정보를 확인
@@ -901,6 +919,9 @@ function validateWritten(spec,section,style){
     if(s.body.length>sp.maxChars*1.4)errors.push(`${s.header} 너무 김(${s.body.length}자, 권장 ≤${sp.maxChars}자)`);
   });
   if(section.length>spec.limits.sectionTotal)errors.push(`섹션 프롬프트 총 ${section.length}자 — ${WRITE_LIMITS.section}자 이하여야 함`);
+  // 고쳐쓰기에서 조언을 반영할 때 이전보다 길어지면 라운드마다 부풀어서 'Suno 파싱 적합'이 깎임 — 낡은/겹치는 문구를 빼서 총량을 유지
+  if(spec.prevLength&&section.length>spec.prevLength*1.08+60)errors.push(`이전 결과(${spec.prevLength}자)보다 8% 넘게 길어짐(${section.length}자) — 지시를 반영하면서 겹치거나 낡은 문구를 삭제해 총량을 유지할 것`);
+  (spec.removedPhrases||[]).forEach(p=>{if((section+' '+style).toLowerCase().includes(p.toLowerCase()))errors.push(`삭제하기로 확정한 문구 "${p}"가 다시 들어감`);});
   const low=section.toLowerCase();
   const hooks=secs.filter(s=>s.type==='hook');
   if(spec.lead){
@@ -951,6 +972,7 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 - 벌스는 무드에 맞게 에너지를 낮추거나 눌러 두고(공격적 무드면 억눌린 긴장), 브릿지·벌스 끝에는 고른 전환효과로 다음 드롭을 준비하는 2마디 빌드를 넣어. 브릿지가 없는 구조면 벌스 끝에서 빌드.
 - 공간감(스테레오·리버브) 아크는 인트로→벌스→훅→클라이맥스→아웃트로로 이어지고 브릿지에도 공간 정보가 있어야 하며, 고른 텍스처(dry/reverb/wide/tape 등)와 모순되면 안 돼. 스타일 태그와 섹션 문구가 서로 충돌(예: dense 대 stripped, quantized 대 human-feel)하지 않게 정리해.
 - 리드·배경 악기가 808과 중저역에서 겹치지 않게 분리(하이패스·사이드체인·필터) 지시를 훅에 넣어. 인간미(Anti-AI)는 범용어 대신 실제 악기·드럼의 구체적인 불완전함(타이밍 밀림, 벨로시티 불균일, 피치 흔들림)으로.
+- **총량을 관리해**: 새로 쓸 때는 3000~3800자 안팎을 목표로, 고쳐쓸 때는 지시를 반영하면서 겹치거나 낡거나 서로 모순되는 문구를 삭제해서 이전 결과보다 길어지지 않게(±5%). 서술을 늘리지 말고 같은 뜻이면 더 짧은 구로. 한 섹션에 지시가 과밀하면(약 800자 초과) 덜 중요한 것부터 뺀다.
 - 무드의 다이내믹(진입 방식, 훅 어택, 벌스 거동, 브릿지 긴장, 끝맺음)과 장르 특유의 기법을 [참고 초안]에서 가져와 살리되 초안의 반복·모순은 고쳐.
 
 [출력 형식 — 이 두 태그만, 설명 없이]
@@ -973,6 +995,7 @@ ${JSON.stringify(spec,null,1)}
 [지시 — 섹션 키별, 스타일 지시는 아래 확정 태그]
 ${directives}
 확정 스타일 지시: ${(st.extraTags||[]).join(' & ')||'(없음)'}
+삭제 확정 문구(어떤 형태로도 다시 쓰지 말 것): ${(st.removedPhrases||[]).join(' | ')||'(없음)'}
 
 [참고 초안 — 규칙 엔진 결과. 사실·힌트 모음일 뿐 반복/모순이 있을 수 있음]
 ${draft.sect}
@@ -1019,7 +1042,7 @@ async function hhAiWrite(entryId){
   const run=(async()=>{
     try{
       const mode=(_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
-      const spec=buildWriteSpec(draft.sect,draft.style);
+      const spec=buildWriteSpec(draft.sect,draft.style,mode==='edit'?_hhWritten:null);
       let errors=null,result=null,lastErrors=null;
       for(let attempt=0;attempt<2;attempt++){
         const out=await writeOnce({mode,spec,draft,prev:mode==='edit'?_hhWritten:null,errors});

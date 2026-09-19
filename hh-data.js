@@ -653,14 +653,14 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 const WRITE_LIMITS={section:4900,style:950,tags:13};
 // 리뷰 채점 루브릭 — 예전엔 "냉정하게, 후하게 주지 말고, 약점 위주"라 첫 리뷰가 55·58·58·58·59로 상수에 가까웠음(바닥 효과). 항목별 0~10점(앵커 제시)을 받고 합계는 코드가 가중합으로 계산
 const REVIEW_RUBRIC=[
-  {key:'arc',label:'구조·전개 아크',w:15},
-  {key:'variety',label:'반복·변주',w:15},
-  {key:'genre',label:'장르 특이성',w:15},
-  {key:'coherence',label:'믹스·문구 일관성',w:15},
-  {key:'roles',label:'악기 역할·마스킹',w:10},
-  {key:'human',label:'인간미',w:10},
-  {key:'reference',label:'레퍼런스 부합',w:10},
-  {key:'parse',label:'Suno 파싱 적합',w:10},
+  {key:'arc',label:'구조·전개 아크',w:15,def:'인트로→벌스→훅→클라이맥스→아웃트로가 하나의 서사로 이어지고 에너지가 단계적으로 오르는가'},
+  {key:'variety',label:'반복·변주',w:15,def:'같은 타입 섹션끼리 리듬·필터·공간·악기 역할 표현이 실제로 다른가'},
+  {key:'genre',label:'장르 특이성',w:15,def:'다른 장르에 붙여도 되는 범용 문구가 아니라 이 장르의 기법이 섹션에 드러나는가'},
+  {key:'coherence',label:'믹스·문구 일관성',w:15,def:'서로 모순되는 지시가 없는가(dense 대 stripped, quantized 대 human-feel, restrained 대 maximum, 스타일 태그 대 섹션 문구, 앞서 적용한 지시 대 기본 문구)'},
+  {key:'roles',label:'악기 역할·마스킹',w:10,def:'리드/배경/리듬 악기가 대역이 겹치지 않고 각 섹션에서 역할이 분명한가'},
+  {key:'human',label:'인간미',w:10,def:'범용어가 아니라 실제 악기·드럼의 구체적인 불완전함이 있는가'},
+  {key:'reference',label:'레퍼런스 부합',w:10,def:'타겟 레퍼런스 곡·프로듀서의 성격과 방향이 맞는가'},
+  {key:'parse',label:'Suno 파싱 적합',w:10,def:'콤마로 끊은 짧은 키워드 구(구당 8단어 이하, 서술 문장 없음)이고, 섹션 하나에 지시가 과밀하지 않으며(약 800자 이하), 총량이 한도(5000자)의 85% 이하, 스타일 태그 12개 이하인가. 라운드를 거치며 길어지고 겹치면 감점'},
 ];
 function rubricScore(criteria){
   if(!criteria||typeof criteria!=='object')return null;
