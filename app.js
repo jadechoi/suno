@@ -1904,7 +1904,7 @@ function hhGenerate(source){
   if(st.density)contextParts.push(st.density.toLowerCase()+' arrangement');
   if(commMod&&!g)contextParts.push(commMod+' sound');
   if(contextParts.length)tags.push(contextParts.join(' & '));
-  if(st.extraTags.length)tags.push(...st.extraTags);              // 피드백에서 적용된 태그 — 각각 독립적인 조언이라 태그 그대로 유지
+  if(st.extraTags.length)tags.push(st.extraTags.join(' & '));      // 피드백에서 적용된 태그 — AI 라운드를 여러 번 돌려도 스타일 박스 태그 수가 안 늘도록 하나로 묶음(칩은 개별 제거 가능)
   // 디지털/글리치 계열은 "organic warm & analog"가 Pristine digital·hyperpop 등과 정면충돌 — 타이밍/다이내믹 중심 문구로 교체
   const digitalLean=[9,14,15].includes(st.genre)||st.texture.some(t=>/digital|sidechain/i.test(t))||st.drums.some(d=>/glitch/i.test(d));
   if(antiAI)tags.push(digitalLean?'natural dynamics & human-feel timing & subtle imperfections':'organic warm human-feel & analog imperfections & natural dynamics');

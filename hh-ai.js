@@ -112,6 +112,10 @@ const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안
 {"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(총평일 때만, 1~100 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 짧은 구/키워드 결합)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 영어 짧은 구/키워드 결합)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)"}]}`;
 // aiProducerReview·aiParseExternalFeedback 둘 다 이 형태로 모델 응답을 정리 — 출처가 달라도 applyAiSuggestion 입장에선 동일한 객체
 function normalizeAiSuggestion(s,uniqueSegs,occKeys){
+  // 인스트루멘탈인데 "vocal chop" 같은 보컬 요소가 tag로 들어오면 섹션마다 박힌 "ZERO vocal chops"와 정면충돌 — 프롬프트로만 막지 않고 코드로도 거름
+  const vocalWord=/vocal|choir|ad-?lib|\bsung\b|singing|lyric|\bvoice/i;
+  const instr=!(st.vocal&&st.vocal!=='No Vocal');
+  const ok=t=>!(instr&&vocalWord.test(t));
   return{
     category:s.category||'💡',
     text:s.text,
@@ -121,24 +125,64 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
     // 배열이 정상 형태지만, 모델이 가끔 문자열 하나로 줄 수도 있어서 둘 다 받아 배열로 통일
     tag:(()=>{
       const arr=Array.isArray(s.tag)?s.tag:(typeof s.tag==='string'&&s.tag.trim()?[s.tag]:[]);
-      const cleaned=arr.filter(t=>typeof t==='string'&&t.trim()).map(t=>t.trim());
+      const cleaned=arr.filter(t=>typeof t==='string'&&t.trim()&&ok(t)).map(t=>t.trim());
       return cleaned.length?cleaned:null;
     })(),
     boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
     boostOccurrence:(s.boostOccurrence==='first')?'first':'last',
-    boostText:(typeof s.boostText==='string'&&s.boostText.trim())?s.boostText.trim().slice(0,150):null,
+    boostText:(typeof s.boostText==='string'&&s.boostText.trim()&&ok(s.boostText))?s.boostText.trim().slice(0,150):null,
     addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
     addSectionPosition:(['beforeFirstHook','afterIntro','beforeLastHook','end'].includes(s.addSectionPosition))?s.addSectionPosition:'beforeLastHook',
     mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
     narrDir:(()=>{
       if(!s.narrDir||typeof s.narrDir!=='object')return null;
-      const cleaned=Object.fromEntries(occKeys.filter(k=>typeof s.narrDir[k]==='string'&&s.narrDir[k].trim()).map(k=>[k,s.narrDir[k].trim().slice(0,150)]));
+      const cleaned=Object.fromEntries(occKeys.filter(k=>typeof s.narrDir[k]==='string'&&s.narrDir[k].trim()&&ok(s.narrDir[k])).map(k=>[k,s.narrDir[k].trim().slice(0,150)]));
       return Object.keys(cleaned).length?cleaned:null;
     })(),
     removeRef:(s.removeRef&&st.refs.includes(s.removeRef))?s.removeRef:null,
     removeTag:(typeof s.removeTag==='string'&&s.removeTag.trim())?s.removeTag.trim().toLowerCase():null,
     applied:false,
   };
+}
+// aiProducerReview·aiParseExternalFeedback가 같은 "현재 프롬프트 상태"를 보게 — 예전엔 리뷰는 드럼/808/그루브/스타일 박스를 못 보고,
+// 외부 피드백 파서는 현재 프롬프트를 아예 못 봐서(스키마가 언급하는 [현재 설정]·[프로듀서 레퍼런스]도 없었음) 이미 있는 걸 또 제안하거나 removeRef/melodyLead를 못 채웠음
+function aiPromptSnapshot(){
+  const g=GENRES[st.genre];
+  const mood=HH_MOODS.find(m=>m.kr===st.mood);
+  const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+  // 이름 없이 설명만 주면 removeRef에 "정확한 프로듀서 이름"을 요구해도 채울 수가 없어서(normalize도 st.refs 이름과 대조) 이름을 같이 줌
+  const refProducers=st.refs.length?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
+  const styleText=(document.getElementById('hh-style-ta')?.value||'').trim();
+  const hasVocal=st.vocal&&st.vocal!=='No Vocal';
+  const ctx=[
+    `장르: ${g.kr} (${g.sound})`,
+    mood?`무드: ${mood.kr}`:null,
+    st.commercial?`색깔: ${st.commercial}`:null,
+    st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
+    st.drums.length?`드럼 패턴: ${st.drums.join(', ')}`:null,
+    st._808?`808: ${st._808}`:null,
+    st.groove?`그루브: ${st.groove}`:null,
+    st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
+    st.transitionFx&&st.transitionFx.length?`전환 효과: ${st.transitionFx.join(', ')}`:null,
+    [st.era,st.region,st.density].filter(Boolean).length?`시대/지역/밀도: ${[st.era,st.region,st.density].filter(Boolean).join(' / ')}`:null,
+    hasVocal?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
+    refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
+    refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
+    st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
+    `구조: ${st.structSegs.join(' → ')}`,
+    `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
+    antiAI?'Anti-AI 필터 ON — 사용자가 "AI 티 안 나고 사람이 만든 것 같은" 결과를 원함':null,
+  ].filter(Boolean).join('\n');
+  const sectText=(document.getElementById('hh-sect-ta')?.value||'').trim();
+  const nTags=styleText?styleText.split(', ').length:0;
+  return `[현재 설정]
+${ctx}
+
+[현재 생성된 스타일 프롬프트 — 콤마로 구분된 태그 ${nTags}개, ${styleText.length}/1000자 (Suno는 태그 10개 안팎을 넘으면 뒤쪽부터 무시하니 이미 넉넉하지 않음 — tag는 꼭 필요할 때만)]
+${styleText||'(아직 생성 안 됨)'}
+
+[현재 생성된 섹션 프롬프트]
+${sectText||'(아직 생성 안 됨)'}`;
 }
 async function aiProducerReview(){
   const key=getAnthropicKey();
@@ -154,25 +198,8 @@ async function aiProducerReview(){
   if(btn){btn.disabled=true;btn.textContent='🤖 분석 중...';}
   if(statusEl)statusEl.hidden=true;
   try{
-    const g=GENRES[st.genre];
-    const mood=HH_MOODS.find(m=>m.kr===st.mood);
-    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
-    const refProducers=st.refs.length?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?p.en:kr;}).join(', '):null;
-    const sectText=(document.getElementById('hh-sect-ta')?.value||'').trim();
-    const ctx=[
-      `장르: ${g.kr} (${g.sound})`,
-      mood?`무드: ${mood.kr}`:null,
-      st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
-      st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
-      st.vocal&&st.vocal!=='No Vocal'?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
-      refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
-      refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
-      st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
-      `구조: ${st.structSegs.join(' → ')}`,
-      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
-      antiAI?'Anti-AI 필터 ON — 사용자가 "AI 티 안 나고 사람이 만든 것 같은" 결과를 원함':null,
-    ].filter(Boolean).join('\n');
     const hasVocal=st.vocal&&st.vocal!=='No Vocal';
+    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
     // 지시문/규칙은 호출마다 안 바뀌니 static — 상태에 따라 달라지는 건 전부 dynamic 쪽으로 몰아서 static이 매번 완전히 동일하게(캐싱 적중)
     const staticText=`너는 경험 많은 힙합 프로듀서야. 아래 [현재 생성된 섹션 프롬프트](실제 텍스트)와 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘. 설정값만 보고 짐작하지 말고, 반드시 실제 텍스트를 읽고 거기 적힌 구체적인 단어·구절 기준으로 판단해.
 
@@ -181,10 +208,11 @@ async function aiProducerReview(){
 
 중요: 이 리뷰는 악기 한두 가지만 보는 게 아니라 **곡 전체(구조, 편곡, 믹스/공간감, 보컬, 무드, 전개, 악기 전부)를 다 훑어야 해**. 아래 다섯 가지는 그중에서도 절대 빠뜨리면 안 되는 최소한의 체크리스트일 뿐이지, 이것만 보라는 뜻이 아니야 — 이 다섯 개 밖에서도 실제로 곡 퀄리티를 끌어올릴 구체적인 발견이 있으면(구조가 단조롭다, 특정 무드 뉘앙스가 안 산다, 보컬 처리가 장르랑 안 맞는다 등) 절대 빠뜨리지 말고 반드시 포함시켜 — "이 다섯 개 안에 안 들어가니까 스킵"은 안 돼. 아래는 반드시 실제 텍스트에서 확인해서, 문제가 있으면 해당 카테고리에 포함시켜:
 - (악기) 지금 고른 악기 조합이 서로 주파수 대역·역할(리드/백킹/리듬)이 겹치지 않고 조화롭게 배치돼 있는지, 곡에 어울리는데 빠진 악기 요소는 없는지, 과잉되거나 서로 마스킹할 수 있는 조합은 없는지 — 악기 "구성"뿐 아니라 "배치"(어느 섹션에서 어떤 역할로 등장하는지)까지 봐. 멜로디 악기가 2개라 [현재 생성된 섹션 프롬프트]에 이미 "A lead melody, B layered softly beneath"처럼 리드/백킹이 명시돼 있으면 그 역할 배정 자체가 적절한지만 판단하고(적절하면 지적하지 말고 넘어가), 바꿔야 한다고 판단되면 melodyLead로 — tag로 "B를 백킹으로 물려라"를 또 넣으면 이미 있는 역할 문구랑 중복돼서 뭉개짐
+- (리듬) [현재 설정]의 드럼 패턴·808·그루브가 장르·BPM·무드에 맞는 밀도와 추진력을 갖고 있는지(BPM에 비해 리듬이 밋밋하거나 정형화돼 있지 않은지), 훅/벌스/브릿지에서 리듬이 실제로 다른 단어로 달라지는지 — 스타일 프롬프트의 리듬 태그와 섹션 텍스트를 같이 보고, 밋밋하면 "편곡"이나 "믹스"가 아니라 리듬 관점으로 구체적으로 지적
 - (믹스) 공간감·스테레오 폭·리버브 묘사가 섹션마다 다르게 진행되는지 — 인트로는 넓고, 벌스는 좁고 드라이하고, 훅은 타이트하고, 클라이맥스 훅은 가장 넓고, 아웃트로는 디케이되는 식의 아크가 실제 텍스트에 있는지. 이미 있으면 칭찬하지 말고 넘어가고, 없거나 약하면 "믹스"에서 지적
 - (전개) 인트로와 아웃트로가 서로 호응하는지(같은 이미지·질감을 다시 불러오는지) — 이미 있으면 넘어가고, 그냥 일반적인 페이드아웃이면 "전개"에서 지적
 - (편곡) 반복되는 섹션(훅끼리, 벌스끼리)이 리듬 패턴·필터·다이나믹 표현에서 실제로 다른 단어를 쓰는지, 아니면 같은 문구가 토씨만 바뀐 채 반복되는지 — 반복이면 "편곡"에서 구체적으로 지적
-- (Anti-AI 필터 ON일 때만) 지금 텍스트가 AI가 만든 전형적인 음악처럼 뻔하고 기계적으로 들릴 위험이 있는지 확인해 — [현재 설정]에 이미 "organic, warm, human-feel, analog imperfections, natural dynamics" 같은 범용 태그가 항상 붙어있는데, 이것만으로는 부족해. 이 트랙 고유의 구체적인 "의도적 불완전함"(예: 타이밍이 살짝 밀림, 벨로시티 불균일, 필터 비대칭)을 짧은 구/키워드로 더 채워 — 특정 섹션 하나에만 해당하면 narrDir로 그 섹션에, 곡 전체에 걸친 톤이면 tag로. 뻔한 "organic" 반복 말고 이 곡만의 구체적인 인간적 디테일이어야 해
+- (Anti-AI 필터 ON일 때만) 지금 텍스트가 AI가 만든 전형적인 음악처럼 뻔하고 기계적으로 들릴 위험이 있는지 확인해 — [현재 생성된 스타일 프롬프트]에 이미 "human-feel", "natural dynamics" 같은 범용 anti-AI 태그가 붙어있는데, 이것만으로는 부족해. 이 트랙 고유의 구체적인 "의도적 불완전함"(예: 타이밍이 살짝 밀림, 벨로시티 불균일, 필터 비대칭)을 짧은 구/키워드로 더 채워 — 특정 섹션 하나에만 해당하면 narrDir로 그 섹션에, 곡 전체에 걸친 톤이면 tag로. 뻔한 "organic" 반복 말고 이 곡만의 구체적인 인간적 디테일이어야 해
 "전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야. 아래 [레퍼런스 곡]이 주어지면 "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해서, 그 곡의 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해 (부합 정도, 구체적 근거, 더 가깝게 만들 방법까지).
 
 ${AI_SUGGESTION_ACTION_SPEC}`;
@@ -202,11 +230,7 @@ ${hasVocal?'보컬 있음: '+st.vocal:'인스트루멘탈 (보컬 없음)'}
 [레퍼런스 곡]
 ${refSong?`"${refSong}"`:'없음 — "레퍼런스 부합도" 카테고리는 쓰지 마'}
 
-[현재 설정]
-${ctx}
-
-[현재 생성된 섹션 프롬프트]
-${sectText||'(아직 생성 안 됨)'}
+${aiPromptSnapshot()}
 
 [이전 라운드에서 이미 적용된 조언 — 이건 이미 반영됐으니 절대 똑같이 다시 제안하지 마, 그 위에 새로 찾은 걸 더해]
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
@@ -249,7 +273,14 @@ function applyAiSuggestion(idx){
       st.extraTags.push(t);
     });
   }
-  if(sug.boostSection){
+  // 같은 occurrence에 여러 조언이 겹치면(예: 믹스 조언 + Anti-AI 조언이 둘 다 hook2) 예전엔 마지막 것만 남고 앞의 건 조용히 사라졌음 — 이어붙임
+  const addNarr=(k,d)=>{const cur=st.narrAI[k];st.narrAI[k]=cur&&!cur.includes(d)?`${cur}, ${d}`:d;};
+  if(sug.boostSection&&sug.boostText){
+    // boostText도 타입 전체에 하나뿐인 슬롯이라 "첫 훅"·"마지막 훅" 조언이 둘 다 있으면 뒤가 앞을 덮어썼음 — occurrence 키로 옮김
+    const n=st.structSegs.filter(x=>x===sug.boostSection).length;
+    addNarr(`${sug.boostSection}${sug.boostOccurrence==='first'?1:n}`,sug.boostText);
+    renderHhNarr();
+  } else if(sug.boostSection){
     st.sectionArrangeExtras=st.sectionArrangeExtras||{};
     // boostText(AI가 직접 쓴 구체적 문장)가 있으면 그걸 저장, 없으면 기존처럼 true만 저장해서 장르 기본 편곡 문구가 대신 들어가게 함
     st.sectionArrangeExtras[sug.boostSection]=sug.boostText||true;
@@ -275,7 +306,7 @@ function applyAiSuggestion(idx){
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
   }
   if(sug.narrDir){
-    Object.entries(sug.narrDir).forEach(([occKey,dir])=>{st.narrAI[occKey]=dir;});
+    Object.entries(sug.narrDir).forEach(([occKey,dir])=>addNarr(occKey,dir));
     renderHhNarr();
   }
   if(sug.removeRef){
@@ -330,6 +361,11 @@ ${occKeys.join(' → ')}
 
 [보컬 여부]
 ${hasVocal?'보컬 있음: '+st.vocal:'인스트루멘탈 (보컬 없음)'}
+
+${aiPromptSnapshot()}
+
+[이미 적용된 조언 — 같은 걸 다시 제안하지 마]
+${(_aiSuggestions||[]).filter(s=>s.applied).map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n')||'(없음)'}
 
 [외부 피드백]
 ${feedback}`;
