@@ -479,6 +479,10 @@
   <!-- OUTPUT -->
   <div class="output-section">
     <button class="gen-btn" onclick="hhGenerate()">✨ Generate Prompts</button>
+    <div id="hh-write-opts" hidden style="display:flex;align-items:center;gap:14px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--text-2)">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="hh-ai-write-toggle" checked onchange="try{localStorage.setItem('hh_ai_write',this.checked?'1':'0')}catch(e){}"> ✍️ AI가 프롬프트를 작성 <span style="color:var(--text-3)">(끄면 규칙 엔진 초안만)</span></label>
+      <button onclick="hhAiRewrite()" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">🔄 다시 쓰기</button>
+    </div>
     <div id="hh-out-blocks" style="display:none;flex-direction:column;gap:12px;margin-top:16px"></div>
   </div>
 

@@ -5,7 +5,7 @@ const st={
   genre:null,key:7,bpm:140,
   _808:'Balanced',drums:[],melody:[],melodyTone:null,mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
-  narrSt:{},narrAI:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
+  narrSt:{},narrAI:{},narrDirs:{},structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
@@ -1038,7 +1038,7 @@ function renderHhNarr(){
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0';
       row.innerHTML=`<span style="font-size:11px;color:var(--text-3);min-width:44px">${k}</span><span style="font-size:11px;color:var(--accent-text);flex:1">${escHtml(st.narrAI[k])}</span><span style="cursor:pointer;color:var(--text-3);font-size:11px" title="AI 디렉션 지우기">✕</span>`;
-      row.querySelector('span[title]').onclick=()=>{delete st.narrAI[k];renderHhNarr();};
+      row.querySelector('span[title]').onclick=()=>{delete st.narrAI[k];if(st.narrDirs)delete st.narrDirs[k];renderHhNarr();};
       aiBox.appendChild(row);
     });
     container.appendChild(aiBox);
@@ -2136,13 +2136,23 @@ function hhGenerate(source,opts){
   container.appendChild(makeOutBlock('① 선택 내용 요약',tableHTML,null,'#3B82F6'));
 
   // ② 섹션 프롬프트
-  const sectText=buildHHSectionPrompt(
+  let sectText=buildHHSectionPrompt(
     g?g.tag:'trap',moodIdx,keyStr,bpmVal,st._808,
     st.drums.length?st.drums:null,st.melody,st.region
   );
+  // AI 작성기: 위 결과는 "규칙 초안". 같은 입력 상태로 이미 검증 통과한 AI 작성본이 있으면 그걸 쓰고, 없으면 초안을 먼저 보여준 뒤 아래에서 비동기로 작성
+  const _fps=hhWriteFingerprints();
+  _hhDraft={sect:sectText,style:null,fpFull:_fps.fpFull,fpBase:_fps.fpBase};
+  const _wc=(aiWriteEnabled()&&_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpFull===_fps.fpFull)?_hhWritten:null;
+  if(_wc)sectText=_wc.section;
   const sectBlock=makeOutBlock('② 섹션 프롬프트',
-    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${sectText.length>5000?'var(--danger)':sectText.length>4200?'#F59E0B':'var(--success)'}" title="Suno 가사/섹션 박스 한도">${sectText.length}/5000자</span></div><textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
+    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-sect-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${sectText.length>5000?'var(--danger)':sectText.length>4200?'#F59E0B':'var(--success)'}" title="Suno 가사/섹션 박스 한도">${sectText.length}/5000자</span></div><textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
     'hh-sect-ta','#8B5CF6');
+  {
+    const wb=document.createElement('span');
+    wb.className='output-badge';wb.id='hh-write-badge';wb.style.marginLeft='8px';
+    sectBlock.querySelector('.output-box-label').after(wb);
+  }
   if(antiAI){
     const badge=document.createElement('span');
     badge.className='output-badge';
@@ -2232,7 +2242,9 @@ function hhGenerate(source,opts){
     const leadHuman=st.melody.length?INSTR_HUMAN[computeMelodyRoles(st.melody)?.lead||st.melody[0]]:null;
     tags.push([GENRE_HUMAN[st.genre]||'organic warm human-feel & analog imperfections',leadHuman].filter(Boolean).join(' & '));
   }
-  const styleText=tags.join(', ');
+  let styleText=tags.join(', ');
+  _hhDraft.style=styleText;
+  if(_wc)styleText=_wc.style;
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
   // 적용된 extraTags 칩
@@ -2240,7 +2252,7 @@ function hhGenerate(source,opts){
     ?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">${st.extraTags.map(t=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(157,78,221,0.12);border:1px solid rgba(157,78,221,0.35);color:var(--accent-text);font-size:11px">${escHtml(t)}<span onclick="removeAdvTag('${t.replace(/'/g,"\\'")}')" style="cursor:pointer;opacity:.7;font-size:10px;line-height:1" title="제거">✕</span></span>`).join('')}</div>`
     :'';
   container.appendChild(makeOutBlock('③ 스타일 프롬프트',
-    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
+    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-style-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
 
   // Suno Studio 세팅 팁 — Variety를 0보다 높게 두면 Suno가 위 스타일 태그를 자체적으로 고쳐써버려서
@@ -2342,6 +2354,7 @@ function hhGenerate(source,opts){
       const btnHtml=actionable?(s.applied
         ?`<span style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0">✓ 적용됨</span>`
         :`<label style="display:flex;align-items:center;gap:5px;margin-left:10px;cursor:pointer;flex-shrink:0;font-size:11px;font-weight:600;color:var(--accent-text);white-space:nowrap"><input type="checkbox" class="hh-ai-cb" ${s.selected?'checked':''} onchange="toggleAiSuggestion(${idx},this.checked)">선택</label>`):'';
+      const criteriaHtml=s.criteria&&rubricScore(s.criteria)!=null?`<div style="margin-top:5px;font-size:10px;color:var(--text-3)">${REVIEW_RUBRIC.filter(r=>s.criteria[r.key]!=null).map(r=>`${r.label} <strong style="color:${s.criteria[r.key]>=8?'var(--success)':s.criteria[r.key]>=6?'#F59E0B':'var(--danger)'}">${s.criteria[r.key]}</strong>`).join(' · ')}</div>`:'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
       const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';
       const verifyHtml=s.verify?(()=>{
@@ -2364,7 +2377,7 @@ function hhGenerate(source,opts){
         if(s.removeTag)parts.push(`"${s.removeTag}" 포함 태그 제거`);
         return parts.length?`<div style="margin-top:5px;font-size:11px;color:var(--text-3)">✏️ 적용된 내용: ${parts.map(escHtml).join(' · ')}</div>`:'';
       })():'';
-      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>${appliedContentHtml}${verifyHtml}</div>`;
+      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>${criteriaHtml}${appliedContentHtml}${verifyHtml}</div>`;
     }).join('');
     const hasApplied=_aiSuggestions.some(s=>s.applied);
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
@@ -2426,7 +2439,14 @@ function hhGenerate(source,opts){
   updateAdvApplyBtn();
   // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
   // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
-  if(source!==false)savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))});
+  const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
+  // 작성기 시작 — 캐시 적중이면 생략, 진행 중이면 중복 호출 안 함, 이전 실패가 같은 상태의 재렌더(source===false)면 재호출 안 함(명시적 Generate만 재시도)
+  const _fb=_hhWritten&&_hhWritten.fpFull===_fps.fpFull&&!_hhWritten.meta?.ok;
+  if(_wc){_writeState='ok';renderWriteBadge();}
+  else if(!aiWriteEnabled()){_writeState='off';renderWriteBadge();}
+  else if(_writePromise&&_hhDraft.fpFull===_fps.fpFull&&_writeState==='pending'&&source===false){renderWriteBadge();}
+  else if(_fb&&source===false){_writeState='fallback';renderWriteBadge();}
+  else hhAiWrite(_entryId);
 }
 
 // ============================================================
@@ -2497,20 +2517,24 @@ function loadPromptHistory(){
 }
 function savePromptHistoryEntry(entry){
   const list=loadPromptHistory();
-  list.unshift({id:Date.now()+'-'+Math.random().toString(36).slice(2,7),ts:Date.now(),label:'',...entry});
+  const id=Date.now()+'-'+Math.random().toString(36).slice(2,7);
+  list.unshift({id,ts:Date.now(),label:'',...entry});
   if(list.length>PROMPT_HISTORY_MAX)list.length=PROMPT_HISTORY_MAX;
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(e){}
   renderPromptHistory();
+  return id;
 }
 // 리뷰 점수를 그 프롬프트의 기록에 남김 — "처음 뽑은 프롬프트가 50점대"가 기억이 아니라 수치로 남아야 엔진을 고칠 때마다 실제로 올랐는지 비교할 수 있음.
 // 같은 프롬프트(섹션+스타일 텍스트가 같은 기록)의 첫 점수만 저장 (적용 후 점수는 적용 후 프롬프트의 기록에 붙음)
-function recordAiScore(score){
+function recordAiScore(score,criteria){
   if(!Number.isFinite(score))return;
   const sect=(document.getElementById('hh-sect-ta')?.value||'').trim();
   const style=(document.getElementById('hh-style-ta')?.value||'').trim();
   const list=loadPromptHistory();
   const e=list.find(x=>(x.section||'').trim()===sect&&(x.style||'').trim()===style);
-  if(!e||e.aiScore!=null)return;
+  if(!e)return;
+  (e.aiRounds=e.aiRounds||[]).push({score,criteria:criteria||null,ts:Date.now()});   // 라운드별 추이(첫 점수 배지는 그대로)
+  if(e.aiScore!=null){try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}return;}
   e.aiScore=score;
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}
   renderPromptHistory();
@@ -2546,6 +2570,11 @@ function restorePromptHistoryEntry(id){
   if(refEl)refEl.value=entry.refSong||'';
   _aiSuggestions=null;
   renderHhChips();
+  // AI가 작성한 기록이면 그 텍스트를 이 상태의 캐시로 — 복원할 때마다 AI를 다시 부르지 않고 저장돼 있던 그 텍스트가 그대로 나옴
+  if(entry.aiWritten&&entry.section&&entry.style){
+    const f=hhWriteFingerprints();
+    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,meta:{ok:true,mode:'restored'}};
+  }else _hhWritten=null;
   hhGenerate(`기록에서 복원: ${entry.label||entry.genre}`);
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});
   showToast('↺ 이 기록으로 복원됨 — AI 프로듀서 리뷰를 다시 받아보세요');
@@ -2612,7 +2641,7 @@ function hhReset(){
   st.genre=null;st.key=7;st.bpm=140;
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
-  st.narrSt={};st.narrAI={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
+  st.narrSt={};st.narrAI={};st.narrDirs={};st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
   st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');

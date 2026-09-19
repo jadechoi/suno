@@ -647,3 +647,28 @@ const ROCK_STRUCT_PRESETS=[
 ];
 const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 
+
+// ===== AI 작성기 · 리뷰 루브릭 상수 =====
+// 섹션 박스(Suno 가사칸) 한도 5000자, 스타일 박스 1000자 — 여유를 두고 4900/950으로 (AI가 이 안에서 씀)
+const WRITE_LIMITS={section:4900,style:950,tags:13};
+// 리뷰 채점 루브릭 — 예전엔 "냉정하게, 후하게 주지 말고, 약점 위주"라 첫 리뷰가 55·58·58·58·59로 상수에 가까웠음(바닥 효과). 항목별 0~10점(앵커 제시)을 받고 합계는 코드가 가중합으로 계산
+const REVIEW_RUBRIC=[
+  {key:'arc',label:'구조·전개 아크',w:15},
+  {key:'variety',label:'반복·변주',w:15},
+  {key:'genre',label:'장르 특이성',w:15},
+  {key:'coherence',label:'믹스·문구 일관성',w:15},
+  {key:'roles',label:'악기 역할·마스킹',w:10},
+  {key:'human',label:'인간미',w:10},
+  {key:'reference',label:'레퍼런스 부합',w:10},
+  {key:'parse',label:'Suno 파싱 적합',w:10},
+];
+function rubricScore(criteria){
+  if(!criteria||typeof criteria!=='object')return null;
+  let sum=0,wsum=0;
+  for(const r of REVIEW_RUBRIC){
+    const v=Number(criteria[r.key]);
+    if(!Number.isFinite(v))continue;             // 없는 항목(예: 레퍼런스 곡 없음)은 가중치에서 제외해 재정규화
+    sum+=r.w*Math.min(10,Math.max(0,v))/10;wsum+=r.w;
+  }
+  return wsum>=60?Math.round(100*sum/wsum):null;   // 최소 6개 항목은 있어야 유효
+}
