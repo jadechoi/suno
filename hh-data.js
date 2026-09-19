@@ -169,7 +169,7 @@ const HH_808=['None','Minimal','Balanced','Heavy','Dominant'];
 // Phonk(카우벨)·Westwood(라이브 재즈 드럼)도 같은 종류의 누락이었음 — GENRE_AUTO 주석엔 있었는데 어휘가 없어서
 // 매번 Boom Bap kick으로 대체됨. 18개 장르 전체 재대조 결과 이 2개가 마지막 누락(나머지 13개는 실제로 트랩/붐뱁
 // 계열이라 기존 어휘가 맞음 — 무차별로 더 추가하지 않음)
-const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks','Four-on-the-floor kick','Jersey bounce kick','Afro log drum','Memphis cowbell chop','Live jazz drums'];
+const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks','Four-on-the-floor kick','Jersey bounce kick','Afro log drum','Shaker groove','Conga accents','Rimshot snare','Memphis cowbell chop','Live jazz drums'];
 const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth','Flute','Harp','Music box','Organ','Vibraphone','Kalimba','Arp pluck synth','Cello','Sitar','Vocoder synth'];
 const HH_MOODS=[
   {kr:'어둡고 위압적',tag:'dark menacing'},

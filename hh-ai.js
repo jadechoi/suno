@@ -564,7 +564,7 @@ async function aiRecommendMelodyTexture(){
       (document.getElementById('hh-ref-song')?.value||'').trim()?`타겟 레퍼런스 곡: ${(document.getElementById('hh-ref-song').value||'').trim()}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개를 추천해줘. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개를 추천해줘. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이면 멜로디 비중도 줄여야 하니 melodyBackground를 null로 두고 리드 하나만 골라도 돼. 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -600,7 +600,7 @@ ${ctx}`;
     const raw=await callAnthropic(key,{maxTokens:1500,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead,bg=parsed.melodyBackground;
-    if(!HH_MELODY.includes(lead)||!HH_MELODY.includes(bg)||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
+    if(!HH_MELODY.includes(lead)||(bg!=null&&!HH_MELODY.includes(bg))||lead===bg)throw new Error('AI가 목록에 없는 멜로디를 반환했습니다');
     const tex=(parsed.texture||[]).filter(t=>HH_TEXTURE.includes(t)).slice(0,2);
     if(!tex.length)throw new Error('AI가 목록에 없는 텍스처를 반환했습니다');
     const tone=HH_MELODY_TONE.includes(parsed.melodyTone)?parsed.melodyTone:null;
@@ -610,10 +610,10 @@ ${ctx}`;
     const density=HH_DENSITY.includes(parsed.density)?parsed.density:null;
     const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
 
-    st.melody=[lead,bg];
+    st.melody=bg?[lead,bg]:[lead];
     // computeMelodyRoles가 내부적으로 같은 조건식을 한번 더 걸어서 뒤집기 때문에, 이 값을 그 조건식과 동일하게 주면
     // 최종적으로 항상 arr[0](AI가 lead라고 답한 악기)이 리드로 확정됨 — AI의 판단을 고정 역할표가 덮어쓰지 않게 하는 장치
-    st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
+    st.melodyLeadIdx=(bg&&MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
     st.texture=tex;
     // AI가 고른 걸 이후 무드 변경(룰 재추천)이 조용히 덮어쓰지 않게 — 그 순간 수동 확정 상태로 둠
     st._mtAutoManaged=false;
@@ -651,11 +651,18 @@ ${ctx}`;
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       clearAutoHint('hh-drums-hint');
     }
-    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 악기 추천 적용');
+    // 레퍼런스 곡·악기·드럼이 정해진 뒤 프로듀서 레퍼런스도 같은 클릭에서 — 장르 기본 프로듀서(예: Afro Trap의 Pharrell)가 MHD 같은 미니멀 레퍼런스 곡과
+    // 어긋나는데도 그대로 남는다는 리뷰 지적 때문. 재생성·기록은 이 함수가 한 번만
+    let refNote='';
+    try{
+      await aiRecommendProducerRef({regen:false});
+      refNote=st.refs[0]?` · 프로듀서 레퍼런스: ${st.refs[0]}`:'';
+    }catch(_){}
+    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 추천 적용 (악기·808·드럼·프로듀서)');
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';
-      statusEl.textContent='✅ '+(parsed.reason||'추천 완료');
+      statusEl.textContent='✅ '+(parsed.reason||'추천 완료')+refNote;
     }
   }catch(e){
     fail(e.message);
@@ -666,7 +673,7 @@ ${ctx}`;
 
 // GENRE_REF는 장르 하나만 보고 고정 2명을 주는 룰 테이블이라, 같은 장르에서도 무드·멜로디·텍스처가 다르면
 // 더 어울리는 다른 프로듀서가 있을 수 있음 — 그 판단은 룰로 못 담아서 AI로
-async function aiRecommendProducerRef(){
+async function aiRecommendProducerRef(opts){
   const key=getAnthropicKey();
   const statusEl=document.getElementById('hh-ai-ref-status');
   const btn=document.getElementById('hh-ai-ref-btn');
@@ -706,7 +713,7 @@ ${st.extraTags.length?st.extraTags.join(', '):'(없음)'}`;
     st.refs=refs;
     renderProducerRef();
     clearAutoHint('hh-ref-hint');
-    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 레퍼런스 추천 적용');
+    if(opts?.regen!==false&&document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 레퍼런스 추천 적용');
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';

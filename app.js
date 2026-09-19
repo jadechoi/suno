@@ -174,7 +174,7 @@ const GENRE_AUTO=[
   {a808:'Minimal',  aDrums:['Boom Bap kick'],                        fx:['테이프 스탑','순간 정적'],       groove:'레이드백 포켓'}, // 8 Lo-fi     — warm analog, dusty boom bap drums, minimal bass
   {a808:'Balanced', aDrums:['Jersey bounce kick','Crisp hi-hats'],  fx:['임팩트/크래시','스네어 롤'],     groove:'푸시드 포켓'},  // 9 Jersey Club — syncopated ghost kicks + eighth-note hats, sidechained 808 (beatkey)
   {a808:'Dominant', aDrums:['Trap rolls','Glitchy breaks'],          fx:['필터 스윕다운','임팩트/크래시'], groove:'타이트 그리드'}, // 10 Rage/Plugg — "heavy distorted sliding 808", 1/16–1/32 hi-hat rolls (melodigging)
-  {a808:'Balanced', aDrums:['Afro log drum','Rolling triplets'],    fx:['스네어 롤','임팩트/크래시'],     groove:'살짝 스윙'},    // 11 Afrotrap  — afro rolling percussion, balanced bass
+  {a808:'Balanced', aDrums:['Afro log drum','Shaker groove','Rolling triplets'],    fx:['스네어 롤','임팩트/크래시'],     groove:'살짝 스윙'},    // 11 Afrotrap  — afro rolling percussion, balanced bass
   {a808:'None',     aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['순간 정적','테이프 스탑'],       groove:'헤비 스윙'},    // 12 Conscious — organic soulful samples, no 808 (orphiq)
   {a808:'Heavy',    aDrums:['Sub-bass punch','Crisp hi-hats'],       fx:['필터 스윕다운','라이저'],        groove:'레이드백 포켓'}, // 13 Trap Soul — "808 IS the melody", sparse slow 8th hi-hats (beatkey)
   {a808:'Heavy',    aDrums:['Four-on-the-floor kick','Glitchy breaks'], fx:['화이트노이즈 스윕','임팩트/크래시'], groove:'타이트 그리드'}, // 14 Hyperpop  — four-on-floor kick + glitchy chaotic elements
@@ -195,6 +195,14 @@ const TRANSITION_FX_TAG={
 
 // 스윙/그루브 느낌(리듬 타이밍) — 장르 고르면 GENRE_AUTO.groove로 자동 선택, 직접 바꿀 수도 있음
 const HH_GROOVE=['타이트 그리드','살짝 스윙','헤비 스윙','레이드백 포켓','푸시드 포켓'];
+// 훅 2 이후에 그루브가 어떻게 달라지는지 — 스타일 태그엔 스윙이 있는데 훅 섹션엔 언급이 없어서 훅이 그리드형으로 밋밋해질 위험 지적
+const GROOVE_VARY={
+  '타이트 그리드':'ghost-note syncopation added on the off-beats',
+  '살짝 스윙':'swing pushed slightly harder in the last 2 bars',
+  '헤비 스윙':'MPC swing loosening further',
+  '레이드백 포켓':'snare dragging slightly further behind the beat',
+  '푸시드 포켓':'kick pushing further ahead of the beat',
+};
 const GROOVE_TAG={
   '타이트 그리드':'tight quantized grid, straight rhythm',
   '살짝 스윙':'subtle swing groove',
@@ -410,12 +418,13 @@ const GENRE_DRUMS_TIPS={
   4:'Rolling triplets + Crisp hi-hats', 5:'Memphis cowbell chop + Sub-bass punch',
   6:'Boom Bap kick + Crisp hi-hats', 7:'Crisp hi-hats',
   8:'Boom Bap kick', 9:'Jersey bounce kick + Crisp hi-hats',
-  10:'Trap rolls + Glitchy breaks', 11:'Afro log drum + Rolling triplets',
+  10:'Trap rolls + Glitchy breaks', 11:'Afro log drum + Shaker groove + Rolling triplets',
   12:'Boom Bap kick + Crisp hi-hats', 13:'Sub-bass punch + Crisp hi-hats',
   14:'Four-on-the-floor kick + Glitchy breaks', 15:'Glitchy breaks + Crisp hi-hats',
   16:'Sub-bass punch', 17:'Live jazz drums + Crisp hi-hats',
   18:'Sub-bass punch + Trap rolls', 19:'Jersey bounce kick + Rolling triplets',
 };
+const GENRE_DRUM_BONUS={11:['Afro log drum','Shaker groove']};
 const MOOD_DRUMS_FIT={
   '어둡고 위압적':['Trap rolls','Sub-bass punch'], '감각적·관능적':['Crisp hi-hats','Sub-bass punch'],
   '멜로딕·감성':['Trap rolls','Crisp hi-hats'], '에너제틱·하입':['Four-on-the-floor kick','Rolling triplets'],
@@ -479,8 +488,9 @@ function recommendMelodyTexture(){
   st.melodyTone=rankedTone[0];
 
   // 드럼도 멜로디/텍스처랑 같은 방식으로 장르+무드 둘 다 반영 — 예전엔 GENRE_AUTO(장르만) 값이 무드를 바꿔도 그대로였음
-  const rankedDrums=scorePick(HH_DRUMS,GENRE_DRUMS_TIPS,MOOD_DRUMS_FIT,st.genre,st.mood,null);
-  st.drums=rankedDrums.slice(0,2);
+  // 아프로 트랩은 로그드럼 + 샤커(중역대 퍼커션 질감) + 트랩 하이햇 3개가 정체성 — 무드 추천(예: 킥 패턴)이 샤커를 밀어내지 않게 보너스, 개수도 3개
+  const rankedDrums=scorePick(HH_DRUMS,GENRE_DRUMS_TIPS,MOOD_DRUMS_FIT,st.genre,st.mood,GENRE_DRUM_BONUS[st.genre]);
+  st.drums=rankedDrums.slice(0,(GENRE_DRUMS_TIPS[st.genre]||'').split(' + ').length>=3?3:2);
 
   recommendRhythm();
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
@@ -1433,7 +1443,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 인덱스는 HH_MOODS 순서와 정확히 1:1 매칭 (무드 8→16개로 늘릴 때 중간에 새 무드가 끼어들면서 일부가 밀렸던 걸 재정렬함)
   const hookSubMap=[['Dark Drop','Shadow Drop'],['Sensual Chorus','Smooth Chorus'],['Melodic Chorus','Emotional Chorus'],['Hype Drop','Maximum Hype'],['Cinematic Drop','Dreamy Drop'],['Chill Peak','Smooth Peak'],['Hard Drop','Aggressive Drop'],['Conscious Peak','Introspective Peak'],['Euphoric Anthem','Festival Anthem'],['Triumphant Peak','Victory Peak'],['Melancholic Peak','Sorrowful Peak'],['Flex Anthem','Cocky Chorus'],['Romantic Chorus','Tender Chorus'],['Suspense Peak','Anxious Peak'],['Nostalgic Chorus','Wistful Chorus'],['Mysterious Drop','Enigmatic Drop']];
   const hookEngMap=[['dark explosive','ominous explosive'],['sensual smooth','silky smooth'],['melodic euphoric','melodic emotional'],['maximum hype','peak hype'],['psychedelic dreamy','hazy cinematic'],['smooth peak','laid-back peak'],['aggressive hard','aggressive hard-hitting'],['conscious introspective','contemplative peak'],['euphoric explosive','festival explosive'],['triumphant anthemic','victorious anthemic'],['melancholic emotional','sorrowful emotional'],['confident flexing','cocky flexing'],['romantic sweet','tender sweet'],['tense suspenseful','anxious suspenseful'],['nostalgic wistful','sentimental wistful'],['mysterious enigmatic','cryptic enigmatic']];
-  const verseSubMap=[['Grimy Pocket','Shadowy Pocket'],['Sensual Pocket','Smooth Pocket'],['Melodic Pocket','Emotional Pocket'],['Energetic Verse','Hype Verse'],['Cinematic Build','Dreamy Drift'],['Chill Pocket','Groovy Pocket'],['Hard Pocket','Aggressive Pocket'],['Conscious Flow','Introspective Flow'],['Building Hype','Festival Flow'],['Rising Anthem','Victory Build'],['Sorrowful Pocket','Melancholic Pocket'],['Cocky Pocket','Flexing Pocket'],['Tender Pocket','Romantic Pocket'],['Anxious Pocket','Suspense Pocket'],['Wistful Pocket','Nostalgic Pocket'],['Enigmatic Pocket','Mysterious Pocket']];
+  const verseSubMap=[['Grimy Pocket','Shadowy Pocket'],['Sensual Pocket','Smooth Pocket'],['Melodic Pocket','Emotional Pocket'],['Coiled Energy','Restrained Hype'],['Cinematic Build','Dreamy Drift'],['Chill Pocket','Groovy Pocket'],['Hard Pocket','Aggressive Pocket'],['Conscious Flow','Introspective Flow'],['Building Hype','Festival Flow'],['Rising Anthem','Victory Build'],['Sorrowful Pocket','Melancholic Pocket'],['Cocky Pocket','Flexing Pocket'],['Tender Pocket','Romantic Pocket'],['Anxious Pocket','Suspense Pocket'],['Wistful Pocket','Nostalgic Pocket'],['Enigmatic Pocket','Mysterious Pocket']];
   const hookSub=moodIdx>=0?pick(hookSubMap[moodIdx%hookSubMap.length]):'Euphoric Drop';
   const hookEng=moodIdx>=0?pick(hookEngMap[moodIdx%hookEngMap.length]):'euphoric';
   const verseSub=moodIdx>=0?pick(verseSubMap[moodIdx%verseSubMap.length]):'Stripped Pocket';
@@ -1523,6 +1533,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     return({
       intro:'wide reverb, open stereo',
       verse:occ>1?'slightly wider than the previous verse, still dry and close':'narrow, dry, intimate stereo',
+      bridge:occ===total?'stereo collapsing toward mono just before the drop':(occ===1?'stereo narrowing as the filter closes, reverb tail cut short':'stereo pulling in tighter than the last bridge'),
       climax:'widest stereo, saturated, full',
       outro:'reverb decay, stereo collapsing to mono',
     }[role]||'');
@@ -1570,8 +1581,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         ?(isMellowMood
           ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} at its fullest, all layers present, deepest atmosphere`
           :`Maximum ${hookEng.replace(/^maximum /i,'')} energy, all layers activated, heaviest impact`)
-        :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:(isEdge?'completely instrumental, ZERO vocal chops':'instrumental');
+        :(cnt.hook===1
+          ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`
+          :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop returning denser and more insistent than the previous hook`);
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook${isEdge?`, ${vocalDesc}`:''}`:(isEdge?'completely instrumental, ZERO vocal chops':'instrumental');   // 보컬 질감 문구는 매 섹션 반복하면 길이만 늘어서(확장 구조+보컬은 5000자 한도에 근접) 첫·마지막 훅에만
       // 가운데 훅: 훅 1과 리듬 문구가 토씨까지 같으면 Suno가 같은 루프를 복붙함 — 보조 드럼이 있으면 그게 주도하는 변주, 없으면 필인
       const hookVary=(!isLast&&cnt.hook>=2)
         ?(cnt.hook%2===0
@@ -1581,16 +1594,17 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push(`[${hasVocal?'':'Instrumental '}Hook ${cnt.hook}: ${sub}]`);
       // dDesc(드럼 "패턴 종류" — four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)를 빼면 장르를 바꿔도
       // 훅에서 리듬 정체성이 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — 이제 고른 드럼 전부(메인 & 보조)
-      const hookBody=[energy,hookDrums,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+      const grooveLine=cnt.hook===1||isLast?(GROOVE_TAG[st.groove]||''):(GROOVE_VARY[st.groove]||'');
+      const hookBody=[energy,hookDrums,grooveLine,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
       const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
-        ?[`Beat strips back, sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,'spacious and clean arrangement'].filter(Boolean).join(', ')
-        :`Slightly varied ${dDesc} bounce, deeper continuous sub-bass, ${melodyRef('verse',cnt.verse)}, intimate groove`;
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
+        ?[`Beat strips back, sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,'spacious and clean arrangement',isMellowMood?'':'energy held back, coiled tension not released'].filter(Boolean).join(', ')
+        :[`Slightly varied ${dDesc} bounce, deeper continuous sub-bass`,melodyRef('verse',cnt.verse),'intimate groove',isMellowMood?'':'still coiled, anticipation building quietly toward the next hook'].filter(Boolean).join(', ');
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:'purely instrumental pocket';
       lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
       lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
@@ -1606,10 +1620,10 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const fxPhrase=[...fxList.slice(off),...fxList.slice(0,off)].join(', ');
       const rollPhrase=dRoll?`${dRoll} accelerating`:'';
       const desc=isLastB
-        ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} chord echoing`,rollPhrase,fxPhrase,'maximum tension'].filter(Boolean).join(', ')
+        ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} chord echoing`,rollPhrase,fxPhrase,'maximum tension',spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
         :(cnt.bridge===1
-          ?['Heavy low-pass filter muffles the beat',cue('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`].filter(Boolean).join(', ')
-          :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_VARY].filter(Boolean).join(', '));
+          ?['Heavy low-pass filter muffles the beat',cue('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
+          :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_VARY,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', '));
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
     } else if(type==='outro'){
@@ -2000,7 +2014,7 @@ function hhGenerate(source,opts){
     st.drums.length?st.drums:null,st.melody,st.region
   );
   const sectBlock=makeOutBlock('② 섹션 프롬프트',
-    `<textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
+    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:${sectText.length>5000?'var(--danger)':sectText.length>4200?'#F59E0B':'var(--success)'}" title="Suno 가사/섹션 박스 한도">${sectText.length}/5000자</span></div><textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
     'hh-sect-ta','#8B5CF6');
   if(antiAI){
     const badge=document.createElement('span');
