@@ -146,15 +146,15 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
 }
 // aiProducerReview·aiParseExternalFeedback가 같은 "현재 프롬프트 상태"를 보게 — 예전엔 리뷰는 드럼/808/그루브/스타일 박스를 못 보고,
 // 외부 피드백 파서는 현재 프롬프트를 아예 못 봐서(스키마가 언급하는 [현재 설정]·[프로듀서 레퍼런스]도 없었음) 이미 있는 걸 또 제안하거나 removeRef/melodyLead를 못 채웠음
-function aiPromptSnapshot(){
+// 지금까지 고른 설정 요약 — 리뷰·외부 피드백·레퍼런스 추천이 같은 걸 봄. refs:false면 현재 레퍼런스는 뺌(레퍼런스를 새로 고를 땐 기존 걸 앵커로 삼으면 안 됨)
+function aiSelectionCtx({refs=true}={}){
   const g=GENRES[st.genre];
   const mood=HH_MOODS.find(m=>m.kr===st.mood);
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
   // 이름 없이 설명만 주면 removeRef에 "정확한 프로듀서 이름"을 요구해도 채울 수가 없어서(normalize도 st.refs 이름과 대조) 이름을 같이 줌
   const refProducers=st.refs.length?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
-  const styleText=(document.getElementById('hh-style-ta')?.value||'').trim();
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
-  const ctx=[
+  return [
     `장르: ${g.kr} (${g.sound})`,
     mood?`무드: ${mood.kr}`:null,
     st.commercial?`색깔: ${st.commercial}`:null,
@@ -166,13 +166,17 @@ function aiPromptSnapshot(){
     st.transitionFx&&st.transitionFx.length?`전환 효과: ${st.transitionFx.join(', ')}`:null,
     [st.era,st.region,st.density].filter(Boolean).length?`시대/지역/밀도: ${[st.era,st.region,st.density].filter(Boolean).join(' / ')}`:null,
     hasVocal?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
-    refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
+    refs&&refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
     refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
     st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
     `구조: ${st.structSegs.join(' → ')}`,
     `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     antiAI?'Anti-AI 필터 ON — 사용자가 "AI 티 안 나고 사람이 만든 것 같은" 결과를 원함':null,
   ].filter(Boolean).join('\n');
+}
+function aiPromptSnapshot(){
+  const styleText=(document.getElementById('hh-style-ta')?.value||'').trim();
+  const ctx=aiSelectionCtx();
   const sectText=(document.getElementById('hh-sect-ta')?.value||'').trim();
   const nTags=styleText?styleText.split(', ').length:0;
   return `[현재 설정]
@@ -519,14 +523,12 @@ async function aiRecommendMelodyTexture(){
     const ctx=[
       `장르: ${g.kr} (${g.sound}, 에너지 ${g.energy})`,
       mood?`무드: ${mood.kr}`:null,
-      `808: ${st._808}`,
-      st.drums.length?`드럼: ${st.drums.join(', ')}`:null,
       st.era?`시대감: ${st.era}`:null,
       st.region?`지역색: ${st.region}`:null,
       st.density?`밀도: ${st.density}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개를 추천해줘. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개를 추천해줘. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -543,8 +545,14 @@ ${HH_TRANSITION_FX.join(', ')}
 [스윙/그루브 목록 — 리듬감]
 ${HH_GROOVE.join(', ')}
 
+[808 강도 목록]
+${HH_808.join(', ')}
+
+[드럼 패턴 목록 — 장르마다 쓰는 리듬 어휘가 다르니 이 장르에 맞는 것만 1~3개]
+${HH_DRUMS.join(', ')}
+
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","reason":"한 문장 한국어 이유"}`;
+{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","808":"...","drums":["..."],"reason":"한 문장 한국어 이유"}`;
     const dynamicText=`
 
 [현재 선택]
@@ -559,13 +567,16 @@ ${ctx}`;
     const tone=HH_MELODY_TONE.includes(parsed.melodyTone)?parsed.melodyTone:null;
     const fx=(parsed.transitionFx||[]).filter(f=>HH_TRANSITION_FX.includes(f)).slice(0,2);
     const groove=HH_GROOVE.includes(parsed.groove)?parsed.groove:null;
+    const lvl808=HH_808.includes(parsed['808'])?parsed['808']:null;
+    const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
 
     st.melody=[lead,bg];
     // computeMelodyRoles가 내부적으로 같은 조건식을 한번 더 걸어서 뒤집기 때문에, 이 값을 그 조건식과 동일하게 주면
     // 최종적으로 항상 arr[0](AI가 lead라고 답한 악기)이 리드로 확정됨 — AI의 판단을 고정 역할표가 덮어쓰지 않게 하는 장치
     st.melodyLeadIdx=(MELODY_ROLE[lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
     st.texture=tex;
-    st._mtAutoManaged=true;
+    // AI가 고른 걸 이후 무드 변경(룰 재추천)이 조용히 덮어쓰지 않게 — 그 순간 수동 확정 상태로 둠
+    st._mtAutoManaged=false;
     chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
     renderMelodyRoleUI();
     chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
@@ -583,8 +594,18 @@ ${ctx}`;
     }
     if(groove){
       st.groove=groove;
-      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
+      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       clearAutoHint('hh-groove-hint');
+    }
+    if(lvl808){
+      st._808=lvl808;
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+      clearAutoHint('hh-808-hint');
+    }
+    if(drums.length){
+      st.drums=drums;
+      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
+      clearAutoHint('hh-drums-hint');
     }
     if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 악기 추천 적용');
 
@@ -613,7 +634,7 @@ async function aiRecommendProducerRef(){
   if(statusEl)statusEl.hidden=true;
   try{
     const refList=HH_REF.map(p=>`${p.kr} (${p.vibes} — ${p.en})`).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 프로듀서 레퍼런스 1~2명을 아래 목록에서만 정확히 그대로 골라줘. 장르만 보지 말고 무드·멜로디·텍스처까지 종합해서 판단해 — 같은 장르라도 무드가 다르면 다른 프로듀서가 더 어울릴 수 있어.
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 프로듀서 레퍼런스 **딱 1명**을 아래 목록에서만 정확히 그대로 골라줘. 장르만 보지 말고 지금까지 고른 무드·멜로디·드럼·808·그루브·텍스처·보컬·시대/지역까지 전부 종합해서 판단해 — 이미 고른 요소들과 사운드 방향이 충돌하지 않고, 그 요소들이 안 다루는 사운드 디자인 색채를 보태주는 사람이 좋아 — 같은 장르라도 무드가 다르면 다른 프로듀서가 더 어울릴 수 있어.
 
 중요: 아래 [이미 적용된 스타일 태그]가 있으면(AI 프로듀서 리뷰에서 이미 적용된 조언들이야) 후보 프로듀서의 설명(괄호 안 영어)이 그 태그랑 서브장르 자체가 달라질 만큼 상반되지 않는지 먼저 걸러 — 예를 들어 적용된 태그가 "log drum bassline"인데 후보 설명이 "chiptune-esque synth leads, minimal spacey drums"면 그 프로듀서는 제외해.
 
@@ -623,18 +644,8 @@ async function aiRecommendProducerRef(){
 ${refList}
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"refs":["...","..."],"reason":"한 문장 한국어 이유"}`;
-    const g=GENRES[st.genre];
-    const mood=HH_MOODS.find(m=>m.kr===st.mood);
-    const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
-    const ctx=[
-      `장르: ${g.kr} (${g.sound}, 에너지 ${g.energy})`,
-      mood?`무드: ${mood.kr}`:null,
-      st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:null,
-      st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
-      refSong?`레퍼런스 곡: ${refSong}`:null,
-      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
-    ].filter(Boolean).join('\n');
+{"refs":["..."],"reason":"한 문장 한국어 이유"}`;
+    const ctx=aiSelectionCtx({refs:false});
     const dynamicText=`
 
 [현재 선택]
@@ -645,7 +656,7 @@ ${st.extraTags.length?st.extraTags.join(', '):'(없음)'}`;
 
     const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
-    const refs=(parsed.refs||[]).filter(r=>HH_REF.some(p=>p.kr===r)).slice(0,2);
+    const refs=(parsed.refs||[]).filter(r=>HH_REF.some(p=>p.kr===r)).slice(0,1);
     if(!refs.length)throw new Error('AI가 목록에 없는 프로듀서를 반환했습니다');
 
     st.refs=refs;

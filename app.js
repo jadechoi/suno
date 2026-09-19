@@ -786,8 +786,7 @@ function renderProducerRef(){
     el.innerHTML=`<div style="font-size:13px;font-weight:600;color:${selected?'var(--accent-text)':'var(--text-1)'};margin-bottom:4px">${isRecommended?'⭐ ':''}${p.kr}</div><div style="font-size:11px;color:var(--text-2);margin-bottom:3px">${p.vibes}</div><div style="font-size:10px;color:var(--text-3)">${p.artists}</div>`;
     el.onclick=()=>{
       if(st.refs.includes(p.kr)){st.refs=st.refs.filter(x=>x!==p.kr);}
-      else if(st.refs.length<2){st.refs.push(p.kr);}
-      else{st.refs.shift();st.refs.push(p.kr);}
+      else{st.refs=[p.kr];}
       renderProducerRef();
     };
     grid.appendChild(el);
@@ -798,9 +797,11 @@ function recommendProducerRef(){
   if(st.genre===null)return;
   const refs=GENRE_REF[st.genre];
   if(!refs)return;
-  st.refs=[...refs];
+  // 2명이 자동으로 붙으면 설명 6개가 스타일 박스의 ~28%를 차지하고 서로 충돌하기도 해서(예: Ronny J + Mike Dean) 1명만 —
+  // 더 원하면 직접 고르거나 AI 추천(지금까지 고른 걸 보고 1명)을 받음
+  st.refs=[refs[0]];
   renderProducerRef();
-  setAutoHint('hh-ref-hint',refs.join(', '));
+  setAutoHint('hh-ref-hint',refs[0]);
 }
 // 장르+무드 보고 구조 프리셋(Standard/Hook Heavy/Minimal/Extended) 자동 추천
 // 장르 선택 시엔 무조건 덮어씀(808/드럼 등과 동일 패턴), 무드 변경 시엔 호출하는 쪽에서 _structAutoManaged 체크 후 호출
