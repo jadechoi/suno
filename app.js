@@ -139,20 +139,20 @@ const HH_GENRE_SONGS=[
   ['Travis Scott - FE!N','Future & Metro Boomin - We Still Don\'t Trust You','Drake - Rich Flex','21 Savage - redrum','Gunna - fukumean'],          // 0 Trap
   ['Travis Scott - SICKO MODE','Drake - Knife Talk','Playboi Carti - Vamp Anthem','Lil Durk - All My Life','Fredo Bang - Slide'],                    // 1 Dark Trap
   ['Rod Wave - Tombstone','Don Toliver - No Idea','Polo G - Hall of Fame','Drake - Rich Baby Daddy','Lil Baby & Gunna - Drip Too Hard'],               // 2 Melodic Trap
-  ['Ice Spice - Munch','Pop Smoke - Welcome to the Party','Fivio Foreign - Big Drip','Lil TJay - Calling My Phone','Coi Leray - Players'],          // 3 NY Drill
-  ['Central Cee - Doja','Dave - Sprinter','Headie One - Ain\'t It Different','Digga D - Chinaman','Unknown T - Jungle'],                             // 4 UK Drill
-  ['Kordhell - Murder In My Mind','SHADXWBXRN - VILLAIN','Ghostemane - Mercury','Night Lovell - Dark Light','$uicideboy$ - Paris'],                  // 5 Phonk
-  ['Kendrick Lamar - Not Like Us','J. Cole - No Role Modelz','Drake - Fear','J.I.D - Surround Sound','Little Simz - Gorilla'],                      // 6 Boom Bap
-  ['Lil Uzi Vert - XO Tour Llif3','Don Toliver - After Party','Trippie Redd - Miss The Rage','Juice WRLD - Lucid Dreams','Carti - Magnolia'],        // 7 Cloud Rap
-  ['Joji - Glimpse of Us','Keshi - Right Here','Powfu - death bed','Still Woozy - Goodie Bag','Rex Orange County - Loving is Easy'],                // 8 Lo-fi
-  ['Lil Uzi Vert - Just Wanna Rock','Ice Spice - In Ha Mood','Flo Milli - Conceited','BIA - WHOLE LOTTA MONEY'],                // 9 Jersey Club
+  ['Pop Smoke - Welcome to the Party','Pop Smoke - Dior','Sheff G - No Suburban','Fivio Foreign - Big Drip','Kay Flock - No Suburban, Pt. 2'],  // 3 NY Drill
+  ['Headie One - 18HUNNA','Unknown T - Homerton B','Digga D - Woi','Central Cee - Doja','Digga D - 6 + 4'],  // 4 UK Drill
+  ['Kordhell - Murder In My Mind','DVRST - Close Eyes','INTERWORLD - METAMORPHOSIS','MoonDeity - NEON BLADE','Ghostface Playa - WHY NOT'],  // 5 Phonk
+  ['Westside Gunn - Shawn vs Flair','Joey Bada$$ - Survival Tactics','Nas - N.Y. State of Mind','Mobb Deep - Shook Ones, Pt. II','Westside Gunn - Rex Ryan'],  // 6 Boom Bap
+  ['A$AP Rocky - Peso','A$AP Rocky - Palace','Lil B - I\'m God','Yung Lean - Ginseng Strip 2002','Bladee - Obedient'],  // 7 Cloud Rap
+  ['Nujabes - Feather','Nujabes - Aruarian Dance','Idealism - Snowfall','Idealism - Last Time','J Dilla - Time: The Donut of the Heart'],  // 8 Lo-fi
+  ['Lil Uzi Vert - Just Wanna Rock','Bandmanrill - Jiggy In Jersey','Sha EK & Bandmanrill - WHO YOU TOUCH','DJ Sliink - Football Anthem','DJ Sliink - Express Yourself'],  // 9 Jersey Club
   ['Playboi Carti - Sky','Ken Carson - Yale','Destroy Lonely - BANE','Yeat - Rich Minion','Summrs - Outside'],                                       // 10 Rage/Plugg
-  ['Burna Boy - Last Last','Rema & Selena Gomez - Calm Down','WizKid - Essence ft. Tems','Asake - Organise','Davido - UNAVAILABLE'],                 // 11 Afrotrap
+  ['MHD - Afro Trap Pt. 4 (Fais le mouv)','MHD - Champions League','Burna Boy - Last Last','Asake - Organise','Rema & Selena Gomez - Calm Down'],  // 11 Afrotrap
   ['Kendrick Lamar - euphoria','J. Cole - Middle Child','Cordae - The Parables','Lil Baby - The Bigger Picture','Noname - Song 33'],                 // 12 Conscious
   ['Summer Walker - No Love','SZA - Shirt','Kehlani - Nights Like This','The Weeknd - Sacrifice','Don Toliver - Tore Up'],                           // 13 Trap Soul
   ['Charli XCX - 360','Ericdoa - Fool Around','glaive - 1984','100 gecs - Hand Crushed by a Mallet','Jane Remover - Haunted'],                      // 14 Hyperpop
   ['glaive - astrid','midwxst - no effort','Ericdoa - nostalgia shit','Lil Tracy - Like a Glock','bbno$ - edamame'],                                 // 15 Digicore
-  ['Summrs - Right Now','Homixide Gang - 2am','Autumn! - Wasted','Lil Seeto - Closer'],                            // 16 Pluggnb
+  ['Autumn! - Knock Knock','SSGKobe - Thrax','Summrs - Right Now','Homixide Gang - 2am','Lil Seeto - Closer'],  // 16 Pluggnb
   ['Tyler the Creator - EARFQUAKE','Earl Sweatshirt - Grief','Brockhampton - SUGAR','Injury Reserve - Knees','Frank Ocean - Ivy'],                   // 17 Westwood
 ];
 
