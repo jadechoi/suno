@@ -562,9 +562,13 @@ async function aiRecommendMelodyTexture(){
       st.era?`시대감: ${st.era}`:null,
       st.region?`지역색: ${st.region}`:null,
       (document.getElementById('hh-ref-song')?.value||'').trim()?`타겟 레퍼런스 곡: ${(document.getElementById('hh-ref-song').value||'').trim()}`:null,
+      st.vocal&&st.vocal!=='No Vocal'?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
+      st.commercial?`색깔: ${st.commercial}`:null,
+      st.density?`밀도: ${st.density}`:null,
+      st.length?`목표 길이: ${st.length}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개를 추천해줘. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 808과 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 고역 계열이나 중역 악기로 골라. 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 808과 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 고역 계열이나 중역 악기로 골라. 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -587,11 +591,14 @@ ${HH_808.join(', ')}
 [편곡 밀도 목록 — 레이어가 얼마나 촘촘한지]
 ${HH_DENSITY.join(', ')}
 
+[구조 프리셋 — 이름 그대로 사용, 괄호는 현재 BPM·마디 수 기준 예상 길이]
+${HH_STRUCT_PRESETS.map(p=>`${p.name}: ${p.desc} (${p.segs.join('→')}, 약 ${fmtDur(structDurationSec(p.segs,st.bpm))})`).join('\n')}
+
 [드럼 패턴 목록 — 장르마다 쓰는 리듬 어휘가 다르니 이 장르에 맞는 것만 1~3개]
 ${HH_DRUMS.join(', ')}
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","808":"...","drums":["..."],"density":"...","reason":"한 문장 한국어 이유"}`;
+{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","808":"...","drums":["..."],"density":"...","structure":"...","reason":"한 문장 한국어 이유"}`;
     const dynamicText=`
 
 [현재 선택]
@@ -608,6 +615,7 @@ ${ctx}`;
     const groove=HH_GROOVE.includes(parsed.groove)?parsed.groove:null;
     const lvl808=HH_808.includes(parsed['808'])?parsed['808']:null;
     const density=HH_DENSITY.includes(parsed.density)?parsed.density:null;
+    const structIdx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
     const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
 
     st.melody=bg?[lead,bg]:[lead];
@@ -636,6 +644,14 @@ ${ctx}`;
       st.groove=groove;
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       clearAutoHint('hh-groove-hint');
+    }
+    if(structIdx>=0){
+      // AI가 고른 구조는 이후 무드·길이 변경이 조용히 덮어쓰지 않게 수동 확정 상태로 (다른 AI 추천값과 같은 원칙)
+      st.structSegs=[...HH_STRUCT_PRESETS[structIdx].segs];
+      st.structIdx=structIdx;
+      st._structAutoManaged=false;
+      renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+      clearAutoHint('hh-struct-hint');
     }
     if(density){
       st.density=density;

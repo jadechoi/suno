@@ -391,29 +391,38 @@ function structOccurrenceKeys(){
     return `${type}${cnt[type]}`;
   });
 }
+// 구조 프리셋 — 예전엔 4개뿐이고 브릿지 없는 구조(Minimal·Hook Heavy)가 마지막 훅 직전 텐션 없이 클라이맥스로 넘어간다는 리뷰가 반복돼서 성격이 다른 6개로:
+// 루프형(Minimal→Loop Evolve: 마지막 훅 앞에 브릿지 1개), 훅 중심(Hook Heavy: 마지막 훅 앞 브릿지 추가), 서사형(Standard/Slow Burn/Extended)
 const HH_STRUCT_PRESETS=[
-  {name:'Standard',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','outro']},
-  {name:'Hook Heavy',segs:['intro','hook','verse','hook','verse','hook','outro']},
-  {name:'Minimal',segs:['intro','hook','verse','hook','outro']},
-  {name:'Extended',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','verse','bridge','hook','outro']},
+  {name:'Minimal',desc:'루프 하나로 짧게 — 훅·벌스 한 번씩',segs:['intro','hook','verse','hook','outro']},
+  {name:'Loop Evolve',desc:'루프 중심이지만 마지막 훅 직전에 브릿지로 한 번 꺾어줌',segs:['intro','hook','verse','hook','bridge','hook','outro']},
+  {name:'Hook Heavy',desc:'훅이 3번 — 마지막 훅 앞에 브릿지로 텐션을 쌓음',segs:['intro','hook','verse','hook','verse','bridge','hook','outro']},
+  {name:'Standard',desc:'벌스-브릿지-훅이 균형 잡힌 정석 구조',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','outro']},
+  {name:'Slow Burn',desc:'벌스로 분위기를 쌓다가 훅에서 터지는 서서히 달아오르는 구조',segs:['intro','verse','hook','verse','bridge','hook','outro']},
+  {name:'Extended',desc:'벌스·브릿지·훅을 길게 반복하는 서사형 — 긴 곡용',segs:['intro','hook','verse','bridge','hook','verse','bridge','hook','verse','bridge','hook','outro']},
 ];
 const HH_SEG_PALETTE=['intro','hook','verse','bridge','outro'];
-// 장르별 구조 프리셋 자동 추천 (HH_STRUCT_PRESETS.name 참조) — 훅 반복이 잦은 장르는 Hook Heavy, 루프 중심 장르는 Minimal 등
+// 장르별 구조 추천 (첫 번째가 1순위, 두 번째가 대안) — 예전엔 장르당 1개라 무드(2점)가 장르(3점)를 절대 못 이겼음
 const GENRE_STRUCTURE={
-  0:'Hook Heavy',1:'Hook Heavy',2:'Standard',3:'Hook Heavy',4:'Hook Heavy',
-  5:'Minimal',6:'Minimal',7:'Minimal',8:'Minimal',9:'Hook Heavy',
-  10:'Minimal',11:'Standard',12:'Standard',13:'Standard',14:'Extended',
-  15:'Hook Heavy',16:'Minimal',17:'Standard',
-  18:'Hook Heavy',19:'Minimal',
+  0:'Hook Heavy + Standard',1:'Slow Burn + Hook Heavy',2:'Standard + Slow Burn',3:'Hook Heavy + Loop Evolve',4:'Hook Heavy + Loop Evolve',
+  5:'Loop Evolve + Minimal',6:'Standard + Minimal',7:'Slow Burn + Minimal',8:'Loop Evolve + Minimal',9:'Hook Heavy + Loop Evolve',
+  10:'Loop Evolve + Hook Heavy',11:'Standard + Hook Heavy',12:'Standard + Slow Burn',13:'Slow Burn + Standard',14:'Extended + Hook Heavy',
+  15:'Hook Heavy + Loop Evolve',16:'Slow Burn + Loop Evolve',17:'Standard + Slow Burn',
+  18:'Hook Heavy + Loop Evolve',19:'Loop Evolve + Minimal',
 };
 const MOOD_STRUCTURE={
-  '어둡고 위압적':['Hook Heavy'],'감각적·관능적':['Standard'],'멜로딕·감성':['Standard'],
-  '에너제틱·하입':['Hook Heavy'],'사이키델릭·몽환':['Minimal'],'칠·그루비':['Minimal'],
-  '분노·공격적':['Hook Heavy'],'내성적·사색':['Minimal'],'축제·환희':['Hook Heavy'],
-  '승리감·웅장':['Extended'],'슬프고·멜랑콜리':['Standard'],'자신감·플렉스':['Hook Heavy'],
-  '로맨틱·달콤한':['Standard'],'긴장감·서스펜스':['Extended'],'노스탤직·향수':['Standard'],
-  '미스터리·신비':['Minimal'],
+  '어둡고 위압적':['Slow Burn','Hook Heavy'],'감각적·관능적':['Slow Burn','Standard'],'멜로딕·감성':['Standard','Slow Burn'],
+  '에너제틱·하입':['Hook Heavy','Loop Evolve'],'사이키델릭·몽환':['Slow Burn','Loop Evolve'],'칠·그루비':['Loop Evolve','Minimal'],
+  '분노·공격적':['Hook Heavy','Loop Evolve'],'내성적·사색':['Slow Burn','Minimal'],'축제·환희':['Hook Heavy','Extended'],
+  '승리감·웅장':['Extended','Standard'],'슬프고·멜랑콜리':['Slow Burn','Standard'],'자신감·플렉스':['Hook Heavy','Standard'],
+  '로맨틱·달콤한':['Standard','Slow Burn'],'긴장감·서스펜스':['Slow Burn','Extended'],'노스탤직·향수':['Standard','Loop Evolve'],
+  '미스터리·신비':['Slow Burn','Loop Evolve'],
 };
+// 그 밖의 신호 — 장르·무드가 같아도 색깔(커머셜/언더그라운드), 밀도, 보컬 유무, 목표 길이에 따라 어울리는 구조가 다름
+const STRUCT_BY_COMMERCIAL={'Commercial/Mainstream':['Hook Heavy','Standard'],'Underground/Experimental':['Slow Burn','Loop Evolve','Extended']};
+const STRUCT_BY_DENSITY={'Minimalist':['Minimal','Loop Evolve','Slow Burn'],'Sparse':['Minimal','Loop Evolve','Slow Burn'],'Dense':['Extended','Standard'],'Maximalist':['Extended','Standard']};
+const STRUCT_VOCAL=['Standard','Hook Heavy'];   // 보컬이 있으면 벌스가 실제로 할 일이 있는 구조
+const LENGTH_SEC={'1:30':90,'2:00':120,'2:30':150,'3:00':180,'3:30':210};
 
 // ---- POP/R&B DATA ----
 const POP_GENRES=[

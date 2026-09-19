@@ -105,6 +105,7 @@ function hhInit(){
   });
   keyEl.onchange=()=>{st.key=parseInt(keyEl.value);};
   document.getElementById('hh-bpm').oninput=e=>{st.bpm=parseInt(e.target.value)||140;};
+  ['hh-bpm','hh-bar-hook','hh-bar-verse','hh-bar-bridge'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',onStructSignalChange);});
 
   renderHhChips();
   renderArtists('hh-artists-typeBeat',HH_ARTISTS,'hh');
@@ -121,16 +122,16 @@ function renderHhChips(){
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);
   renderGenreGuide();
-  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
+  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
-  chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
-  chipGrid(document.getElementById('hh-commercial'),HH_COMMERCIAL,st,'commercial',1,null);
-  chipGrid(document.getElementById('hh-length'),HH_LENGTH,st,'length',1,null);
+  chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,onStructSignalChange);
+  chipGrid(document.getElementById('hh-commercial'),HH_COMMERCIAL,st,'commercial',1,onStructSignalChange);
+  chipGrid(document.getElementById('hh-length'),HH_LENGTH,st,'length',1,onStructSignalChange);
   renderHhNarr();
   renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
 }
@@ -915,18 +916,46 @@ function recommendProducerRef(){
 }
 // 장르+무드 보고 구조 프리셋(Standard/Hook Heavy/Minimal/Extended) 자동 추천
 // 장르 선택 시엔 무조건 덮어씀(808/드럼 등과 동일 패턴), 무드 변경 시엔 호출하는 쪽에서 _structAutoManaged 체크 후 호출
+// 구조의 예상 길이(초) — 섹션별 마디 수(입력칸) × 4박 ÷ BPM. Suno가 마디 수를 정확히 지키진 않지만 구조끼리 비교하는 용도로는 충분
+// (인트로·아웃트로는 각 4마디로 가정)
+function structDurationSec(segs,bpm){
+  const bars={intro:4,outro:4,
+    hook:+(document.getElementById('hh-bar-hook')?.value||8),
+    verse:+(document.getElementById('hh-bar-verse')?.value||12),
+    bridge:+(document.getElementById('hh-bar-bridge')?.value||4)};
+  return segs.reduce((s,x)=>s+(bars[x]||8),0)*4*60/(bpm||st.bpm||140);
+}
+const fmtDur=sec=>`${Math.floor(sec/60)}:${String(Math.round(sec%60)).padStart(2,'0')}`;
+// 구조 추천 점수 — 장르와 무드를 같은 비중(각 1순위 2점·2순위 1점)으로 보고, 그 위에 목표 길이(직접 골랐다면 사실상 결정적)·색깔·밀도·보컬을 더함.
+// 공용 scorePick(장르 3/2 > 무드 2/1)을 쓰면 무드가 절대 장르를 못 이겨서 16개 무드에 구조가 2가지뿐이었음(실측)
 function recommendStructure(){
   if(st.genre===null)return;
-  const presetNames=HH_STRUCT_PRESETS.map(p=>p.name);
-  const ranked=scorePick(presetNames,GENRE_STRUCTURE,MOOD_STRUCTURE,st.genre,st.mood,null);
-  const idx=HH_STRUCT_PRESETS.findIndex(p=>p.name===ranked[0]);
+  const scores=Object.fromEntries(HH_STRUCT_PRESETS.map(p=>[p.name,0]));
+  const add=(n,p)=>{if(n in scores)scores[n]+=p;};
+  const why=[];
+  const gl=(GENRE_STRUCTURE[st.genre]||'').split(' + ');
+  gl.forEach((n,i)=>add(n,i===0?2:1));
+  (MOOD_STRUCTURE[st.mood]||[]).forEach((n,i)=>add(n,i===0?2.05:1));   // 장르와 무드 1순위가 엇갈릴 때(동점) 사용자가 직접 고른 무드 쪽을 살짝 우선
+  if(st.length&&LENGTH_SEC[st.length]){
+    const target=LENGTH_SEC[st.length];
+    const byDist=HH_STRUCT_PRESETS.map(p=>[p.name,Math.abs(structDurationSec(p.segs,st.bpm)-target)]).sort((x,y)=>x[1]-y[1]);
+    add(byDist[0][0],5);add(byDist[1][0],2);
+    why.push('목표 길이 '+st.length);
+  }
+  if(st.commercial){(STRUCT_BY_COMMERCIAL[st.commercial]||[]).forEach(n=>add(n,1));why.push(st.commercial.split('/')[0]);}
+  if(st.density){(STRUCT_BY_DENSITY[st.density]||[]).forEach(n=>add(n,1));why.push('밀도 '+st.density);}
+  if(st.vocal&&st.vocal!=='No Vocal'){STRUCT_VOCAL.forEach(n=>add(n,1));why.push('보컬');}
+  const best=Object.entries(scores).sort((x,y)=>y[1]-x[1]||HH_STRUCT_PRESETS.findIndex(p=>p.name===x[0])-HH_STRUCT_PRESETS.findIndex(p=>p.name===y[0]))[0][0];
+  const idx=HH_STRUCT_PRESETS.findIndex(p=>p.name===best);
   if(idx<0)return;
   st.structSegs=[...HH_STRUCT_PRESETS[idx].segs];
   st.structIdx=idx;
   renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
-  setAutoHint('hh-struct-hint',ranked[0]);
+  setAutoHint('hh-struct-hint',`${best} · 약 ${fmtDur(structDurationSec(st.structSegs,st.bpm))} — 장르·무드${why.length?' + '+why.join(' + '):''} 반영`);
   st._structAutoManaged=true;
 }
+// 구조 추천에 쓰이는 신호(길이·색깔·밀도·보컬·BPM·마디 수)가 바뀌면 자동 추천 상태일 때만 다시 계산
+function onStructSignalChange(){if(st._structAutoManaged)recommendStructure();}
 
 // HH mode toggle: 'genre' = 장르 기반, 'typeBeat' = 아티스트 타입비트
 let hhMode='genre';
@@ -1043,12 +1072,13 @@ function renderStructBuilder(prefix,presets,palette,state){
       const btn=document.createElement('button');
       btn.className='struct-preset-btn';
       btn.textContent=p.name;
+      if(prefix==='hh')btn.title=`${p.desc||''} · 약 ${fmtDur(structDurationSec(p.segs,state.bpm))} (현재 BPM·마디 수 기준)`;
       btn.onclick=()=>{
         state.structSegs=[...p.segs];state.structIdx=i;state._structAutoManaged=false;
         presetsEl.querySelectorAll('.struct-preset-btn').forEach((b,bi)=>b.classList.toggle('active',bi===i));
         renderSeq(prefix,state,seqEl);
       };
-      if(state.structIdx===i)btn.classList.add('active');
+      if(JSON.stringify(p.segs)===JSON.stringify(state.structSegs))btn.classList.add('active');
       presetsEl.appendChild(btn);
     });
   }
@@ -1076,6 +1106,12 @@ function renderSeq(prefix,state,seqEl){
     el.innerHTML=`${seg}<span class="remove" onclick="removeStructSeg('${prefix}',${i})">✕</span>`;
     seqEl.appendChild(el);
   });
+  if(prefix==='hh'){
+    const est=document.createElement('div');
+    est.style.cssText='font-size:10px;color:var(--text-3);width:100%;margin-top:4px';
+    est.textContent=`≈ ${fmtDur(structDurationSec(state.structSegs,state.bpm))} (BPM ${state.bpm}·섹션 마디 수 기준 추정)`;
+    seqEl.appendChild(est);
+  }
 }
 
 function removeStructSeg(prefix,idx){
