@@ -247,6 +247,7 @@ ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}
     // "다시" 눌러서 재리뷰할 때 이전에 적용한 조언까지 통째로 갈아치우면 🔍 적용 검증이 추적할 이력이 사라짐 —
     // 이미 적용된 건 남기고 새로 받은 라운드만 그 뒤에 이어붙임
     _aiSuggestions=[...appliedSoFar,...list.map(s=>normalizeAiSuggestion(s,uniqueSegs,occKeys))];
+    recordAiScore(_aiSuggestions.find(s=>s.category==='총평'&&!s.applied)?.score);   // 리뷰 대상이던 텍스트가 아직 화면에 있을 때
     hhGenerate(false,{noScroll:true});
   }catch(e){
     fail(e.message);
@@ -477,6 +478,7 @@ ${styleText}`;
       if(totalRow){
         totalRow.prevScore=oldScore??null;
         totalRow.score=newScore;
+        recordAiScore(newScore);
       }
     }
     hhGenerate(false,{noScroll:true});
@@ -559,10 +561,10 @@ async function aiRecommendMelodyTexture(){
       mood?`무드: ${mood.kr}`:null,
       st.era?`시대감: ${st.era}`:null,
       st.region?`지역색: ${st.region}`:null,
-      st.density?`밀도: ${st.density}`:null,
+      (document.getElementById('hh-ref-song')?.value||'').trim()?`타겟 레퍼런스 곡: ${(document.getElementById('hh-ref-song').value||'').trim()}`:null,
       `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개를 추천해줘. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개를 추천해줘. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -582,11 +584,14 @@ ${HH_GROOVE.join(', ')}
 [808 강도 목록]
 ${HH_808.join(', ')}
 
+[편곡 밀도 목록 — 레이어가 얼마나 촘촘한지]
+${HH_DENSITY.join(', ')}
+
 [드럼 패턴 목록 — 장르마다 쓰는 리듬 어휘가 다르니 이 장르에 맞는 것만 1~3개]
 ${HH_DRUMS.join(', ')}
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","808":"...","drums":["..."],"reason":"한 문장 한국어 이유"}`;
+{"melodyLead":"...","melodyBackground":"...","texture":["...","..."],"melodyTone":"...","transitionFx":["...","..."],"groove":"...","808":"...","drums":["..."],"density":"...","reason":"한 문장 한국어 이유"}`;
     const dynamicText=`
 
 [현재 선택]
@@ -602,6 +607,7 @@ ${ctx}`;
     const fx=(parsed.transitionFx||[]).filter(f=>HH_TRANSITION_FX.includes(f)).slice(0,2);
     const groove=HH_GROOVE.includes(parsed.groove)?parsed.groove:null;
     const lvl808=HH_808.includes(parsed['808'])?parsed['808']:null;
+    const density=HH_DENSITY.includes(parsed.density)?parsed.density:null;
     const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
 
     st.melody=[lead,bg];
@@ -630,6 +636,10 @@ ${ctx}`;
       st.groove=groove;
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       clearAutoHint('hh-groove-hint');
+    }
+    if(density){
+      st.density=density;
+      chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
     }
     if(lvl808){
       st._808=lvl808;

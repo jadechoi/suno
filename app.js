@@ -2358,6 +2358,19 @@ function savePromptHistoryEntry(entry){
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(e){}
   renderPromptHistory();
 }
+// 리뷰 점수를 그 프롬프트의 기록에 남김 — "처음 뽑은 프롬프트가 50점대"가 기억이 아니라 수치로 남아야 엔진을 고칠 때마다 실제로 올랐는지 비교할 수 있음.
+// 같은 프롬프트(섹션+스타일 텍스트가 같은 기록)의 첫 점수만 저장 (적용 후 점수는 적용 후 프롬프트의 기록에 붙음)
+function recordAiScore(score){
+  if(!Number.isFinite(score))return;
+  const sect=(document.getElementById('hh-sect-ta')?.value||'').trim();
+  const style=(document.getElementById('hh-style-ta')?.value||'').trim();
+  const list=loadPromptHistory();
+  const e=list.find(x=>(x.section||'').trim()===sect&&(x.style||'').trim()===style);
+  if(!e||e.aiScore!=null)return;
+  e.aiScore=score;
+  try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}
+  renderPromptHistory();
+}
 function deletePromptHistoryEntry(id){
   const list=loadPromptHistory().filter(e=>e.id!==id);
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(e){}
@@ -2411,6 +2424,7 @@ function renderPromptHistory(){
       <div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex-wrap:wrap" class="ph-header">
         <span style="font-size:10px;color:var(--text-3);font-family:'Space Mono',monospace">${dateStr}</span>
         <span style="font-size:12px;font-weight:600">${e.genre} · ${e.bpm}BPM · ${e.key}</span>
+        ${e.aiScore!=null?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--border-hi);color:${e.aiScore>=75?'var(--success)':e.aiScore>=50?'#F59E0B':'var(--danger)'}" title="이 프롬프트의 첫 AI 리뷰 점수">🧑‍🎤 ${e.aiScore}/100</span>`:''}
         ${e.source?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(157,78,221,0.12);border:1px solid rgba(157,78,221,0.35);color:var(--accent-text)">🔧 ${escHtml(e.source)}</span>`:''}
         <span style="font-size:11px;color:var(--text-3);margin-left:auto">▼</span>
       </div>
