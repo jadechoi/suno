@@ -237,6 +237,51 @@ const HH_COMMERCIAL=['Commercial/Mainstream','Underground/Experimental'];
 const COMMERCIAL_TAG={'Commercial/Mainstream':'commercial','Underground/Experimental':'underground experimental'};
 const HH_LENGTH=['1:30','2:00','2:30','3:00','3:30'];
 
+// 기본 생성물의 섹션 텍스트가 장르 무관 범용 문구(Beat strips back, low-pass filter…)뿐이라 "Afro Trap인지 Trap인지" 섹션만 봐선 알 수 없었음 —
+// 장르별 섹션 편곡 방향을 기본으로 넣음. {e}=808/베이스만 토큰 — 드럼·악기 이름은 섹션이 따로 나열하니 여기서 또 쓰면 같은 이름이 두세 번 반복됨. 훅은 첫·마지막, 벌스·브릿지는 첫 등장에만 쓰고
+// 나머지 반복 구간은 드럼·악기 역할 변주로 달라지게 해서 같은 문구가 복붙되지 않게 함 (GENRES 인덱스 순서)
+const GENRE_SECTION_CUE=[
+  {hook:'{e} hitting hard on the downbeat, hi-hat rolls speeding into fills',verse:'{e} pulled back to sub weight, sparse hi-hat pattern, open pocket',bridge:'hi-hats rolling faster, {e} dropping out, tension into the next drop'},
+  {hook:'dense {e} wall, eerie layers hanging over it, dark drop',verse:'single drum hits in wide empty space, ghostly bed',bridge:'lead swell rising, cavernous reverb, sudden silence before the drop'},
+  {hook:'melody carrying the hook, {e} gliding underneath',verse:'motif softly hinted, intimate melodic feel, drums lighter',bridge:'melody climbing, drums thinning, emotional peak building'},
+  {hook:'{e} sliding melodically, monotone drum pattern locked in',verse:'{e} slide continuing, drums sparse, hypnotic repetition',bridge:'{e} slide chromatic tension, drums drilling tighter'},
+  {hook:'offbeat snare dominant, cold sliding bass',verse:'offbeat snare reduced, spacious bed, lighter drum variation',bridge:'snare roll building, cold filtered lead, tension before the hook'},
+  {hook:'short loop cycling, cowbell pattern locked, {e} grunting',verse:'same loop stripped back, drums lighter',bridge:'loop filtered down, half-time drums, tension before the full reset'},
+  {hook:'sample groove riding, punchy kick on the 1 and 3',verse:'deep sample pocket, classic boom bap groove',bridge:'sample chop variation, rhythmic shift'},
+  {hook:'wide open space, sparse drums, dreamy melody floating',verse:'drums nearly absent, ambient texture only',bridge:'quiet swell, soft texture shift'},
+  {hook:'steady lo-fi loop, gentle groove',verse:'same feel, very subtle drum variation',bridge:'soft continuation, slight texture shift'},
+  {hook:'syncopated bounce, chopped sample stabs cutting through',verse:'drum pattern thinned, chops pulled back, light bed',bridge:'drum pattern stuttering, chopped sample echo fading, tension before the drop'},
+  {hook:'short loop relentless, {e} distorted and pitched hard',verse:'same loop, drums stripped back',bridge:'filter sweep down, brief drum break, loop resets full'},
+  {hook:'syncopated percussion locked in, tropical groove driving',verse:'percussion lighter, tropical layers softly stacked, call-and-response space',bridge:'percussion stripping then rebuilding, tropical tension rising'},
+  {hook:'simple sparse beat, open space, room to breathe',verse:'minimal drums staying out of the way, clean open pocket',bridge:'brief swell, drums resolving cleanly'},
+  {hook:'{e} pitch-matched to the chords, harmonic melody up front',verse:'{e} carrying the chord melody, drums lighter',bridge:'{e} pitch-bending chromatic tension'},
+  {hook:'extreme {e} explosion, industrial-peak drums, every element maxed',verse:'near-silence contrast, drums stripped back',bridge:'sudden surge, aggressive build'},
+  {hook:'raw bedroom texture, lo-fi DIY drums',verse:'rawer intimate feel, unpolished grain',bridge:'raw texture shifting, imperfect drum swell'},
+  {hook:'long slow {e} sustain melody, cloud drift, minimal layers',verse:'ultra slow held notes, hazy dreamy bed, maximum space',bridge:'sustained fading, airy drift'},
+  {hook:'unexpected chord stab, gritty jazz-flip drums',verse:'unique chop, dusty grimy pocket',bridge:'chop pivot, unexpected harmonic shift'},
+  {hook:'{e} distorted and clipping, riff hammering, drums relentless',verse:'riff stripped to a single line, drums hard and sparse',bridge:'sustained growl swelling, drums stuttering, tension before the crash'},
+  {hook:'bouncy kick pattern, chopped R&B sample loop forward, {e} sliding softly',verse:'sample loop stays, drums thinned to kick and hats, relaxed nonchalant pocket',bridge:'sample loop filtered down, drums stuttering, tension before the hook'},
+];
+// 프로듀서 레퍼런스의 핵심 특징을 섹션에도 — 예전엔 스타일 태그에만 들어가서 "Pharrell의 스네어" 같은 특징이 실제 섹션 사운드에 안 반영됐음
+const REF_SIG={
+  'Metro Boomin':'ominous brass stabs & big drum halls',"Pi'erre Bourne":'bouncy chiptune-like synth lead','Pharrell Williams':'unique syncopated snare pattern',
+  'J Dilla':'off-grid swung MPC drums','The Alchemist':'dusty vinyl sample chops','Wheezy':'rolling layered 808s','Hit-Boy':'grand orchestral layers',
+  'Southside':'hard sliding 808s','Tay Keith':'triplet hi-hat rolls & stomping 808','Harry Fraud':'smoky loop textures','Zaytoven':'bright ivory piano loop',
+  'Timbaland':'syncopated futuristic percussion','Just Blaze':'soulful horn samples','Boi-1da':'dramatic orchestral hits','Clams Casino':'pitched hazy sample fragments',
+  'Madlib':'dusty jazzy sample loops','Kaytranada':'chopped soul samples & house-inflected bounce','DJ Mustard':'sparse ratchet claps',
+  'Whitearmor':'detuned glitchy leads','Mike Dean':'wall-of-synth pads','Kenny Beats':'playful punchy drum programming','Ronny J':'distorted pitched drums',
+};
+// Anti-AI 태그를 장르 공통 문구("organic warm & analog") 대신 그 장르 리듬 요소의 구체적인 불완전함으로 — 리뷰에서 "범용적이라 이 곡만의 디테일이 없다"는 지적이 반복됨 (GENRES 인덱스 순서)
+const GENRE_HUMAN=[
+  'slightly late snare & uneven hi-hat velocity','irregular 808 decay lengths & loose ghost hats','gently rubato melody timing & uneven chord velocity',
+  'slightly early sliding 808 entries & uneven hat rolls','behind-the-beat snare & imperfect hat spacing','unquantized cowbell hits & worn tape wobble',
+  'off-grid swung kicks & uneven snare velocity','drifting reverb tails & slightly loose pad timing','wobbly tape pitch drift & uneven dusty drum hits',
+  'uneven ghost kick velocity & slightly rushed chops','raw clipping peaks & loose synth timing','slightly late log drum hits & uneven shaker velocity',
+  'live-played bass looseness & soft sample noise','slightly loose chord timing & uneven 808 sustain','chaotic pitch drift & glitch timing slips',
+  'bedroom noise floor & unquantized lo-fi hits','slow drifting pluck timing & uneven ghost pads','live drummer looseness & quirky off-grid stabs',
+  'raw riff timing slips & uneven distorted hits','relaxed behind-the-beat hats & uneven sample chop velocity',
+];
+
 // 프로듀서 피드백 → Suno 스타일 태그 매핑 (장르 인덱스 기준)
 const ADV_TIP_TAGS={
   0:['sidechain compression','hi-hat velocity automation'],

@@ -1414,7 +1414,12 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 드럼을 직접 안 고르면(가장 흔한 경우) 장르 안 보고 무조건 "crisp trap drums"로 고정돼 있었음 —
   // 스타일 태그 쪽은 이미 GENRES[st.genre].drum(장르별 문구, 예: "hyperpop drums")을 쓰는데 섹션 텍스트만 안 맞춰져 있어서
   // 같은 프롬프트 안에서 "hyperpop drums"(스타일) vs "crisp trap drums"(섹션)로 모순이 남— 장르 기본 문구로 맞춤
-  const dDesc=drums?drums.split(',')[0].trim():(GENRES[st.genre]?.drum||'crisp trap drums');
+  // 드럼을 2개 골라도 섹션엔 첫 번째만 들어가고 두 번째(예: Rolling triplets)는 스타일 태그에만 있었음 — 리뷰가 "Trap rolls가 섹션에 없다"고 반복 지적.
+  // 역할 분담: 메인=훅 전체, 보조=훅 변주·벌스에서 가볍게, 롤/하이햇 계열=브릿지 빌드업
+  const drumList=Array.isArray(drums)?drums:(drums?String(drums).split(',').map(s=>s.trim()).filter(Boolean):[]);
+  const dDesc=drumList[0]||(GENRES[st.genre]?.drum||'crisp trap drums');
+  const dSecond=drumList[1]||null;
+  const dRoll=drumList.find(d=>/roll|triplet|hi-hat|break/i.test(d))||null;
   const grooveTag=GROOVE_TAG[st.groove]||'consistent rhythmic pocket';
   // ', '가 아니라 ' & '로 묶음 — genArrangeDir 템플릿 상당수가 "2-bar ${mDesc} loop"처럼 mDesc를 문장 중간에 끼워 넣는데,
   // 악기 2개가 쉼표로 이어지면 "2-bar Dark synth, Psychedelic FX loop"처럼 어디까지가 한 덩어리인지 모호해짐
@@ -1450,27 +1455,20 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const melodyRoles=computeMelodyRoles(melody);
   const leadInstrument=melodyRoles?melodyRoles.lead:(melody&&melody[0]);
   const mDescFull=melodyRoles?`${melodyRoles.lead} lead, ${melodyRoles.bg} background`:mDesc;
-  const mDescCallbacks=['matching synth layers','consistent instrumentation','matching tonal palette'];
-  const mDescCallbackOffset=Math.floor(Math.random()*mDescCallbacks.length); // Generate마다 시작점을 섞어서 반복 문구 순서도 달라지게
-  let mDescUses=0;
+  const bgName=melodyRoles?.bg||null;
+  const leadName=leadInstrument||mDesc;
+  let introUsed=false;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
-  // + 리드 악기 자체의 톤(웜·아날로그 등)을 이름 앞에 붙임 — 믹스 전체 텍스처(grooveTag 등)와는 별개로 그 악기만의 질감
-  // + 첫 등장(인트로)에서만 무드별 뉘앙스까지 얹어서 더 구체적으로 — 이후엔 톤 카테고리만 (반복 방지)
+  // + 리드 악기 자체의 톤(웜·아날로그 등)은 첫 등장(인트로)에서만 무드 뉘앙스까지 얹음 (매번 붙이면 전 섹션에 토씨 그대로 반복)
   const toneTag=MELODY_TONE_TAG[st.melodyTone]||'';
   const toneNuance=pick(MOOD_TONE_NUANCE[st.mood]);
   const toneTagFull=toneTag&&toneNuance?`${toneTag}, ${toneNuance}`:toneTag;
-  const melodyRef=(section)=>{
-    const isFirst=mDescUses===0;
-    // 2번째 등장(대개 Hook 1)에서 mDesc("Dark synth & Ambient pad")처럼 위계 없이 나열하면, 둘 다 서스테인 계열
-    // 음색일 때 리드/백킹 구분이 사라져서 마스킹 위험 지적을 받음(실측 확인) — 위계 있는 표현(mDescFull) 다음엔
-    // 바로 콜백 로테이션으로 넘어가서, 이름을 나열하는 중간 단계 자체를 없앰
-    const ref=isFirst?mDescFull:mDescCallbacks[(mDescUses-1+mDescCallbackOffset)%mDescCallbacks.length];
-    mDescUses++;
-    const art=leadInstrument&&(GENRE_ARTICULATION[st.genre]?.[leadInstrument]||MELODY_ARTICULATION[leadInstrument])?.[section];
-    // 톤(예: "distorted gritty")은 최초 1회(인트로)에만 붙임 — 이후에도 매번 붙이면 전 섹션에 토씨 그대로
-    // 반복돼서(실측 확인: 8/8) 순수 중복이 됨. 스타일 박스에 이미 악기 톤이 한 번 들어가 있어 정보 손실 없음
-    const tone=isFirst?toneTagFull:'';
-    // 악기 이름이 문구 안에 있으면 그 이름 앞뒤에 톤/연주법을 붙여서 "어느 악기"에 대한 설명인지 명확하게 (2개 악기 나열 시 오해 방지)
+  const artOf=section=>leadInstrument&&(GENRE_ARTICULATION[st.genre]?.[leadInstrument]||MELODY_ARTICULATION[leadInstrument])?.[section];
+  const withArt=(name,section)=>{const x=artOf(section);return x?`${name} (${x})`:name;};
+  const introRef=()=>{
+    const ref=mDescFull;
+    const art=artOf('intro');
+    const tone=toneTagFull;
     if(leadInstrument&&ref.includes(leadInstrument)){
       const toned=tone?`${tone} ${leadInstrument}`:leadInstrument;
       return ref.replace(leadInstrument,art?`${toned} (${art})`:toned);
@@ -1478,6 +1476,26 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     if(tone&&art)return `${tone} ${ref} (${art})`;
     if(tone)return `${tone} ${ref}`;
     return art?`${ref} (${art})`:ref;
+  };
+  // 인트로 이후엔 "matching synth layers", "consistent instrumentation" 같은 이름 없는 콜백으로 바꿨었는데, Suno에게 아무 정보도 안 되고
+  // 리뷰에서도 "Supersaw/Kalimba가 인트로 뒤에 자취를 감춘다"는 지적이 나옴 — 섹션마다 악기 이름을 역할과 함께 계속 명시
+  // (리드/백킹 위계는 유지: 리드는 연주법 괄호와 함께, 백킹은 "underneath/counter-line/carrying" 같은 역할어로)
+  const melodyRef=(section,occ,total)=>{
+    if(section==='intro')return introRef();
+    if(section==='hook'){
+      if(occ===total)return `${withArt(leadName,'hook')}${bgName?` & ${bgName} both at full power`:' at full power'}`;
+      if(occ===1)return `${withArt(leadName,'hook')}${bgName?`, ${bgName} layered underneath`:''}`;
+      return `${withArt(leadName,'hook')}, ${bgName?`${bgName} stepping forward as a counter-line`:'new counter-melody layer'}`;
+    }
+    if(section==='verse'){
+      if(occ===1)return withArt(leadName,'verse');
+      return `${bgName?`${bgName} carrying the melody, `:''}${withArt(leadName,'verse')} pulled back`;
+    }
+    if(section==='bridge'){
+      if(occ===total)return withArt(leadName,'bridge');
+      return (bgName&&occ%2===0)?`${bgName} rising swell`:withArt(leadName,'bridge');
+    }
+    return withArt(leadName,section);
   };
   // 수동 프리셋(HH_NARR, 4개 고정 카테고리)과 AI narrDir(실제 섹션마다 고유 키, 예: hook2)은 서로 다른 키 공간이라 분리 —
   // AI는 이 특정 occurrence에 쓴 게 있으면 그걸 쓰고, 없으면 수동 프리셋(카테고리 단위)으로 폴백
@@ -1504,17 +1522,20 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     if(role==='hook')return occ===1?'tight punchy stereo, controlled width':'wider than previous hook, building toward the drop';
     return({
       intro:'wide reverb, open stereo',
-      verse:'narrow, dry, intimate stereo',
+      verse:occ>1?'slightly wider than the previous verse, still dry and close':'narrow, dry, intimate stereo',
       climax:'widest stereo, saturated, full',
       outro:'reverb decay, stereo collapsing to mono',
     }[role]||'');
   };
   // 같은 타입 섹션이 3번 이상 나오면 기본 문구가 토씨 그대로 반복돼서(훅2=훅3, 벌스2=벌스3, 브릿지1=2) Suno가 같은 루프를 복붙함 —
   // 두 번째부터는 occurrence마다 다른 소소한 변주를 얹어서 반복 속에서도 곡이 진행되게 함
-  const HOOK_VARY=['new counter-melody layer, drum fill into the downbeat','extra percussion layer, variation on the lead phrase'];
   const VERSE_VARY=['new percussion accent, bassline rhythm variation','melody drops an octave, half-time feel in the last 4 bars'];
   const BRIDGE_VARY='riser rising in pitch, one held sustained note';
   const sAO=st.sectionArrangeOccurrence||{};
+  // 이 장르의 섹션 편곡 방향({d}=메인 드럼,{m}=리드,{e}=808/베이스)과 프로듀서 레퍼런스의 핵심 특징 — 기본 생성물에 처음부터 포함
+  const cue=type=>(GENRE_SECTION_CUE[st.genre]?.[type]||'').replace(/\{e\}/g,eDesc);
+  const refSig=REF_SIG[st.refs[0]]||'';
+  const hookDrums=drumList.slice(0,3).join(' & ')||dDesc;
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
   // 이 타입의 진짜 클라이맥스 판정(isLast 등)과는 별개 — 그건 훅 서브타이틀/에너지 문구용으로 계속 그대로 씀
   const boostOccursHere=(type,current,total)=>(sAO[type]==='first'?current===1:current===total);
@@ -1542,6 +1563,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
     } else if(type==='hook'){
       cnt.hook++;
       const isLast=cnt.hook===totalHooks;
+      const isEdge=cnt.hook===1||isLast;   // 첫·마지막 훅에만 장르 방향·레퍼런스 특징·"ZERO vocal chops" — 가운데 훅은 변주로 차별화
       const sub=isLast?(isMellowMood?'Fullest Atmosphere':'Maximum Anthemic Climax'):hookSub;
       // hookEng 자체가 이미 "maximum ..."인 경우(예: 에너제틱·하입 무드) "Maximum maximum ..." 중복 방지
       const energy=isLast
@@ -1549,33 +1571,45 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
           ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} at its fullest, all layers present, deepest atmosphere`
           :`Maximum ${hookEng.replace(/^maximum /i,'')} energy, all layers activated, heaviest impact`)
         :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`;
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:'completely instrumental, ZERO vocal chops';
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDesc}`:(isEdge?'completely instrumental, ZERO vocal chops':'instrumental');
+      // 가운데 훅: 훅 1과 리듬 문구가 토씨까지 같으면 Suno가 같은 루프를 복붙함 — 보조 드럼이 있으면 그게 주도하는 변주, 없으면 필인
+      const hookVary=(!isLast&&cnt.hook>=2)
+        ?(cnt.hook%2===0
+          ?(dSecond?`the ${dSecond} pattern takes over the rhythm in the second half, drum fill into the downbeat`:'drum fill into the downbeat')
+          :`${dDesc} fills every other bar, variation on the lead phrase`)
+        :'';
       lines.push(`[${hasVocal?'':'Instrumental '}Hook ${cnt.hook}: ${sub}]`);
-      // eDesc(808 bass 전체 묘사)는 빼도 energy 문구가 세기를 이미 담고 있어 괜찮지만, dDesc(드럼 "패턴 종류" —
-      // four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)까지 빼버리면 장르를 바꿔도
-      // 훅에서 리듬 정체성이 전혀 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — dDesc만 복원
-      lines.push(`(${bH} Bars: ${energy}, ${dDesc}, ${melodyRef('hook')}, ${vocalPhrase}, ${spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks)}${!isLast&&cnt.hook>=2?', '+HOOK_VARY[(cnt.hook-2)%HOOK_VARY.length]:''}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
+      // dDesc(드럼 "패턴 종류" — four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)를 빼면 장르를 바꿔도
+      // 훅에서 리듬 정체성이 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — 이제 고른 드럼 전부(메인 & 보조)
+      const hookBody=[energy,hookDrums,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+      lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
+      const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
-        ?`Beat strips back, sparse ${eightOh==='None'?'bass':'808s'}, lighter drum pattern, ${melodyRef('verse')} softened, spacious and clean arrangement`
-        :`Slightly varied drum bounce, deeper continuous sub-bass, ${melodyRef('verse')} layered in background, intimate groove`;
+        ?[`Beat strips back, sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,'spacious and clean arrangement'].filter(Boolean).join(', ')
+        :`Slightly varied ${dDesc} bounce, deeper continuous sub-bass, ${melodyRef('verse',cnt.verse)}, intimate groove`;
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDesc}`:'purely instrumental pocket';
       lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse')}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
       // 마지막 브릿지는 이미 내용상(Quick break, chord echoing, fx, maximum tension) 빌드업 역할을 하고 있어서
       // 새 섹션 타입은 안 만들고, 라벨만 "다음 드롭 직전"이라는 걸 더 명확히 드러내는 이름으로 보강
       const sub=isLastB?'Pre-Drop Build-up':'Tension Build';
-      // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값. 2개면 순서를 섞어서 Generate마다 문구가 조금 달라지게
+      // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값. 브릿지마다 시작 효과를 돌려서(1번은 A→B, 2번은 B→A)
+      // 두 브릿지가 같은 효과음 조합·순서로 반복되지 않게 함
       const fxList=(st.transitionFx&&st.transitionFx.length)?st.transitionFx.map(f=>TRANSITION_FX_TAG[f]||f):['reverse cymbal swell','low-pass filter sweep down'];
-      const fxPhrase=(fxList.length===2&&Math.random()<0.5?[fxList[1],fxList[0]]:fxList).join(', ');
+      const off=(cnt.bridge-1)%fxList.length;
+      const fxPhrase=[...fxList.slice(off),...fxList.slice(0,off)].join(', ');
+      const rollPhrase=dRoll?`${dRoll} accelerating`:'';
       const desc=isLastB
-        ?`Quick break, isolated ${melodyRef('bridge')} chord echoing, ${fxPhrase}, maximum tension`
-        :`Heavy low-pass filter muffles the beat, ${fxPhrase}, ${melodyRef('bridge')} building anticipation${cnt.bridge>=2?', '+BRIDGE_VARY:''}`;
+        ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} chord echoing`,rollPhrase,fxPhrase,'maximum tension'].filter(Boolean).join(', ')
+        :(cnt.bridge===1
+          ?['Heavy low-pass filter muffles the beat',cue('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`].filter(Boolean).join(', ')
+          :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_VARY].filter(Boolean).join(', '));
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
     } else if(type==='outro'){
@@ -1963,7 +1997,7 @@ function hhGenerate(source,opts){
   // ② 섹션 프롬프트
   const sectText=buildHHSectionPrompt(
     g?g.tag:'trap',moodIdx,keyStr,bpmVal,st._808,
-    st.drums.length?st.drums[0]:null,st.melody,st.region
+    st.drums.length?st.drums:null,st.melody,st.region
   );
   const sectBlock=makeOutBlock('② 섹션 프롬프트',
     `<textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
@@ -2052,9 +2086,8 @@ function hhGenerate(source,opts){
   if(commMod&&!g)contextParts.push(commMod+' sound');
   if(contextParts.length)tags.push(contextParts.join(' & '));
   if(st.extraTags.length)tags.push(st.extraTags.join(' & '));      // 피드백에서 적용된 태그 — AI 라운드를 여러 번 돌려도 스타일 박스 태그 수가 안 늘도록 하나로 묶음(칩은 개별 제거 가능)
-  // 디지털/글리치 계열은 "organic warm & analog"가 Pristine digital·hyperpop 등과 정면충돌 — 타이밍/다이내믹 중심 문구로 교체
-  const digitalLean=[9,14,15].includes(st.genre)||st.texture.some(t=>/digital|sidechain/i.test(t))||st.drums.some(d=>/glitch/i.test(d));
-  if(antiAI)tags.push(digitalLean?'natural dynamics & human-feel timing & subtle imperfections':st.genre===18?'raw human-feel & gritty imperfections & natural dynamics':'organic warm human-feel & analog imperfections & natural dynamics');
+  // 장르 공통 문구("organic warm & analog")는 디지털 장르와 충돌하고 "이 곡만의 디테일이 없다"는 리뷰 지적이 반복돼서, 그 장르 리듬 요소의 구체적인 불완전함으로 (GENRE_HUMAN)
+  if(antiAI)tags.push(`${GENRE_HUMAN[st.genre]||'organic warm human-feel & analog imperfections'} & natural dynamics`);
   const styleText=tags.join(', ');
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
