@@ -124,7 +124,7 @@ function renderHhChips(){
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
-  chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
+  chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
   chipGrid(document.getElementById('hh-era'),HH_ERA,st,'era',1,null);
   chipGrid(document.getElementById('hh-region'),HH_REGION,st,'region',1,null);
@@ -424,6 +424,17 @@ const GENRE_DRUMS_TIPS={
   16:'Sub-bass punch', 17:'Live jazz drums + Crisp hi-hats',
   18:'Sub-bass punch + Trap rolls', 19:'Jersey bounce kick + Rolling triplets',
 };
+// 전환 효과도 무드를 반영 — 예전엔 GENRE_AUTO.fx(장르 고정)라 슬픈 곡도 임팩트 크래시·라이저로 열고 닫았음. 장르 기본 2개가 기준, 무드가 그 안에서 순서를 바꾸거나 대체
+const MOOD_FX_FIT={
+  '어둡고 위압적':['순간 정적','필터 스윕다운'],'감각적·관능적':['필터 스윕다운','리버스 심벌'],'멜로딕·감성':['리버스 심벌','라이저'],
+  '에너제틱·하입':['라이저','스네어 롤'],'사이키델릭·몽환':['화이트노이즈 스윕','테이프 스탑'],'칠·그루비':['테이프 스탑','필터 스윕다운'],
+  '분노·공격적':['임팩트/크래시','스네어 롤'],'내성적·사색':['순간 정적','필터 스윕다운'],'축제·환희':['라이저','임팩트/크래시'],
+  '승리감·웅장':['스네어 롤','임팩트/크래시'],'슬프고·멜랑콜리':['필터 스윕다운','테이프 스탑'],'자신감·플렉스':['순간 정적','임팩트/크래시'],
+  '로맨틱·달콤한':['리버스 심벌','필터 스윕다운'],'긴장감·서스펜스':['라이저','순간 정적'],'노스탤직·향수':['테이프 스탑','화이트노이즈 스윕'],
+  '미스터리·신비':['리버스 심벌','순간 정적'],
+};
+// 무드가 주도하고(3/2점) 장르 기본 전환효과는 동점 정리용 보너스 — 장르가 주도하면(3점) 슬픈 트랩도 임팩트 크래시+라이저로 남았음(실측)
+const MOOD_FX_TIPS=Object.fromEntries(Object.entries(MOOD_FX_FIT).map(([m,fx])=>[m,fx.join(' + ')]));
 const GENRE_DRUM_BONUS={11:['Afro log drum','Shaker groove']};
 const MOOD_DRUMS_FIT={
   '어둡고 위압적':['Trap rolls','Sub-bass punch'], '감각적·관능적':['Crisp hi-hats','Sub-bass punch'],
@@ -516,6 +527,9 @@ function recommendRhythm(){
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
   setAutoHint('hh-808-hint','808: '+st._808);
   setAutoHint('hh-groove-hint',st.groove);
+  st.transitionFx=st.mood?scorePick(HH_TRANSITION_FX,MOOD_FX_TIPS,{},st.mood,null,auto.fx).slice(0,2):[...auto.fx];
+  chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
+  setAutoHint('hh-fx-hint',st.transitionFx.join(', '));
 }
 // 808/그루브를 직접 만지면 이후 무드 변경이 덮어쓰지 않게 — 드럼과 같은 플래그
 function onRhythmManualChange(){
@@ -715,7 +729,7 @@ function selectGenre(i){
       st.groove=auto.groove;
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
-      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
@@ -906,7 +920,7 @@ function applyArtistSong(tabKey,song,artist){
       st.groove=auto.groove;
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
-      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
       setAutoHint('hh-808-hint','808: '+auto.a808);
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
@@ -1453,6 +1467,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const isMellowMood=MELLOW_CLIMAX_MOODS.includes(st.mood);
 
   const cnt={hook:0,verse:0,bridge:0};
+  const dyn=MOOD_DYNAMICS[st.mood]||{};   // 무드별 다이내믹 성격 (진입/훅 어택/벌스 거동/브릿지 긴장/끝맺음)
   const totalHooks=segs.filter(s=>s==='hook').length;
   const totalVerses=segs.filter(s=>s==='verse').length;
   const totalBridges=segs.filter(s=>s==='bridge').length;
@@ -1569,7 +1584,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else {
         introVibe=`the ${fxOpen} cold open`;
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} slam in immediately in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} ${dyn.entry||'slam in immediately'} in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1595,15 +1610,15 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       // dDesc(드럼 "패턴 종류" — four-on-the-floor kick/jersey bounce kick/trap rolls 등 장르마다 다른 리듬 뼈대)를 빼면 장르를 바꿔도
       // 훅에서 리듬 정체성이 안 드러남(실사용자 피드백: "장르 다른데 왜 드럼이 같아 보여") — 이제 고른 드럼 전부(메인 & 보조)
       const grooveLine=cnt.hook===1||isLast?(GROOVE_TAG[st.groove]||''):(GROOVE_VARY[st.groove]||'');
-      const hookBody=[energy,hookDrums,grooveLine,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+      const hookBody=[energy,hookDrums,grooveLine,isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
       const sub=cnt.verse===1?`Stripped & ${verseSub}`:`Rhythmic Switch & ${verseSub}`;
       const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
-        ?[`Beat strips back, sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,'spacious and clean arrangement',isMellowMood?'':'energy held back, coiled tension not released'].filter(Boolean).join(', ')
-        :[`Slightly varied ${dDesc} bounce, deeper continuous sub-bass`,melodyRef('verse',cnt.verse),'intimate groove',isMellowMood?'':'still coiled, anticipation building quietly toward the next hook'].filter(Boolean).join(', ');
+        ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`].filter(Boolean).join(', ')
+        :[`Slightly varied ${dDesc} bounce, ${bassWord==='bass'||GENRES[st.genre]?.energy==='low'||GENRES[st.genre]?.energy==='low-mid'?'steady warm bassline':'deeper continuous sub-bass'}`,melodyRef('verse',cnt.verse),'intimate groove',isMellowMood?'':'still coiled, anticipation building quietly toward the next hook'].filter(Boolean).join(', ');
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:'purely instrumental pocket';
       lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
       lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}${cnt.verse>=3?', '+VERSE_VARY[(cnt.verse-3)%VERSE_VARY.length]:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
@@ -1622,7 +1637,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const desc=isLastB
         ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} chord echoing`,rollPhrase,fxPhrase,'maximum tension',spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
         :(cnt.bridge===1
-          ?['Heavy low-pass filter muffles the beat',cue('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
+          ?[dyn.bridge||'Heavy low-pass filter muffles the beat',cue('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
           :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_VARY,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', '));
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
@@ -1630,7 +1645,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
       // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
-      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${aiNote('outro')+manualNote('아웃트로')})`);
+      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${dyn.outro?`, ${dyn.outro}`:''}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
