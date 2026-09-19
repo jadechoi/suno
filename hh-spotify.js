@@ -679,6 +679,7 @@ async function buildTrendingArtistAccordion(artists,tok){
 
 // Spotify genres → GENRES index (best-effort)
 const SP_GENRE_MAP=[
+  {pats:['trap metal','rap metal'],idx:18},{pats:['sexy drill','bronx drill'],idx:19},
   {pats:['dark trap'],idx:1},{pats:['melodic rap','melodic trap'],idx:2},
   {pats:['ny drill','new york drill'],idx:3},{pats:['uk drill','british drill'],idx:4},
   {pats:['phonk','memphis'],idx:5},{pats:['boom bap','east coast hip hop','underground hip hop'],idx:6},

@@ -137,7 +137,7 @@ function renderHhChips(){
 // ⚠️ UPDATE NOTE: HH_ARTISTS 업데이트 시 이 배열도 함께 갱신 (각 장르 핫 곡 5개)
 const HH_GENRE_SONGS=[
   ['Travis Scott - FE!N','Future & Metro Boomin - We Still Don\'t Trust You','Drake - Rich Flex','21 Savage - redrum','Gunna - fukumean'],          // 0 Trap
-  ['Playboi Carti - Vamp Anthem','Ghostemane - Mercury','Night Lovell - Dark Light','SpaceGhostPurrp - Terror Gang','Ski Mask the Slump God - Catch Me Outside'],  // 1 Dark Trap
+  ['Playboi Carti - Vamp Anthem','Playboi Carti - Magnolia','Night Lovell - Dark Light','SpaceGhostPurrp - Terror Gang','Ski Mask the Slump God - Catch Me Outside'],  // 1 Dark Trap
   ['Rod Wave - Tombstone','Don Toliver - No Idea','Polo G - Hall of Fame','Drake - Rich Baby Daddy','Lil Baby & Gunna - Drip Too Hard'],               // 2 Melodic Trap
   ['Pop Smoke - Welcome to the Party','Pop Smoke - Dior','Sheff G - No Suburban','Fivio Foreign - Big Drip','Kay Flock - No Suburban, Pt. 2'],  // 3 NY Drill
   ['Headie One - 18HUNNA','Unknown T - Homerton B','Digga D - Woi','Central Cee - Doja','Digga D - 6 + 4'],  // 4 UK Drill
@@ -154,6 +154,8 @@ const HH_GENRE_SONGS=[
   ['glaive - astrid','midwxst - Trying','glaive & ericdoa - Cloak n Dagger','glaive & ericdoa - Fuck This Town','glaive - Asheville'],  // 15 Digicore
   ['Autumn! - Knock Knock','SSGKobe - Thrax','Summrs - Right Now','Homixide Gang - 2am','Lil Seeto - Closer'],  // 16 Pluggnb
   ['Tyler the Creator - EARFQUAKE','Earl Sweatshirt - Grief','Brockhampton - SUGAR','Injury Reserve - Knees','Frank Ocean - Ivy'],                   // 17 Westwood
+  ['Bones - RestInPeace','Ski Mask the Slump God & XXXTentacion - Take a Step Back','XXXTentacion - YuNg BrAtZ','Zillakami - Shake Junt','Ghostemane - Mercury'],   // 18 Trap Metal
+  ['Cash Cobain - Dunk Contest','Cash Cobain - Fisherrr','Jordan Adetunji - KEHLANI','Drake - Calling For You','Chow Lee & Cash Cobain - NOBODY'],   // 19 Sexy Drill
 ];
 
 // 장르별 808·드럼 자동 추천 (프로덕션 가이드 리서치 기반)
@@ -177,6 +179,8 @@ const GENRE_AUTO=[
   {a808:'Balanced', aDrums:['Glitchy breaks','Crisp hi-hats'],       fx:['화이트노이즈 스윕','순간 정적'], groove:'타이트 그리드'}, // 15 Digicore  — bedroom digital aesthetic, lo-fi glitch texture
   {a808:'Dominant', aDrums:['Sub-bass punch'],                       fx:['필터 스윕다운','순간 정적'],     groove:'살짝 스윙'},    // 16 Pluggnb   — Zaytoven: "808 bumping, everything else is just extra" (wikipedia)
   {a808:'Minimal',  aDrums:['Live jazz drums','Crisp hi-hats'],      fx:['테이프 스탑','스네어 롤'],       groove:'헤비 스윙'},    // 17 Westwood  — jazz-influenced live drums, quirky organic feel
+  {a808:'Dominant', aDrums:['Trap rolls','Sub-bass punch'],          fx:['임팩트/크래시','스네어 롤'],       groove:'타이트 그리드'}, // 18 Trap Metal — heavily distorted clipping 808, downtuned riffs, screamed vocals, aggressive trap rolls
+  {a808:'Balanced', aDrums:['Jersey bounce kick','Rolling triplets'], fx:['필터 스윕다운','임팩트/크래시'], groove:'살짝 스윙'},    // 19 Sexy Drill — chopped R&B sample loop, sliding 808, jersey-style bounce kick + drill hats, nonchalant delivery
 ];
 
 // 전환 효과(브릿지/드롭 전환) — 장르 고르면 GENRE_AUTO.fx로 자동 선택, 직접 바꿀 수도 있음
@@ -256,6 +260,7 @@ const GENRE_DEFAULT_MOOD=[
   '에너제틱·하입','어둡고 위압적','멜로딕·감성','분노·공격적','어둡고 위압적','어둡고 위압적',
   '칠·그루비','사이키델릭·몽환','칠·그루비','에너제틱·하입','분노·공격적','에너제틱·하입',
   '내성적·사색','감각적·관능적','에너제틱·하입','에너제틱·하입','사이키델릭·몽환','내성적·사색',
+  '분노·공격적','감각적·관능적',
 ];
 
 // ============================================================
@@ -272,6 +277,7 @@ const GENRE_MELODY_TIPS={
   12:'Saxophone + Emotional piano', 13:'Rhodes keys + Ambient pad',
   14:'Psychedelic FX + Supersaw synth', 15:'Supersaw synth + Psychedelic FX',
   16:'Ambient pad + Emotional piano', 17:'Saxophone + Guitar loop',
+  18:'Dark synth + Guitar loop', 19:'Rhodes keys + Sample chop',
 };
 const MOOD_MELODY_FIT={
   '어둡고 위압적':['Dark synth','Strings'], '감각적·관능적':['Rhodes keys','Guitar loop'],
@@ -294,6 +300,7 @@ const GENRE_MELODY_TONE={
   5:'빈티지·러프',6:'빈티지·러프',7:'소프트·머플드',8:'소프트·머플드',9:'브라이트·클린',
   10:'디스토티드·그릿',11:'웜·아날로그',12:'웜·아날로그',13:'웜·아날로그',14:'브라이트·클린',
   15:'디스토티드·그릿',16:'소프트·머플드',17:'빈티지·러프',
+  18:'디스토티드·그릿',19:'웜·아날로그',
 };
 const MOOD_MELODY_TONE={
   '어둡고 위압적':['디스토티드·그릿'],'감각적·관능적':['웜·아날로그'],'멜로딕·감성':['웜·아날로그'],
@@ -369,6 +376,7 @@ const GENRE_TEXTURE_TIPS={
   12:'Vintage tape + Dry intimate', 13:'Heavy reverb + Dry intimate',
   14:'Pristine digital + Stereo wide', 15:'Lo-fi grain + Pristine digital',
   16:'Heavy reverb + Bass-heavy', 17:'Vintage tape + Dry intimate',
+  18:'Raw sound + Bass-heavy', 19:'Dry intimate + Vintage tape',
 };
 const MOOD_TEXTURE_FIT={
   '어둡고 위압적':['Heavy reverb','Bass-heavy'], '감각적·관능적':['Dry intimate','Heavy reverb'],
@@ -398,6 +406,7 @@ const GENRE_DRUMS_TIPS={
   12:'Boom Bap kick + Crisp hi-hats', 13:'Sub-bass punch + Crisp hi-hats',
   14:'Four-on-the-floor kick + Glitchy breaks', 15:'Glitchy breaks + Crisp hi-hats',
   16:'Sub-bass punch', 17:'Live jazz drums + Crisp hi-hats',
+  18:'Sub-bass punch + Trap rolls', 19:'Jersey bounce kick + Rolling triplets',
 };
 const MOOD_DRUMS_FIT={
   '어둡고 위압적':['Trap rolls','Sub-bass punch'], '감각적·관능적':['Crisp hi-hats','Sub-bass punch'],
@@ -418,7 +427,7 @@ const MOOD_808_DELTA={
   '내성적·사색':-1,'슬프고·멜랑콜리':-1,'로맨틱·달콤한':-1,'노스탤직·향수':-1,'미스터리·신비':-1,
 };
 // 장르별로 어울리는 그루브 2개(첫 번째 = GENRE_AUTO 기본값, 두 번째 = 무드에 따라 바뀔 수 있는 대안) — 무드가 장르 정체성(예: 드릴은 레이드백 X)을 깨지 않게
-const GENRE_GROOVE_ALT=['살짝 스윙','레이드백 포켓','레이드백 포켓','푸시드 포켓','살짝 스윙','레이드백 포켓','레이드백 포켓','레이드백 포켓','헤비 스윙','타이트 그리드','푸시드 포켓','푸시드 포켓','레이드백 포켓','살짝 스윙','푸시드 포켓','푸시드 포켓','레이드백 포켓','살짝 스윙'];
+const GENRE_GROOVE_ALT=['살짝 스윙','레이드백 포켓','레이드백 포켓','푸시드 포켓','살짝 스윙','레이드백 포켓','레이드백 포켓','레이드백 포켓','헤비 스윙','타이트 그리드','푸시드 포켓','푸시드 포켓','레이드백 포켓','살짝 스윙','푸시드 포켓','푸시드 포켓','레이드백 포켓','살짝 스윙','푸시드 포켓','푸시드 포켓'];
 const GENRE_GROOVE_TIPS=Object.fromEntries(GENRE_AUTO.map((a,i)=>[i,`${a.groove} + ${GENRE_GROOVE_ALT[i]}`]));
 const MOOD_GROOVE_FIT={
   '어둡고 위압적':['타이트 그리드','레이드백 포켓'],'감각적·관능적':['레이드백 포켓','살짝 스윙'],
@@ -521,6 +530,7 @@ const GENRE_VOCAL_CHAR={
   5:'인티밋 라이브룸',6:'인티밋 라이브룸',7:'스타디움 리버브',8:'미니멀 리버브',9:'헤비 컴프레션',
   10:'클로즈·드라이',11:'헤비 컴프레션',12:'인티밋 라이브룸',13:'헤비 컴프레션',14:'헤비 컴프레션',
   15:'클로즈·드라이',16:'인티밋 라이브룸',17:'인티밋 라이브룸',
+  18:'헤비 컴프레션',19:'클로즈·드라이',
 };
 const MOOD_VOCAL_CHAR={
   '어둡고 위압적':['클로즈·드라이'],'감각적·관능적':['인티밋 라이브룸'],'멜로딕·감성':['헤비 컴프레션'],
@@ -554,6 +564,7 @@ const GENRE_VOCAL_STYLE={
   5:'소울풀',6:'소울풀',7:'브리시·위스퍼',8:'브리시·위스퍼',9:'파워풀',
   10:'파워풀',11:'소울풀',12:'소울풀',13:'감성적',14:'파워풀',
   15:'브리시·위스퍼',16:'브리시·위스퍼',17:'소울풀',
+  18:'파워풀',19:'브리시·위스퍼',
 };
 const MOOD_VOCAL_STYLE={
   '어둡고 위압적':['파워풀'],'감각적·관능적':['브리시·위스퍼'],'멜로딕·감성':['감성적'],
@@ -1317,6 +1328,12 @@ function genArrangeDir(genre,sec,ctx){
     17:{hook:`unexpected ${mDesc} chord stab, ${dDesc} gritty jazz flip, ${intHook}, ${toneWord}`,
         verse:`${mDesc} unique chop, ${dDesc} dusty grimy pocket, ${loopWord}`,
         bridge:`${mDesc} chop pivot, unexpected harmonic shift, ${toneWord}`},
+    18:{hook:`${eDesc} distorted and clipping, ${mDesc} riff hammering, ${dDesc} relentless, ${intHook}`,
+        verse:`${mDesc} riff stripped to a single line, ${dDesc} hard and sparse, ${intVerse}`,
+        bridge:`${eDesc} sustained growl swelling, ${dDesc} stuttering, ${toneWord}, tension before the crash`},
+    19:{hook:`${dDesc} bouncy kick pattern ${intHook}, chopped R&B sample loop forward, ${eDesc} sliding softly`,
+        verse:`${mDesc} sample chop loop stays, ${dDesc} thinned to kick and hats, relaxed nonchalant pocket, ${intVerse}`,
+        bridge:`sample loop filtered down, ${dDesc} stuttering, ${toneWord}, tension before hook`},
   };
   const g=map[genre];
   if(!g)return`${eDesc} ${sec} arrangement, ${dDesc} adapted, ${toneWord}`;
@@ -1534,6 +1551,8 @@ const GENRE_ARRANGE_PROFILE=[
   {bars:[4,8],  density:'dense'},    // 15 Digicore
   {bars:[8,16], density:'sparse'},   // 16 Pluggnb
   {bars:[8,16], density:'balanced'}, // 17 Westwood
+  {bars:[4,8],  density:'dense'},    // 18 Trap Metal
+  {bars:[4,8],  density:'balanced'}, // 19 Sexy Drill
 ];
 function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
   if(!g)return{warns:[],tips:[]};
@@ -1613,6 +1632,8 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
     15:'🎛 로파이 텍스처와 디지털 글리치의 균형이 핵심입니다. 침실 프로듀서 느낌을 유지하세요.',
     16:'🎛 808이 멜로디까지 담당합니다. 느린 BPM에서 808이 풍성하게 울리도록 긴 노트를 사용하세요.',
     17:'🎛 재즈 코드 진행과 퀴키한 샘플 선택이 Westwood 스타일을 완성합니다.',
+    18:'🎛 808을 클리핑 직전까지 디스토션으로 밀고, 기타 리프는 다운튜닝된 짧은 반복으로 유지하세요. 스크림·그로울이 킥과 같은 타이밍에 꽂혀야 합니다.',
+    19:'🎛 R&B 샘플 루프를 먼저 정하고 그 위에 저지 클럽 킥과 슬라이딩 808을 얹으세요. 무심한 듯 여유로운 딜리버리가 매력이라 비트를 꽉 채우지 마세요.',
   };
   if(proTips[st.genre]&&st._appliedAdvTipGenre!==st.genre){
     const tipTags=ADV_TIP_TAGS[st.genre]||[];
@@ -1691,6 +1712,8 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
     15:'날것의 감성이 미덕입니다. 과도한 다듬기보다 불완전한 침실 프로듀서 텍스처를 유지하세요.',
     16:'느린 BPM에서 808의 긴 서스테인이 멜로디가 됩니다. 최소한의 요소로 최대한의 공간을 만드세요.',
     17:'의외성이 매력입니다. 예상치 못한 코드 전환과 독특한 샘플 조합이 Westwood 스타일을 완성합니다.',
+    18:'훅은 리프+808 풀 어택, 벌스는 드럼과 보컬만 남기는 극단적 대비가 핵심입니다. 에너지가 식기 전에 짧게 끝내세요.',
+    19:'샘플 루프가 곡을 이끕니다. 훅과 벌스 모두 같은 루프를 유지하고 킥 패턴과 808만 바꿔 변화를 주세요. 짧고 무드 중심의 구조가 어울립니다.',
   };
   // 실제 설정(훅 마디 수·멜로디·텍스처 개수)을 보고 편곡 포인트에 구체적인 진단 문장을 덧붙임
   const dynamicArrangeFeedback=(genreIdx,bars,melodyN,textureN)=>{

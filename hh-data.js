@@ -22,6 +22,8 @@ const GENRES=[
   {kr:'디짓코어',en:'Digicore',tag:'digicore',bpm:148,bpmR:[138,160],instr:['SoundCloud texture','bedroom synth','crunchy 808'],vocal:'lo-fi autotune rap',pts:['bedroom producer texture','SoundCloud aesthetic','raw lo-fi quality'],sound:'raw digital',energy:'high',drum:'digicore drums'},
   {kr:'플럭gnb',en:'Pluck & B',tag:'pluggnb',bpm:72,bpmR:[65,80],instr:['melodic pluck','slow 808','ghostly pad'],vocal:'melodic ad-libs/hum',pts:['slow hypnotic pluck melody','ultra slow tempo','ghostly atmospheric'],sound:'hypnotic slow',energy:'low',drum:'minimal slow drums'},
   {kr:'Westwood',en:'Westwood/Odd Future',tag:'westwood hip hop',bpm:93,bpmR:[80,105],instr:['jazz chord','live drum','quirky sample'],vocal:'introspective/quirky rap',pts:['jazzy quirky chords','live organic drums','unconventional structure'],sound:'quirky organic',energy:'mid',drum:'live jazz-influenced drums'},
+  {kr:'트랩 메탈',en:'Trap Metal',tag:'trap metal',bpm:150,bpmR:[135,165],instr:['distorted 808','downtuned guitar riff','industrial noise'],vocal:'screamed/growled rap',pts:['heavily distorted clipping 808','downtuned metal guitar riffs','aggressive screamed vocals'],sound:'aggressive industrial',energy:'very high',drum:'aggressive trap metal drums'},
+  {kr:'섹시 드릴',en:'Sexy Drill',tag:'sexy drill',bpm:140,bpmR:[130,150],instr:['chopped R&B sample','sliding 808','jersey club kick'],vocal:'nonchalant smooth rap',pts:['chopped R&B sample loop','smooth sliding 808','bouncy jersey-influenced drums'],sound:'smooth seductive',energy:'mid-high',drum:'bouncy jersey-drill drums'},
 ];
 
 const GENRE_PRESETS=[
@@ -37,6 +39,8 @@ const GENRE_PRESETS=[
   {name:'디짓코어',genre:15,bpm:145,key:9,color:'#60A5FA'},
   {name:'플럭gnb',genre:16,bpm:72,key:10,color:'#818CF8'},
   {name:'Westwood',genre:17,bpm:93,key:3,color:'#34D399'},
+  {name:'Trap Metal',genre:18,bpm:150,key:9,color:'#B91C1C'},
+  {name:'Sexy Drill',genre:19,bpm:140,key:10,color:'#EC4899'},
 ];
 
 const HH_ARTISTS=[
@@ -188,6 +192,7 @@ const GENRE_REF={
   9:['DJ Mustard','Timbaland'], 10:["Pi'erre Bourne",'Whitearmor'], 11:['Pharrell Williams','Kaytranada'],
   12:['J Dilla','Just Blaze'], 13:['Zaytoven','Timbaland'], 14:['Ronny J','Mike Dean'],
   15:['Whitearmor','Ronny J'], 16:["Pi'erre Bourne",'Wheezy'], 17:['J Dilla','Harry Fraud'],
+  18:['Ronny J','Whitearmor'], 19:['Kaytranada','DJ Mustard'],
 };
 const HH_TEXTURE=['Lo-fi grain','Vintage tape','Pristine digital','Heavy reverb','Dry intimate','Sidechain pump','Stereo wide','Bass-heavy','Punchy mix','Polished production','Raw sound'];
 const HH_ERA=['90s','2000s','2010s','2020s','Timeless'];
@@ -219,6 +224,8 @@ const ADV_TIP_TAGS={
   15:['lo-fi glitch texture','bedroom producer aesthetic'],
   16:['long sustained 808 notes','808 as melody'],
   17:['jazzy chord voicings','quirky unconventional samples'],
+  18:['distorted 808 growl','downtuned guitar riff','industrial noise texture'],
+  19:['chopped R&B sample','jersey club kick bounce','sliding 808 glide'],
 };
 const HH_NARR=[
   {label:'인트로',icon:'⚡',opts:['콜드 오프닝·임팩트','서서히 빌드업','미니멀 비트 인트로','아카펠라 오프닝','직접적 그루브 시작']},
@@ -282,6 +289,7 @@ const GENRE_STRUCTURE={
   5:'Minimal',6:'Minimal',7:'Minimal',8:'Minimal',9:'Hook Heavy',
   10:'Minimal',11:'Standard',12:'Standard',13:'Standard',14:'Extended',
   15:'Hook Heavy',16:'Minimal',17:'Standard',
+  18:'Hook Heavy',19:'Minimal',
 };
 const MOOD_STRUCTURE={
   '어둡고 위압적':['Hook Heavy'],'감각적·관능적':['Standard'],'멜로딕·감성':['Standard'],
