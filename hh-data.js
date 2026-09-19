@@ -276,7 +276,7 @@ const GENRE_SECTION_CUE=[
   {hook:'syncopated percussion locked in, tropical groove driving',verse:'percussion lighter, tropical layers softly stacked, call-and-response space',bridge:'percussion stripping then rebuilding, tropical tension rising'},
   {hook:'simple sparse beat, open space, room to breathe',verse:'minimal drums staying out of the way, clean open pocket',bridge:'brief swell, drums resolving cleanly'},
   {hook:'{e} pitch-matched to the chords, harmonic melody up front',verse:'{e} carrying the chord melody, drums lighter',bridge:'{e} pitch-bending chromatic tension'},
-  {hook:'extreme {e} explosion, industrial-peak drums, every element maxed',verse:'near-silence contrast, drums stripped back',bridge:'sudden surge, aggressive build'},
+  {hook:'{e} distorted and punchy, industrial-style drums, layers stacking',peak:'extreme {e} explosion, industrial-peak drums, every element maxed',verse:'near-silence contrast, drums stripped back',bridge:'sudden surge, aggressive build'},
   {hook:'raw bedroom texture, lo-fi DIY drums',verse:'rawer intimate feel, unpolished grain',bridge:'raw texture shifting, imperfect drum swell'},
   {hook:'long slow {e} sustain melody, cloud drift, minimal layers',verse:'ultra slow held notes, hazy dreamy bed, maximum space',bridge:'sustained fading, airy drift'},
   {hook:'unexpected chord stab, gritty jazz-flip drums',verse:'unique chop, dusty grimy pocket',bridge:'chop pivot, unexpected harmonic shift'},
@@ -307,6 +307,8 @@ const MELODY_REGISTER={
   'Emotional piano':'mid','Guitar loop':'mid','Sample chop':'mid','Rhodes keys':'mid','Saxophone':'mid','Brass stab':'mid','Vocoder synth':'mid','Psychedelic FX':'mid','Supersaw synth':'mid',
   'Flute':'high','Harp':'high','Music box':'high','Vibraphone':'high','Kalimba':'high','Arp pluck synth':'high',
 };
+// 둘 다 넓게 깔리는 지속음 계열이면(Supersaw + Ambient pad 등) 대역이 달라도 서로·808과 마스킹 — 짝 중 하나는 짧은 트랜지언트 악기여야 함
+const MELODY_SUSTAINED=new Set(['Dark synth','Ambient pad','Strings','Cello','Organ','Supersaw synth','Psychedelic FX','Vocoder synth','Sitar']);
 const DENSITY_TAG={'Minimalist':'minimalist arrangement','Sparse':'sparse arrangement','Balanced':'balanced arrangement','Dense':'dense hook layers with stripped-back verses','Maximalist':'maximalist hook layers with stripped-back verses'};
 const GROOVE_PEAK={'타이트 그리드':'ghost-note syncopation on every off-beat','살짝 스윙':'swing at its most pronounced','헤비 스윙':'MPC swing at full looseness','레이드백 포켓':'snare dragging at its furthest behind the beat','푸시드 포켓':'kick at its most urgent, ahead of the beat'};
 const GENRE_HUMAN=[
