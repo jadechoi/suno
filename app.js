@@ -86,7 +86,8 @@ function hhInit(){
     el.style.borderColor=p.color+'80';
     el.style.color=p.color;
     el.onclick=()=>{
-      st.genre=p.genre;st.bpm=p.bpm;st.key=p.key;
+      if(st.genre!==p.genre)selectGenre(p.genre);   // 808·드럼·멜로디 등 장르별 자동 추천도 같이 채움 (예전엔 장르/BPM/Key만 바뀌고 나머지는 비어 있었음)
+      st.bpm=p.bpm;st.key=p.key;
       document.getElementById('hh-bpm').value=p.bpm;
       document.getElementById('hh-key').value=p.key;
       renderHhGenres();
@@ -118,7 +119,8 @@ function renderHhChips(){
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',()=>{if(st._mtAutoManaged)recommendMelodyTexture();if(st._structAutoManaged)recommendStructure();});
+  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);
+  renderGenreGuide();
   chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,recommendVocalChar);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
@@ -622,9 +624,61 @@ function renderHhGenres(){
     const el=document.createElement('div');
     el.className='chip'+(st.genre===i?' selected':'');
     el.textContent=g.kr;
+    el.title=GENRE_FEEL[i]||'';
     el.onclick=()=>selectGenre(i);
     container.appendChild(el);
   });
+  // 장르 이름만으로는 어떤 소리인지 모르는 사람용 — 고른 장르의 느낌을 쉬운 말로 바로 아래에
+  const feel=document.getElementById('hh-genre-feel');
+  if(feel){
+    const g=st.genre!==null?GENRES[st.genre]:null;
+    feel.hidden=!g;
+    if(g)feel.textContent=`${g.kr} — ${GENRE_FEEL[st.genre]} (${g.bpm} BPM)`;
+  }
+  renderGenreGuideResult();
+}
+// 무드 → 장르 가이드: 무드를 고르면 어울리는 장르를 느낌 설명과 함께 보여주고, 누르면 장르+무드가 같이 설정됨
+let _guideMood=null;
+function renderGenreGuide(){
+  const box=document.getElementById('hh-guide-moods');
+  if(!box)return;
+  box.innerHTML='';
+  HH_MOODS.forEach(m=>{
+    const el=document.createElement('div');
+    el.className='chip'+(_guideMood===m.kr?' selected':'');
+    el.textContent=m.kr;
+    el.onclick=()=>{_guideMood=_guideMood===m.kr?null:m.kr;renderGenreGuide();};
+    box.appendChild(el);
+  });
+  renderGenreGuideResult();
+}
+function renderGenreGuideResult(){
+  const res=document.getElementById('hh-guide-result');
+  if(!res)return;
+  const ids=_guideMood?MOOD_GENRE_GUIDE[_guideMood]||[]:[];
+  res.hidden=!ids.length;
+  res.innerHTML='';
+  ids.forEach((gi,rank)=>{
+    const g=GENRES[gi];
+    const sel=st.genre===gi&&st.mood===_guideMood;
+    const el=document.createElement('div');
+    el.style.cssText=`background:${sel?'rgba(157,78,221,.18)':'var(--surface-2)'};border:1px solid ${sel?'var(--accent)':'var(--border)'};border-radius:var(--r);padding:10px 12px;cursor:pointer`;
+    el.innerHTML=`<div style="font-size:13px;font-weight:600;color:${sel?'var(--accent-text)':'var(--text-1)'};margin-bottom:4px">${rank===0?'⭐ ':''}${g.kr} <span style="font-weight:400;font-size:10px;color:var(--text-3)">${g.bpm} BPM</span></div><div style="font-size:11px;color:var(--text-2);line-height:1.5">${GENRE_FEEL[gi]}</div>`;
+    el.onclick=()=>pickGenreFromGuide(gi,_guideMood);
+    res.appendChild(el);
+  });
+}
+// 무드를 먼저 정해두고 장르를 고르면 selectGenre 안의 자동 추천(멜로디·808·그루브 등)이 그 무드를 반영함
+function pickGenreFromGuide(gi,moodKr){
+  st.mood=moodKr;
+  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);
+  if(st.genre!==gi)selectGenre(gi);
+  else onMoodChange();
+  renderHhGenres();
+}
+function onMoodChange(){
+  if(st._mtAutoManaged)recommendMelodyTexture();
+  if(st._structAutoManaged)recommendStructure();
 }
 
 function selectGenre(i){
