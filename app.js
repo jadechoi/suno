@@ -939,7 +939,7 @@ function recommendStructure(){
   if(st.length&&LENGTH_SEC[st.length]){
     const target=LENGTH_SEC[st.length];
     const byDist=HH_STRUCT_PRESETS.map(p=>[p.name,Math.abs(structDurationSec(p.segs,st.bpm)-target)]).sort((x,y)=>x[1]-y[1]);
-    add(byDist[0][0],5);add(byDist[1][0],2);
+    add(byDist[0][0],6);add(byDist[1][0],2);
     why.push('목표 길이 '+st.length);
   }
   if(st.commercial){(STRUCT_BY_COMMERCIAL[st.commercial]||[]).forEach(n=>add(n,1));why.push(st.commercial.split('/')[0]);}

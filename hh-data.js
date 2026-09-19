@@ -404,19 +404,19 @@ const HH_STRUCT_PRESETS=[
 const HH_SEG_PALETTE=['intro','hook','verse','bridge','outro'];
 // 장르별 구조 추천 (첫 번째가 1순위, 두 번째가 대안) — 예전엔 장르당 1개라 무드(2점)가 장르(3점)를 절대 못 이겼음
 const GENRE_STRUCTURE={
-  0:'Hook Heavy + Standard',1:'Slow Burn + Hook Heavy',2:'Standard + Slow Burn',3:'Hook Heavy + Loop Evolve',4:'Hook Heavy + Loop Evolve',
-  5:'Loop Evolve + Minimal',6:'Standard + Minimal',7:'Slow Burn + Minimal',8:'Loop Evolve + Minimal',9:'Hook Heavy + Loop Evolve',
+  0:'Standard + Hook Heavy',1:'Hook Heavy + Slow Burn',2:'Standard + Slow Burn',3:'Hook Heavy + Loop Evolve',4:'Hook Heavy + Loop Evolve',
+  5:'Loop Evolve + Hook Heavy',6:'Standard + Loop Evolve',7:'Slow Burn + Loop Evolve',8:'Loop Evolve + Slow Burn',9:'Hook Heavy + Loop Evolve',
   10:'Loop Evolve + Hook Heavy',11:'Standard + Hook Heavy',12:'Standard + Slow Burn',13:'Slow Burn + Standard',14:'Extended + Hook Heavy',
   15:'Hook Heavy + Loop Evolve',16:'Slow Burn + Loop Evolve',17:'Standard + Slow Burn',
-  18:'Hook Heavy + Loop Evolve',19:'Loop Evolve + Minimal',
+  18:'Hook Heavy + Loop Evolve',19:'Loop Evolve + Standard',
 };
 const MOOD_STRUCTURE={
-  '어둡고 위압적':['Slow Burn','Hook Heavy'],'감각적·관능적':['Slow Burn','Standard'],'멜로딕·감성':['Standard','Slow Burn'],
-  '에너제틱·하입':['Hook Heavy','Loop Evolve'],'사이키델릭·몽환':['Slow Burn','Loop Evolve'],'칠·그루비':['Loop Evolve','Minimal'],
-  '분노·공격적':['Hook Heavy','Loop Evolve'],'내성적·사색':['Slow Burn','Minimal'],'축제·환희':['Hook Heavy','Extended'],
-  '승리감·웅장':['Extended','Standard'],'슬프고·멜랑콜리':['Slow Burn','Standard'],'자신감·플렉스':['Hook Heavy','Standard'],
-  '로맨틱·달콤한':['Standard','Slow Burn'],'긴장감·서스펜스':['Slow Burn','Extended'],'노스탤직·향수':['Standard','Loop Evolve'],
-  '미스터리·신비':['Slow Burn','Loop Evolve'],
+  '어둡고 위압적':['Hook Heavy','Standard'],'감각적·관능적':['Standard','Slow Burn'],'멜로딕·감성':['Standard','Slow Burn'],
+  '에너제틱·하입':['Hook Heavy','Standard'],'사이키델릭·몽환':['Slow Burn','Loop Evolve'],'칠·그루비':['Loop Evolve','Standard'],
+  '분노·공격적':['Hook Heavy','Standard'],'내성적·사색':['Slow Burn','Standard'],'축제·환희':['Hook Heavy','Standard'],
+  '승리감·웅장':['Extended','Standard'],'슬프고·멜랑콜리':['Standard','Slow Burn'],'자신감·플렉스':['Hook Heavy','Standard'],
+  '로맨틱·달콤한':['Standard','Slow Burn'],'긴장감·서스펜스':['Slow Burn','Standard'],'노스탤직·향수':['Standard','Loop Evolve'],
+  '미스터리·신비':['Slow Burn','Standard'],
 };
 // 그 밖의 신호 — 장르·무드가 같아도 색깔(커머셜/언더그라운드), 밀도, 보컬 유무, 목표 길이에 따라 어울리는 구조가 다름
 const STRUCT_BY_COMMERCIAL={'Commercial/Mainstream':['Hook Heavy','Standard'],'Underground/Experimental':['Slow Burn','Loop Evolve','Extended']};

@@ -8,6 +8,8 @@ function updateAiButtonVisibility(){
   if(melodyBlock)melodyBlock.hidden=!hasKey;
   const refBlock=document.getElementById('hh-ref-ai-block');
   if(refBlock)refBlock.hidden=!hasKey;
+  const structBlock=document.getElementById('hh-struct-ai-block');
+  if(structBlock)structBlock.hidden=!hasKey;
 }
 
 
@@ -147,7 +149,7 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
 // aiProducerReview·aiParseExternalFeedback가 같은 "현재 프롬프트 상태"를 보게 — 예전엔 리뷰는 드럼/808/그루브/스타일 박스를 못 보고,
 // 외부 피드백 파서는 현재 프롬프트를 아예 못 봐서(스키마가 언급하는 [현재 설정]·[프로듀서 레퍼런스]도 없었음) 이미 있는 걸 또 제안하거나 removeRef/melodyLead를 못 채웠음
 // 지금까지 고른 설정 요약 — 리뷰·외부 피드백·레퍼런스 추천이 같은 걸 봄. refs:false면 현재 레퍼런스는 뺌(레퍼런스를 새로 고를 땐 기존 걸 앵커로 삼으면 안 됨)
-function aiSelectionCtx({refs=true}={}){
+function aiSelectionCtx({refs=true,structure=true}={}){
   const g=GENRES[st.genre];
   const mood=HH_MOODS.find(m=>m.kr===st.mood);
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
@@ -169,7 +171,8 @@ function aiSelectionCtx({refs=true}={}){
     refs&&refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
     refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
     st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
-    `구조: ${st.structSegs.join(' → ')}`,
+    st.length?`목표 길이: ${st.length}`:null,
+    structure?`구조: ${st.structSegs.join(' → ')}`:null,
     `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
     antiAI?'Anti-AI 필터 ON — 사용자가 "AI 티 안 나고 사람이 만든 것 같은" 결과를 원함':null,
   ].filter(Boolean).join('\n');
@@ -689,6 +692,46 @@ ${ctx}`;
 
 // GENRE_REF는 장르 하나만 보고 고정 2명을 주는 룰 테이블이라, 같은 장르에서도 무드·멜로디·텍스처가 다르면
 // 더 어울리는 다른 프로듀서가 있을 수 있음 — 그 판단은 룰로 못 담아서 AI로
+// 구조만 따로 AI 추천 — 다른 요소(장르·무드·보컬·밀도·색깔·길이·레퍼런스 곡)를 다 고른 뒤에 눌러서 그걸 전부 보고 구조 프리셋 1개를 고름
+async function aiRecommendStructure(){
+  const key=getAnthropicKey();
+  const statusEl=document.getElementById('hh-ai-struct-status');
+  const btn=document.getElementById('hh-ai-struct-btn');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
+  btn.disabled=true;btn.textContent='🤖 추천 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const list=HH_STRUCT_PRESETS.map(p=>`${p.name}: ${p.desc} (${p.segs.join('→')}, 약 ${fmtDur(structDurationSec(p.segs,st.bpm))})`).join('\n');
+    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고 이 곡에 가장 어울리는 곡 구조 프리셋을 아래 목록에서 1개만 이름 그대로 골라줘. 장르·무드·보컬 유무·밀도·색깔(커머셜/언더그라운드)·목표 길이(있으면 예상 길이와 비교)와, 타겟 레퍼런스 곡이 있으면 그 곡의 실제 곡 구성(루프 하나로 가는 미니멀한 곡인지, 벌스로 쌓다가 훅에서 터지는지, 훅이 자주 돌아오는지 — 네가 아는 대로)을 종합해서 판단해. 특별히 다른 구조가 더 어울린다는 근거가 없으면 정석(Standard)이 무난한 기본값이야 — 억지로 독특한 구조를 고르지 마.
+
+[구조 프리셋 — 괄호는 현재 BPM·마디 수 기준 예상 길이]
+${list}
+
+설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
+{"structure":"...","reason":"한 문장 한국어 이유"}`;
+    const dynamicText=`
+
+[현재 선택]
+${aiSelectionCtx({structure:false})}`;
+    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText});
+    const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const idx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
+    if(idx<0)throw new Error('AI가 목록에 없는 구조를 반환했습니다');
+    st.structSegs=[...HH_STRUCT_PRESETS[idx].segs];
+    st.structIdx=idx;
+    st._structAutoManaged=false;   // AI가 고른 걸 이후 무드·길이 변경이 조용히 덮어쓰지 않게
+    renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
+    clearAutoHint('hh-struct-hint');
+    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate(`AI 구조 추천 적용: ${parsed.structure}`);
+    if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--success)';statusEl.textContent='✅ '+parsed.structure+' — '+(parsed.reason||'추천 완료');}
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 AI로 구조 추천';
+  }
+}
 async function aiRecommendProducerRef(opts){
   const key=getAnthropicKey();
   const statusEl=document.getElementById('hh-ai-ref-status');
