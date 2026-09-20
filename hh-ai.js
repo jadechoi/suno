@@ -1033,7 +1033,17 @@ function validateWritten(spec,section,style){
   if(!spec.vocal){
     const stripped=(section+' '+style).replace(/no vocals|no vocal samples|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
     if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
-  }else if(hooks.length&&hooks.some(s=>!s.body.toLowerCase().includes(spec.vocal.toLowerCase().split(' ')[0])))errors.push(`보컬(${spec.vocal})이 모든 훅에 명시돼야 함`);
+  }else{
+    // 보컬이 있는 곡: 무보컬 신호가 하나라도 있으면 Suno가 보컬을 끄거나 결과가 엉킴 (예시 프롬프트가 전부 무보컬이라 AI가 [Instrumental]을 따라 쓰는 경우가 있었음)
+    const noVoc=(style+' '+section).match(/\[instrumental\]|\bno vocals?\b|zero vocal chops|no vocal samples|(?:purely|completely) instrumental|\bvocal chops?\b/i);
+    const label=(style+' '+section).match(/\b(heavy hooks|light ad-libs|full rap feature)\b/i);   // 우리 메뉴 이름이지 Suno가 아는 표현이 아님
+    if(label)errors.push(`메뉴 이름 "${label[0]}"이 그대로 들어감 — 실제로 들리는 보컬 소리(톤·마이크 거리·후크 라인 등)로 묘사할 것`);
+    if(noVoc)errors.push(`보컬이 있는 곡인데 무보컬 신호 "${noVoc[0]}"가 들어감 — 스타일·섹션에서 모두 빼고 보컬을 소리로 묘사할 것`);
+    if(hooks.some(s=>!/vocal|voice|sung|sing|rap|whisper|ad-?lib|chant|heavy hooks|full rap/i.test(s.body)))errors.push(`보컬(${spec.vocal})이 모든 훅에 소리로 묘사돼야 함`);
+    // "Instrumental"이라고 표시한 섹션(예: 브릿지)에 보컬 묘사가 있으면 헤더와 본문이 모순
+    const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
+    secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
+  }
   // 스타일 박스
   spec.fixedStyleTags.forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase()))errors.push(`스타일 프롬프트에 고정 태그 "${t}"가 없음`);});
   if(style.length>spec.limits.style)errors.push(`스타일 프롬프트 ${style.length}자 — ${WRITE_LIMITS.style}자 이하여야 함`);
@@ -1070,6 +1080,10 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 회수: 아웃트로는 인트로의 소리·이미지를 다시 불러와 끝맺고(콜백) 마지막에 남는 소리를 명시.
 - 인간미(antiAI가 true일 때): 이 곡의 실제 악기·드럼마다 구체적인 불완전함(타이밍 밀림, 벨로시티 불균일, 피치 흔들림, 필터 비대칭 등)을 섹션에 나눠서 몇 군데.
 - 믹스 분리: 리드·배경·베이스가 겹칠 수 있는 구간에서는 분리 방법(하이패스, 사이드체인, 옥타브 분리)을 훅에 한두 번 명시.
+
+[보컬 곡]
+- 예시는 전부 무보컬이라 [Instrumental]·"no vocals & ZERO vocal chops…" 묶음이 있어. **명세의 vocal이 null이 아니면(보컬 곡) 이건 절대 쓰지 마.** 스타일에 [Instrumental]도, 섹션에 "purely/completely instrumental"이나 "vocal chops"도 금지. 보컬은 메뉴 이름(Heavy hooks, Light ad-libs, Full rap feature)을 그대로 쓰지 말고 실제로 들리는 소리(속삭임, 클로즈 마이크, 짧은 후크 라인, 톤, 처리)로 묘사해. 헤더가 "Instrumental"인 섹션(브릿지 등)에는 보컬 묘사를 넣지 마.
+- vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
 
 [BPM·Key]
 - 명세의 bpm·key가 null이면 사용자가 정하지 않은 거야 — 스타일과 섹션 어디에도 BPM 숫자나 Key("in A minor" 등)를 쓰지 마. 값이 있으면 그대로 정확히 써.
