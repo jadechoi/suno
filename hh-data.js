@@ -650,7 +650,7 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 
 // ===== AI 작성기 · 리뷰 루브릭 상수 =====
 // 섹션 박스(Suno 가사칸) 한도 5000자, 스타일 박스 1000자 — 여유를 두고 4900/950으로 (AI가 이 안에서 씀)
-const WRITE_LIMITS={section:4900,style:950,tags:13};
+const WRITE_LIMITS={section:4900,style:950,tags:15};
 // 리뷰 채점 루브릭 — 예전엔 "냉정하게, 후하게 주지 말고, 약점 위주"라 첫 리뷰가 55·58·58·58·59로 상수에 가까웠음(바닥 효과). 항목별 0~10점(앵커 제시)을 받고 합계는 코드가 가중합으로 계산
 const REVIEW_RUBRIC=[
   {key:'arc',label:'구조·전개 아크',w:15,def:'인트로→벌스→훅→클라이맥스→아웃트로가 하나의 서사로 이어지고 에너지가 단계적으로 오르는가'},

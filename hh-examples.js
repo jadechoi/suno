@@ -113,6 +113,3 @@ const PROMPT_EXAMPLES=[
 (Beat drops out instantly, main pop chord echoing softly, sweeping filter fade out)`,
 },
 ];
-// 장르별로 가장 가까운 예시 2개(첫 번째가 가장 가까운 것) — GENRES 순서와 1:1
-const EXAMPLE_FOR_GENRE=[[0,1],[0,3],[1,2],[0,3],[0,3],[0,3],[1,0],[1,2],[1,2],[3,0],[2,0],[1,0],[1,0],[1,2],[3,2],[2,3],[1,2],[1,3],[0,2],[0,1]];
-function pickPromptExamples(genreIdx){return (EXAMPLE_FOR_GENRE[genreIdx]||[0,1]).map(i=>PROMPT_EXAMPLES[i]);}

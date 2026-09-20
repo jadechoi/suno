@@ -183,7 +183,8 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
 // aiProducerReview·aiParseExternalFeedback가 같은 "현재 프롬프트 상태"를 보게 — 예전엔 리뷰는 드럼/808/그루브/스타일 박스를 못 보고,
 // 외부 피드백 파서는 현재 프롬프트를 아예 못 봐서(스키마가 언급하는 [현재 설정]·[프로듀서 레퍼런스]도 없었음) 이미 있는 걸 또 제안하거나 removeRef/melodyLead를 못 채웠음
 // 지금까지 고른 설정 요약 — 리뷰·외부 피드백·레퍼런스 추천이 같은 걸 봄. refs:false면 현재 레퍼런스는 뺌(레퍼런스를 새로 고를 땐 기존 걸 앵커로 삼으면 안 됨)
-function aiSelectionCtx({refs=true,structure=true}={}){
+function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
+  const auto=soft&&st._mtAutoManaged!==false;   // soft: 자동 채워진 장르 기본값은 확정 값이 아니라 참고로만 보여줌
   const g=GENRES[st.genre];
   const mood=HH_MOODS.find(m=>m.kr===st.mood);
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
@@ -194,15 +195,16 @@ function aiSelectionCtx({refs=true,structure=true}={}){
     `장르: ${g.kr} (${g.sound})`,
     mood?`무드: ${mood.kr}`:null,
     st.commercial?`색깔: ${st.commercial}`:null,
-    st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택',
-    st.drums.length?`드럼 패턴: ${st.drums.join(', ')}`:null,
-    st._808?`808: ${st._808}`:null,
-    st.groove?`그루브: ${st.groove}`:null,
-    st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null,
-    st.transitionFx&&st.transitionFx.length?`전환 효과: ${st.transitionFx.join(', ')}`:null,
+    auto?`장르 기본 추천(자동으로 채워진 참고값일 뿐 — 따르지 않아도 되고, 이 곡의 의도에 맞는 악기·드럼·베이스·질감을 직접 설계해): 멜로디 ${st.melody.join(', ')||'-'} / 드럼 ${st.drums.join(', ')||'-'} / 808 ${st._808||'-'} / 그루브 ${st.groove||'-'} / 텍스처 ${st.texture.join(', ')||'-'}`:null,
+    auto?null:(st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택'),
+    auto?null:(st.drums.length?`드럼 패턴: ${st.drums.join(', ')}`:null),
+    auto?null:(st._808?`808: ${st._808}`:null),
+    auto?null:(st.groove?`그루브: ${st.groove}`:null),
+    auto?null:(st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null),
+    auto?null:(st.transitionFx&&st.transitionFx.length?`전환 효과: ${st.transitionFx.join(', ')}`:null),
     [st.era,st.region,st.density].filter(Boolean).length?`시대/지역/밀도: ${[st.era,st.region,st.density].filter(Boolean).join(' / ')}`:null,
     hasVocal?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
-    refs&&refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
+    refs&&refProducers&&!auto?`프로듀서 레퍼런스: ${refProducers}`:null,
     refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
     briefCtxLine(),
     st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
@@ -946,20 +948,21 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const g=GENRES[st.genre];
   const roles=computeMelodyRoles(st.melody);
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
+  const auto=st._mtAutoManaged!==false;   // 장르를 고르면 808·드럼·멜로디·텍스처·프로듀서가 장르 기본값으로 자동 채워짐 — 사용자가 고른 게 아니므로 확정 값이 아니라 참고
   const secs=parseSections(draftSect);
   const w={intro:1,hook:1.3,verse:1.1,bridge:0.9,outro:1};
   const wsum=secs.reduce((s,x)=>s+(w[x.type]||1),0)||1;
   const budget=Math.floor(WRITE_LIMITS.section*0.92);
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:Math.floor(budget*(w[s.type]||1)/wsum*1.25)}));
   const styleTags=(draftStyle||'').split(', ');
-  const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',`Key of ${KEYS[st.key]}`,`${st.bpm} BPM`,(g?g.tag:null),(g&&st.commercial!=='Underground/Experimental'?GENRE_FUSION[st.genre]?.[1]:null)].filter(Boolean);   // 장르 융합 라벨("pop-drill")도 스타일에 남아야 함
+  const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',`Key of ${KEYS[st.key]}`,`${st.bpm} BPM`,(g?g.tag:null)].filter(Boolean);
   return {
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:KEYS[st.key],bpm:st.bpm,
-    lead:roles?roles.lead:(st.melody[0]||null),background:roles?roles.bg:null,
-    drums:[...st.drums],bass808:st._808,vocal:hasVocal?st.vocal:null,
-    transitionFx:[...(st.transitionFx||[])],groove:st.groove,texture:[...st.texture],
-    producerReference:st.refs[0]||null,
-    producerSound:st.refs[0]?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
+    lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
+    drums:auto?[]:[...st.drums],bass808:auto?null:st._808,vocal:hasVocal?st.vocal:null,
+    transitionFx:auto?[]:[...(st.transitionFx||[])],groove:auto?null:st.groove,texture:auto?[]:[...st.texture],
+    producerReference:auto?null:(st.refs[0]||null),
+    producerSound:(!auto&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
     brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
@@ -1001,11 +1004,12 @@ function validateWritten(spec,section,style){
   const hooks=secs.filter(s=>s.type==='hook');
   if(spec.lead){
     const l=spec.lead.toLowerCase();
-    if(!secs.filter(s=>s.type==='intro'||s.type==='hook').every(s=>s.body.toLowerCase().includes(l)))errors.push(`리드 악기 "${spec.lead}"가 인트로와 모든 훅에 이름으로 들어가야 함`);
+    const leadSecs=[secs.find(s=>s.type==='intro'),hooks[0],hooks[hooks.length-1]].filter(Boolean);
+    if(!leadSecs.every(s=>s.body.toLowerCase().includes(l)))errors.push(`리드 악기 "${spec.lead}"가 인트로와 첫·마지막 훅에 이름으로 들어가야 함`);
   }
   if(spec.background&&hooks.length&&!hooks.some(s=>s.body.toLowerCase().includes(spec.background.toLowerCase())))errors.push(`배경 악기 "${spec.background}"가 훅에 최소 한 번은 등장해야 함`);
   spec.drums.forEach(d=>{if(!low.includes(d.toLowerCase()))errors.push(`고른 드럼 "${d}"가 섹션 어디에도 없음`);});
-  if(spec.drums[0]&&hooks.some(s=>!s.body.toLowerCase().includes(spec.drums[0].toLowerCase())))errors.push(`메인 드럼 "${spec.drums[0]}"가 모든 훅에 들어가야 함`);
+  if(spec.drums[0]&&hooks[0]&&!hooks[0].body.toLowerCase().includes(spec.drums[0].toLowerCase()))errors.push(`메인 드럼 "${spec.drums[0]}"가 첫 훅에 들어가야 함`);
   // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
   {
     const names=[...HH_REF.map(r=>r.kr),...(spec.referenceSong||'').split(' - ')[0].split(/\s+(?:feat\.?|featuring|ft\.?|x|&)\s+|,\s*/i)].map(n=>n.trim().toLowerCase()).filter(n=>n.length>=4);
@@ -1049,14 +1053,22 @@ function validateWritten(spec,section,style){
   });
   return {ok:!errors.length,errors};
 }
-const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가야. 규칙 엔진이 만든 [명세]와 [참고 초안]을 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 직접 써.
+const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프롬프트 작가야. 사용자의 [의도]와 [명세]를 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 처음부터 직접 써. 템플릿이나 장르의 평균적인 기본 문구로 채우지 말고, 이 곡의 의도(원하는 분위기·장르·레퍼런스 곡의 소리)에 맞는 구체적인 소리와 전개를 네가 직접 설계해.
 
 [좋은 프롬프트의 패턴 — 실제로 Suno에서 잘 나온 프롬프트에서 뽑은 것. 우리 프로그램의 질감·디테일과 합쳐서 써]
-- 스타일: 장르 융합 라벨("A meets B", "pop-drill" 같은 크로스오버 표현)을 앞쪽에, 상업적 매력 어휘(catchy, bright, punchy, polished, pristine, hook-driven, danceable, memorable)를 촘촘히. 금지어 묶음("no vocals & ZERO vocal chops & no vocal samples", 필요하면 "NO guitars")은 스타일에 한 번, 섹션에는 첫 훅·마지막 훅에만.
+- 스타일: 이 곡이 어떤 장르들의 만남인지 잘 드러나게(필요하면 "A meets B" 같은 크로스오버 표현), 귀에 붙는 매력 어휘는 의도에 맞는 것으로(밝고 신나는 곡은 catchy·bright·danceable, 어둡거나 몽환적인 곡은 hypnotic·menacing·shimmering처럼 — 항상 같은 단어를 쓰지 마). 금지어 묶음("no vocals & ZERO vocal chops & no vocal samples", 필요하면 "NO guitars")은 스타일에 한 번, 섹션에는 첫 훅·마지막 훅에만.
 - 헤더: 명세의 헤더는 그대로 두되, 본문이 헤더의 성격(예: "UK Drill Drop", "Full Club Energy", "Maximum Bounce", "Stripped & Spacious")과 정확히 맞게 써.
 - 훅: 에너지 단어 + 리드가 얼마나 캐치한지("catchy bright synth lead") + 핵심 리듬·베이스를 앞에. 그 뒤에 질감·그루브 결·인간적 불완전함을 얹어.
 - 무보컬 벌스: 랩/멜로디가 들어올 자리를 남기는 표현("wide open pocket for rhythmic rap", "leaving space for a top-line melody", "leaving maximum space for the artist") — 단, 'vocal' 단어는 쓰지 마.
 - 스타일과 섹션 모두 "상업적 매력"과 "질감·디테일" 중 하나만 있으면 안 돼 — 둘을 같이.
+
+[출력 형식 — 예시 프롬프트의 모양보다 이 규칙이 우선]
+- <section>…</section><style>…</style> 두 블록만. 섹션은 명세 structure의 순서·헤더를 글자 그대로 쓰고, 각 헤더 바로 다음 줄에 본문을 괄호로 감싼 한 줄로: 마디 수(bars)가 있는 섹션은 "(N Bars: 키워드, 키워드, …)", 마디 수가 없는 인트로/아웃트로는 "(키워드, …)".
+- 리드 악기 이름은 인트로와 첫·마지막 훅에, 메인 드럼(drums[0]) 이름은 첫 훅에, 고른 드럼은 곡 전체에 걸쳐 전부, 배경 악기는 훅에 한 번 이상 — 이름 그대로.
+- 스타일은 콤마 태그 12개 안팎, 최대 15개(관련 요소는 " & "로 융합), fixedStyleTags 전부 포함, 프로듀서가 있으면 producerSound 키워드 포함.
+
+[모범 예시 — 실제로 Suno에서 잘 나온 프롬프트 4개. 장르가 달라도 상관없어: Suno가 잘 읽는 형식(짧은 키워드 구, 콤마 구분, 한 줄 본문)과 밀도만 참고하고, 표현과 소리는 이 곡의 의도에서 새로 만들어. 예시의 문구를 다른 곡에 그대로 쓸 수 있다면 그건 템플릿이니 쓰지 마. 예시는 무보컬이라 'vocal' 단어가 들어간 부분은 따라 쓰지 마]
+${PROMPT_EXAMPLES.map((e,i)=>`예시${i+1}\n스타일: ${e.style}\n${e.section}`).join('\n\n')}
 
 [일관성 규칙 — 리뷰에서 반복해서 감점된 부분]
 - 스타일 태그는 곡 전체의 "기준 톤"만 써. 섹션에 따라 달라지는 절대 표현(always, only, never, widest, maximum, silent, absent)과 dry/tight/wide 같은 공간 절대값을 스타일에 넣지 마 — 섹션이 그 값에서 벗어나는 순간 모순이 돼(예: 스타일 "dry intimate" vs 훅3 "widest stereo"). 스타일과 섹션이 충돌하면 스타일을 기준 톤으로 낮춰.
@@ -1068,7 +1080,7 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 - 명세의 producerSound는 고른 프로듀서의 소리 특징이야. 이름은 쓰지 말고 이 키워드를 스타일(필요하면 훅)에 살려 써. 곡의 무드·에너지와 정반대(예: 미니멀 소리 vs 맥시멈 밀도)라면 억지로 섞지 말고 그 소리 특징을 리듬/베이스 한두 군데에만 짧게 반영해.
 
 [brief · 이름 규칙]
-- 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 참고 초안이 brief와 다르게 밋밋하거나 일반적이면 brief 쪽을 따라.
+- 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 장르의 평균적인 관습과 brief가 다르면 brief 쪽을 따라.
 - 실존 아티스트·프로듀서·곡 이름을 출력에 절대 쓰지 마(Suno 정책 — 명세의 producerReference·referenceSong도 소리 특징으로만 풀어 써). "OO-inspired" 같은 표현도 금지.
 
 [Suno 사실]
@@ -1089,7 +1101,7 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 - 공간감(스테레오·리버브) 아크는 인트로→벌스→훅→클라이맥스→아웃트로로 이어지고 브릿지에도 공간 정보가 있어야 하며, 고른 텍스처(dry/reverb/wide/tape 등)와 모순되면 안 돼. 스타일 태그와 섹션 문구가 서로 충돌(예: dense 대 stripped, quantized 대 human-feel)하지 않게 정리해.
 - 리드·배경 악기가 808과 중저역에서 겹치지 않게 분리(하이패스·사이드체인·필터) 지시를 훅에 넣어. 인간미(Anti-AI)는 범용어 대신 실제 악기·드럼의 구체적인 불완전함(타이밍 밀림, 벨로시티 불균일, 피치 흔들림)으로.
 - **총량을 관리해**: 새로 쓸 때는 3000~3800자 안팎을 목표로, 고쳐쓸 때는 지시를 반영하면서 겹치거나 낡거나 서로 모순되는 문구를 삭제해서 이전 결과보다 길어지지 않게(±5%). 서술을 늘리지 말고 같은 뜻이면 더 짧은 구로. 한 섹션에 지시가 과밀하면(약 800자 초과) 덜 중요한 것부터 뺀다.
-- 무드의 다이내믹(진입 방식, 훅 어택, 벌스 거동, 브릿지 긴장, 끝맺음)과 장르 특유의 기법을 [참고 초안]에서 가져와 살리되 초안의 반복·모순은 고쳐.
+- 무드의 다이내믹(진입 방식, 훅 어택, 벌스 거동, 브릿지 긴장, 끝맺음)과 장르 특유의 기법은 이 곡의 의도에 맞을 때만 네 판단으로 살려. 의도와 어긋나는 장르 관습은 따르지 마.
 
 [출력 형식 — 이 두 태그만, 설명 없이]
 <section>
@@ -1098,12 +1110,12 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 <style>
 스타일 프롬프트 한 줄
 </style>`;
-async function writeOnce({mode,spec,draft,prev,errors,onPartial}){
+async function writeOnce({mode,spec,prev,errors,onPartial}){
   const key=getAnthropicKey();
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
-[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **수정 가능한 섹션은 다음뿐이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 섹션은 전부 그대로)'}**. 그 외 섹션은 [이전 결과]의 본문을 한 글자도 바꾸지 말고 그대로 복사해(바꾸면 검사에서 실패). 수정 가능한 섹션 안에서는 중복·모순을 정리하고 총량이 늘지 않게 써, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [참고 초안]을 그대로 베끼지 말고 위 원칙에 맞게 처음부터 써'}
+[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **수정 가능한 섹션은 다음뿐이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 섹션은 전부 그대로)'}**. 그 외 섹션은 [이전 결과]의 본문을 한 글자도 바꾸지 말고 그대로 복사해(바꾸면 검사에서 실패). 수정 가능한 섹션 안에서는 중복·모순을 정리하고 총량이 늘지 않게 써, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
 
 [명세]
 ${JSON.stringify(spec,null,1)}
@@ -1113,14 +1125,9 @@ ${directives}
 확정 스타일 지시: ${(st.extraTags||[]).join(' & ')||'(없음)'}
 삭제 확정 문구(어떤 형태로도 다시 쓰지 말 것): ${(st.removedPhrases||[]).join(' | ')||'(없음)'}
 
-[모범 예시 — 실제로 잘 나온 프롬프트. 밀도·어휘·헤더 감각만 배우고 문구는 복사하지 마. 예시는 무보컬이라 'vocal' 단어가 들어간 부분은 따라 쓰지 마]
-${pickPromptExamples(st.genre).map((e,i)=>`예시${i+1} (${e.title})\n스타일: ${e.style}\n${e.section}`).join('\n\n')}
-
-[참고 초안 — 규칙 엔진 결과. 사실·힌트 모음일 뿐 반복/모순이 있을 수 있음]
-${draft.sect}
-
-[참고 스타일 초안]
-${draft.style}
+[의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, 그 외에 적힌 값(BPM·Key·보컬, 그리고 확정된 악기·드럼)은 사용자가 정한 것이니 그대로 지켜]
+${aiSelectionCtx({soft:true})}
+${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
 ${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
   const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
@@ -1165,7 +1172,7 @@ async function hhAiWrite(entryId){
       const spec=buildWriteSpec(draft.sect,draft.style,mode==='edit'?_hhWritten:null);
       let errors=null,result=null,lastErrors=null;
       for(let attempt=0;attempt<2;attempt++){
-        const out=await writeOnce({mode,spec,draft,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
+        const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
           if(token!==_writeToken)return;
           const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i);
           const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
