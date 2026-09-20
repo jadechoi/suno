@@ -1767,7 +1767,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const lastOfMany=isLast&&cnt.hook>1;
       const hookBodyRaw=lastOfMany
         ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',cue('peak'),bc('hook'),appealLead,dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
-        :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),isEdge&&bc('hook'),cnt.hook===1&&appealLead,melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+        :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),isEdge&&bc('hook'),appealLead,melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       const hookBody=tidyBody(hookBodyRaw,_names);
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
@@ -2225,6 +2225,9 @@ function hhGenerate(source,opts){
     st.drums.length?st.drums:null,st.melody,st.region
   );
   sectText=applyRemovedPhrases(sectText);
+  const noVocalDraft=!(st.vocal&&st.vocal!=='No Vocal');
+  const instSample=t=>noVocalDraft?t.replace(/(instrumental )?sample[- ]chops?\b/gi,m0=>/^instrumental/i.test(m0)?m0:'instrumental '+m0):t;   // 무보컬에서 샘플 초핑은 보컬 샘플이 아님을 분명히
+  sectText=instSample(sectText);
   // AI 작성기: 위 결과는 "규칙 초안". 같은 입력 상태로 이미 검증 통과한 AI 작성본이 있으면 그걸 쓰고, 없으면 초안을 먼저 보여준 뒤 아래에서 비동기로 작성
   const _fps=hhWriteFingerprints();
   _hhDraft={sect:sectText,style:null,fpFull:_fps.fpFull,fpBase:_fps.fpBase};
@@ -2318,8 +2321,9 @@ function hhGenerate(source,opts){
     const vocalBits=[VOCAL_CHAR_TAG[st.vocalChar],VOCAL_STYLE_TAG[st.vocalStyle],st.vocal.toLowerCase(),g?.vocalSig].filter(Boolean);
     tags.push(vocalBits.join(' '));
   }
-  if(st.keySet)tags.push(`Key of ${keyStr}`);
-  if(st.bpmSet)tags.push(`${bpmVal} BPM`);
+  if(st.keySet&&st.bpmSet)tags.push(`Key of ${keyStr} & ${bpmVal} BPM`);   // 태그 개수 절약을 위해 하나로 융합
+  else if(st.keySet)tags.push(`Key of ${keyStr}`);
+  else if(st.bpmSet)tags.push(`${bpmVal} BPM`);
   if(st.texture.length){
     const nuanceTexture=mood&&pickFreshNuance(MOOD_TEXTURE_NUANCE[mood.kr],usedW);
     tags.push(`${st.texture.map(t=>t.toLowerCase()).join(' & ')}${nuanceTexture?' '+nuanceTexture:''}`);
@@ -2336,7 +2340,7 @@ function hhGenerate(source,opts){
     const leadHuman=st.melody.length?INSTR_HUMAN[computeMelodyRoles(st.melody)?.lead||st.melody[0]]:null;
     tags.push([GENRE_HUMAN[st.genre]||'organic warm human-feel & analog imperfections',leadHuman].filter(Boolean).join(' & '));
   }
-  let styleText=applyRemovedStylePhrases(tags.join(', '));
+  let styleText=instSample(applyRemovedStylePhrases(tags.join(', ')));
   _hhDraft.style=styleText;
   if(_wc)styleText=_wc.style;
   if(isRefresh&&keepStyle)styleText=keepStyle;
@@ -2532,7 +2536,7 @@ function hhGenerate(source,opts){
   const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:st.bpmSet?bpmVal:null,key:st.keySet?keyStr:null,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
   // 작성기 시작 — 캐시 적중이면 생략, 진행 중이면 중복 호출 안 함, 이전 실패가 같은 상태의 재렌더(source===false)면 재호출 안 함(명시적 Generate만 재시도)
   const _fb=_hhWritten&&_hhWritten.fpFull===_fps.fpFull&&!_hhWritten.meta?.ok;
-  if(_wc){_writeState='ok';renderWriteBadge();}
+  if(_wc){_writeState='ok';_writeWarn=_wc.meta?.warn||null;renderWriteBadge();}
   else if(!aiWriteEnabled()){_writeState='off';renderWriteBadge();}
   else if(_writePromise&&_hhDraft.fpFull===_fps.fpFull&&_writeState==='pending'&&source===false){renderWriteBadge();}
   else if(_fb&&source===false){_writeState='fallback';renderWriteBadge();}

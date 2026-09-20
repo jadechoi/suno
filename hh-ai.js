@@ -906,6 +906,7 @@ let _writeToken=0;        // 오래된 응답 무시용
 let _writePromise=null;   // 진행 중 작성(리뷰가 초안 대신 최종 텍스트를 보게 대기)
 let _writeState='off';    // off | pending | ok | fallback
 let _writeErr='';
+let _writeWarn=null;   // 핵심 검사는 통과했지만 추가 개선 검사 일부를 못 넘은 AI 결과의 사유
 
 function aiWriteEnabled(){
   try{return !!getAnthropicKey()&&localStorage.getItem('hh_ai_write')!=='0';}catch(_){return false;}
@@ -977,7 +978,8 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   };
 }
 // 검사기 — 규칙 엔진이 만든 명세를 정답으로 AI 결과의 고정 정보를 확인
-function validateWritten(spec,section,style){
+function validateWritten(spec,section,style,opts){
+  const strict=!!(opts&&opts.strict);   // strict=AI가 쓴 결과에만 거는 추가 검사(규칙 초안 폴백은 대상 아님)
   const errors=[];
   const secs=parseSections(section);
   const wantHeaders=spec.structure.map(s=>s.header);
@@ -1048,6 +1050,52 @@ function validateWritten(spec,section,style){
     const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
     secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
   }
+  // ── 일곱 가지 개선 (프롬프트 리뷰에서 반복된 문제) ──
+  const allText=section+' '+style;
+  // 1) Key와 장조/단조 일관성 — "minor-tinged ... in G major" 같은 모순, 다른 Key 이름, 정하지 않은 Key
+  {
+    const names=(allText.match(/\b[A-G][#b]? (?:[Mm]ajor|[Mm]inor)\b/g)||[]).map(k=>k.toLowerCase());
+    if(spec.key){
+      const want=spec.key.toLowerCase();
+      const other=names.find(k=>k!==want);
+      if(other)errors.push(`Key가 ${spec.key}인데 다른 Key "${other}"가 들어감`);
+      const opp=/major/i.test(spec.key)?/\bminor[- ](?:key|tinged|toned?|chords?|scale|melody|feel|mood|flavou?r)\b/i:/\bmajor[- ](?:key|tinged|toned?|chords?|scale|melody|feel|mood|flavou?r)\b/i;
+      const m=allText.match(opp);
+      if(m)errors.push(`Key가 ${spec.key}인데 반대 조성 표현 "${m[0]}"이 있음 — 모순`);
+    }else if(names.length)errors.push(`Key를 정하지 않았는데 "${names[0]}"가 들어감`);
+  }
+  // 2) 무보컬 곡의 샘플 초핑 악기는 보컬 샘플이 아님을 분명히
+  if(!spec.vocal){
+    const bad=[...allText.matchAll(/(instrumental )?sample[- ]chops?\b/gi)].find(m=>!m[1]);
+    if(bad)errors.push('무보컬 곡인데 "sample chop"이 그냥 나옴 — "instrumental sample chop"으로 써서 보컬 샘플이 아님을 분명히 할 것');
+  }
+  // 6a) Key와 BPM은 하나의 태그로 융합 ("Key of G major & 140 BPM")
+  if(spec.key&&spec.bpm&&!style.split(', ').some(t=>/Key of/i.test(t)&&/BPM/i.test(t)))errors.push('"Key of … & N BPM"을 하나의 태그로 융합할 것 (태그 개수 절약)');
+  if(strict){
+    const hooksS=secs.filter(s=>s.type==='hook');
+    // 3) 훅마다 귀에 붙는 매력 어휘
+    const APPEAL=/\b(catchy|memorable|hypnotic|danceable|hook-driven|infectious|addictive|anthemic|euphoric|bouncy|bounce)\b/i;
+    hooksS.filter(s=>!APPEAL.test(s.body)).forEach(s=>errors.push(`${s.header}에 귀에 붙는 매력 어휘(catchy/memorable/hypnotic/danceable/hook-driven 등)가 없음`));
+    // 4) 태도 단어(소리가 아님) 상한 — 헤더 제외
+    const ATT=/\b(cocky|swagger(?:ing)?|flex(?:ing)?|braggadocio|arrogant|confident(?:ly)?)\b/gi;
+    const attN=((secs.map(s=>s.body).join(' ')+' '+style).match(ATT)||[]).length;
+    if(attN>3)errors.push(`태도 단어(cocky/swagger/flex/confident)가 ${attN}번 — 3번 이하로, 나머지는 실제 들리는 소리(타이밍·강세·톤)로 바꿀 것`);
+    // 5) 스타일에 쓴 구체적 소리는 섹션에도 — 그리고 첫 훅에는 킥·스네어·클랩 같은 핵심 타악
+    const styleNoNeg=style.replace(/\bno\s+\w+(?:\s+\w+)?/gi,' ').replace(/zero vocal chops/gi,' ');
+    [['clap',/\bclaps?\b/i],['snare',/\bsnares?\b/i],['kick',/\bkicks?\b/i],['rimshot',/\brimshots?\b/i],['cowbell',/\bcowbells?\b/i],['conga',/\bcongas?\b/i],['shaker',/\bshakers?\b/i],['hi-hat',/\bhi-?hats?\b/i],['808',/\b808s?\b/],['piano',/\bpiano\b/i],['guitar',/\bguitars?\b/i],['brass',/\bbrass\b/i],['strings',/\bstrings?\b/i],['flute',/\bflute\b/i],['sax',/\bsax(?:ophone)?\b/i],['bell',/\bbells?\b/i],['pad',/\bpads?\b/i],['arp',/\barp(?:eggio)?s?\b/i],['pluck',/\bpluck(?:s|ed)?\b/i],['rhodes',/\brhodes\b/i],['organ',/\borgan\b/i],['harp',/\bharp\b/i]]
+      .forEach(([n,re])=>{if(re.test(styleNoNeg)&&!re.test(section))errors.push(`스타일에 쓴 "${n}"가 섹션에는 한 번도 안 나옴 — 스타일과 섹션이 어긋남`);});
+    if(hooksS[0]&&!/\b(kick|snare|clap|rimshot)\b/i.test(hooksS[0].body))errors.push('첫 훅에 킥·스네어·클랩 같은 핵심 타악 묘사가 없음 (고른 드럼에 없으면 장르에 맞게 추가해도 됨)');
+    // 6b) 상업적·믹스 태그는 앞쪽 8개 안에 최소 2개 (Suno는 뒤쪽 태그를 무시)
+    const tags=style.split(', ');
+    const SAPPEAL=/\b(catchy|memorable|hook-driven|danceable|polished|punchy|glossy|mainstream|commercial|infectious|hypnotic|euphoric|bouncy|bounce|radio-ready|anthemic|pristine)\b/i;
+    if(tags.slice(0,8).filter(t=>SAPPEAL.test(t)).length<2)errors.push('상업적·믹스 태그(catchy/polished/punchy/mainstream/commercial 등)가 앞쪽 8개 태그 안에 2개 이상 있어야 함 — 뒤쪽 태그는 Suno가 무시함');
+    // 7) 같은 악기 이름을 모든 섹션에 반복하지 않기
+    const N=secs.length,cnt=w=>secs.filter(s=>s.body.toLowerCase().includes(w.toLowerCase())).length;
+    if(spec.lead&&cnt(spec.lead)>Math.ceil(N*0.75))errors.push(`리드 악기 "${spec.lead}"가 ${cnt(spec.lead)}/${N}개 섹션에 나옴 — ${Math.ceil(N*0.75)}개 이하로 (역할이 있는 섹션에만)`);
+    if(spec.background&&cnt(spec.background)>Math.ceil(N*0.6))errors.push(`배경 악기 "${spec.background}"가 ${cnt(spec.background)}/${N}개 섹션에 나옴 — ${Math.ceil(N*0.6)}개 이하로`);
+    const padN=secs.filter(s=>/\bpad\b/i.test(s.body)).length;
+    if(padN>Math.ceil(N*0.6))errors.push(`"pad"가 ${padN}/${N}개 섹션에 반복됨 — ${Math.ceil(N*0.6)}개 이하로`);
+  }
   // 스타일 박스
   spec.fixedStyleTags.forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase()))errors.push(`스타일 프롬프트에 고정 태그 "${t}"가 없음`);});
   if(style.length>spec.limits.style)errors.push(`스타일 프롬프트 ${style.length}자 — ${WRITE_LIMITS.style}자 이하여야 함`);
@@ -1092,13 +1140,22 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 예시는 전부 무보컬이라 [Instrumental]·"no vocals & ZERO vocal chops…" 묶음이 있어. **명세의 vocal이 null이 아니면(보컬 곡) 이건 절대 쓰지 마.** 스타일에 [Instrumental]도, 섹션에 "purely/completely instrumental"이나 "vocal chops"도 금지. 보컬은 메뉴 이름(Heavy hooks, Light ad-libs, Full rap feature)을 그대로 쓰지 말고 실제로 들리는 소리(속삭임, 클로즈 마이크, 짧은 후크 라인, 톤, 처리)로 묘사해. 헤더가 "Instrumental"인 섹션(브릿지 등)에는 보컬 묘사를 넣지 마.
 - vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
 
+[리뷰에서 반복 감점된 일곱 가지 — 전부 지켜 (검사기가 확인함)]
+1) Key 일관성: 명세 key가 장조면 "minor-tinged"·"minor key" 같은 단조 표현을, 단조면 장조 표현을 쓰지 마. 다른 Key 이름도 금지.
+2) 무보컬 곡의 샘플 초핑은 항상 "instrumental sample chop"으로.
+3) 훅마다 귀에 붙는 매력 어휘(catchy·memorable·hypnotic·danceable·hook-driven 등)를 그 곡에 맞게 하나 이상.
+4) 태도 단어(cocky·swagger·flex·confident)는 곡 전체 3번 이하 — 대신 타이밍·강세·톤 같은 실제 소리로 써.
+5) 핵심 타악: 첫 훅에 킥·스네어·클랩 중 최소 하나를 넣어. 고른 드럼에 없으면 장르에 맞게 추가해도 돼(고른 것은 그대로 지키고). 스타일에 쓴 구체적인 소리(클랩·스네어·킥·하이햇·808·악기)는 섹션에도 반드시 나와야 해.
+6) 스타일 태그는 12개 이하. "Key of X & N BPM"은 태그 하나로 융합. 상업적·믹스 태그(catchy·polished·punchy·mainstream·commercial 등)는 앞쪽 8개 안에 2개 이상 — Suno는 뒤쪽 태그를 무시해.
+7) 같은 악기 이름을 모든 섹션에 반복하지 마: 리드는 전체 섹션의 3/4 이하, 배경 악기·pad는 60% 이하. 악기는 그 섹션에서 역할이 있을 때만 이름을 써.
+
 [BPM·Key]
 - 명세의 bpm·key가 null이면 사용자가 정하지 않은 거야 — 스타일과 섹션 어디에도 BPM 숫자나 Key("in A minor" 등)를 쓰지 마. 값이 있으면 그대로 정확히 써.
 
 [출력 형식 — 예시 프롬프트의 모양보다 이 규칙이 우선]
 - <section>…</section><style>…</style> 두 블록만. 섹션은 명세 structure의 순서·헤더를 글자 그대로 쓰고, 각 헤더 바로 다음 줄에 본문을 괄호로 감싼 한 줄로: 마디 수(bars)가 있는 섹션은 "(N Bars: 키워드, 키워드, …)", 마디 수가 없는 인트로/아웃트로는 "(키워드, …)".
 - 리드 악기 이름은 인트로와 첫·마지막 훅에, 메인 드럼(drums[0]) 이름은 첫 훅에, 고른 드럼은 곡 전체에 걸쳐 전부, 배경 악기는 훅에 한 번 이상 — 이름 그대로.
-- 스타일은 콤마 태그 12개 안팎, 최대 15개(관련 요소는 " & "로 융합), fixedStyleTags 전부 포함, 프로듀서가 있으면 producerSound 키워드 포함.
+- 스타일은 콤마 태그 12개 이하(관련 요소는 " & "로 융합), fixedStyleTags 전부 포함, 프로듀서가 있으면 producerSound 키워드 포함.
 
 [모범 예시 — 실제로 Suno에서 잘 나온 프롬프트 4개. 장르가 달라도 상관없어: Suno가 잘 읽는 형식(짧은 키워드 구, 콤마 구분, 한 줄 본문)과 밀도만 참고하고, 표현과 소리는 이 곡의 의도에서 새로 만들어. 예시의 문구를 다른 곡에 그대로 쓸 수 있다면 그건 템플릿이니 쓰지 마. 예시는 무보컬이라 'vocal' 단어가 들어간 부분은 따라 쓰지 마]
 ${PROMPT_EXAMPLES.map((e,i)=>`예시${i+1}\n스타일: ${e.style}\n${e.section}`).join('\n\n')}
@@ -1174,7 +1231,7 @@ function renderWriteBadge(){
   const map={
     off:['📝 규칙 초안',''],
     pending:['✍️ AI 작성 중…','작성이 끝나면 아래 텍스트가 교체돼요 (그 사이 복사하면 규칙 초안이 복사됨)'],
-    ok:['✍️ AI 작성 · 검증 통과','헤더·마디 수·악기·보컬·길이 검사를 통과한 AI 작성본'],
+    ok:_writeWarn?[`✍️ AI 작성 · 개선 권장 ${_writeWarn.length}개`,'핵심 검사(구조·보컬·이름·길이)는 통과했고, 아래 항목은 다듬으면 더 좋아요: '+_writeWarn.slice(0,4).join(' / ')]:['✍️ AI 작성 · 검증 통과','헤더·마디 수·악기·보컬·길이 검사를 통과한 AI 작성본'],
     fallback:['📝 규칙 초안 (AI 작성 검증 실패)',_writeErr||''],
   };
   const [t,title]=map[_writeState]||map.off;
@@ -1198,12 +1255,12 @@ async function hhAiWrite(entryId){
   if(!aiWriteEnabled()||!_hhDraft)return;
   const token=++_writeToken;
   const draft=_hhDraft;
-  _writeState='pending';_writeErr='';renderWriteBadge();
+  _writeState='pending';_writeErr='';_writeWarn=null;renderWriteBadge();
   const run=(async()=>{
     try{
       const mode=(_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
       const spec=buildWriteSpec(draft.sect,draft.style,mode==='edit'?_hhWritten:null);
-      let errors=null,result=null,lastErrors=null;
+      let errors=null,result=null,lastErrors=null,best=null,warn=null;
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
         const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
           if(token!==_writeToken)return;
@@ -1214,14 +1271,18 @@ async function hhAiWrite(entryId){
           updateWriteCounters();
         }});
         if(token!==_writeToken)return;
-        const v=validateWritten(spec,out.section,out.style);
+        const v=validateWritten(spec,out.section,out.style,{strict:true});
         if(v.ok){result=out;break;}
         errors=v.errors;lastErrors=v.errors;
+        // 구조·보컬·이름·길이 같은 핵심 검사(core)는 통과하고 추가 개선 검사(strict)만 못 넘은 결과 중 가장 나은 것을 기억
+        if(validateWritten(spec,out.section,out.style).ok&&(!best||v.errors.length<best.errors.length))best={out,errors:v.errors};
       }
+      // 끝까지 완벽하지 못해도 핵심 검사를 통과한 AI 결과가 있으면 규칙 초안(의도 반영이 약함) 대신 그걸 쓰고 경고만 표시
+      if(!result&&best){result=best.out;warn=best.errors;}
       if(token!==_writeToken)return;
       if(result){
-        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,meta:{ok:true,mode},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
-        _writeState='ok';
+        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
+        _writeState='ok';_writeWarn=warn;
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=result.section;
         if(sa)sa.value=result.style;
