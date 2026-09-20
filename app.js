@@ -2511,6 +2511,8 @@ function hhGenerate(source,opts){
   container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
     `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+externalFeedbackHtml+advHtml:advHtml+aiReviewHtml}`,
     null,'#6B7280'));
+  // 음악을 몰라도 프롬프트대로 나왔는지 확인할 수 있게 — Suno에서 곡을 만든 뒤 쉬운 질문에 답하면 안 맞은 부분이 프롬프트 수정으로 이어짐
+  container.appendChild(makeOutBlock('🎧 들어보고 확인하기',`<div id="hh-listen-body">${listenHtml()}</div>`,null,'#10B981'));
 
   // MD 저장 — Generate마다 자동으로 쌓이는 프롬프트 히스토리(로컬 저장)와 별개로, 사용자가 직접 고른 것만 파일로 남기는 용도
   const saveWrap=document.createElement('div');

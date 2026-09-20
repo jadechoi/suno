@@ -219,7 +219,7 @@ function scoringAnchor(){
 [직전 채점 — 같은 설정에서 피드백만 적용한 결과를 다시 채점하는 중]
 ${REVIEW_RUBRIC.map(r=>`${r.key} ${p.criteria[r.key]??'-'}`).join(', ')} (총 ${p.score})
 직전 채점 이후 바뀐 곳: 섹션 ${changed.join(' | ')||'없음'} / 스타일 ${sty!==p.style?'바뀜':'그대로'}
-채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 1~2점 올리거나 내려 (개선이 확인되면 올리고, 새 모순·중복·태그 증가·서술문 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
+채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 최대 3점까지 올리거나 내려 (직전 지적이 실제로 해결됐으면 크게 올려도 되고, 새 모순·중복·태그 증가·서술문 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
 }
 async function aiProducerReview(){
   const key=getAnthropicKey();
@@ -941,6 +941,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     structure,fixedStyleTags:fixedStyle,styleTagsInDraft:styleTags.length,
     limits:{sectionTotal:WRITE_LIMITS.section,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
     removedPhrases:[...(st.removedPhrases||[])],
+    hookRhythm:(()=>{const hs=secs.filter(s=>s.type==='hook');const R=['정박 위주의 안정된 메인 패턴(변주 없이 그루브를 각인)','오프비트 싱코페이션·고스트 노트로 리듬 결이 달라짐','매 마디 필인·롤 가속으로 가장 촘촘하고 꽉 참'];return hs.map((s,i)=>({header:s.header,role:hs.length===1?R[0]:(i===hs.length-1?R[2]:R[Math.min(i,1)])}));})(),
     prevLength:prev?prev.section.length:null,
     mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
     prevSections:prev?parseSections(prev.section).map(s=>({header:s.header,body:s.body})):null,
@@ -1003,6 +1004,8 @@ function validateWritten(spec,section,style){
   if(style.length>spec.limits.style)errors.push(`스타일 프롬프트 ${style.length}자 — ${WRITE_LIMITS.style}자 이하여야 함`);
   if(style.split(', ').length>spec.limits.styleTags)errors.push(`스타일 태그가 ${style.split(', ').length}개 — ${WRITE_LIMITS.tags}개 이하여야 함(관련 요소는 " & "로 융합)`);
   (st.extraTags||[]).forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase().split(' ')[0]))errors.push(`확정된 스타일 지시 "${t}"가 스타일 프롬프트에 빠짐`);});
+  // 스타일은 기준 톤만 — 섹션마다 달라지는 절대 표현이 있으면 섹션과 모순이 됨
+  {const abs=(style.match(/\b(always|only|never|widest|maximum|silent|absent)\b/gi)||[])[0];if(abs)errors.push(`스타일 프롬프트에 섹션마다 달라지는 절대 표현 "${abs}"가 있음 — 곡 전체의 기준 톤만 쓸 것`);}
   // 형식: 서술형 문장 도배 금지
   const sentences=(section.match(/[a-z]{3,}\. [A-Z]/g)||[]).length;
   if(sentences>2)errors.push('완결된 서술형 문장이 많음 — 콤마로 구분한 짧은 키워드 구로만 쓸 것');
@@ -1023,6 +1026,12 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 - 훅: 에너지 단어 + 리드가 얼마나 캐치한지("catchy bright synth lead") + 핵심 리듬·베이스를 앞에. 그 뒤에 질감·그루브 결·인간적 불완전함을 얹어.
 - 무보컬 벌스: 랩/멜로디가 들어올 자리를 남기는 표현("wide open pocket for rhythmic rap", "leaving space for a top-line melody", "leaving maximum space for the artist") — 단, 'vocal' 단어는 쓰지 마.
 - 스타일과 섹션 모두 "상업적 매력"과 "질감·디테일" 중 하나만 있으면 안 돼 — 둘을 같이.
+
+[일관성 규칙 — 리뷰에서 반복해서 감점된 부분]
+- 스타일 태그는 곡 전체의 "기준 톤"만 써. 섹션에 따라 달라지는 절대 표현(always, only, never, widest, maximum, silent, absent)과 dry/tight/wide 같은 공간 절대값을 스타일에 넣지 마 — 섹션이 그 값에서 벗어나는 순간 모순이 돼(예: 스타일 "dry intimate" vs 훅3 "widest stereo"). 스타일과 섹션이 충돌하면 스타일을 기준 톤으로 낮춰.
+- 훅 리듬은 명세의 hookRhythm 역할대로 서로 다르게: 각 훅이 그 역할의 리듬 단어를 반드시 가져야 하고, 같은 드럼 조합 문구를 세 훅에 복붙하지 마.
+- 같은 악기는 곡 전체에서 같은 역할을 유지해(예: 브라스는 계속 카운터 액센트). 섹션마다 바뀌는 건 볼륨·밀도·등장 여부뿐이고, 안 나오는 섹션에서 "silent/absent"라고 쓰면 스타일의 "항상 나온다"는 뜻과 모순되니 그냥 언급하지 마.
+- 인트로의 진입 방식과 브릿지의 빌드업이 서로 모순되지 않게(인트로가 "no build-up"이면 브릿지 빌드업은 "이 곡에서 처음 나오는 빌드업"으로 표현).
 
 [brief · 이름 규칙]
 - 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 참고 초안이 brief와 다르게 밋밋하거나 일반적이면 brief 쪽을 따라.
