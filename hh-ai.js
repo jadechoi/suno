@@ -1408,7 +1408,11 @@ function clearBrief(){
 // 곡을 실제로 듣는 AI(예: Gemini)에게 분석시키기 — AI가 곡을 기억으로 분석하면 매번 결과가 달라서(같은 곡이 하이퍼팝 / 저지클럽으로 갈림), 오디오를 듣는 쪽에 맡기고 결과 JSON만 받는다
 // ============================================================
 function geminiBriefRequestText(){
-  return `첨부한 오디오는 내가 Suno AI로 비슷한 느낌의 곡을 만들고 싶어서 고른 참고 곡이야. 곡 제목이나 아티스트를 추측하지 말고, 실제로 들리는 소리만 근거로 분석해줘. kind는 항상 "song"으로 써.
+  const title=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim();
+  return `내가 Suno AI로 비슷한 느낌의 곡을 만들고 싶어서 고른 참고 곡을 분석해줘.${title?`\n참고 곡: ${title}`:''}
+- 오디오 파일이나 유튜브 링크가 함께 있으면 그걸 직접 듣고 실제로 들리는 소리만 근거로 분석해줘.
+- 없으면 곡 제목으로 웹 검색(BPM·키 정보 사이트, 리뷰, 프로덕션 설명)과 네가 아는 정보를 활용해서 분석해줘. 정확히 모르는 값은 지어내지 말고 가장 가까운 선택지를 고르되 understood에 "확실하지 않음"이라고 적어.
+kind는 항상 "song"으로 써.
 
 ${BRIEF_STATIC}
 
