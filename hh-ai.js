@@ -328,7 +328,7 @@ function setDirective(occKey,category,text){
 }
 const RUBRIC_TEXT=()=>`채점은 아래 8개 항목을 각각 0~10 정수로 매겨 criteria에 넣어 (합계는 내가 계산하니 네가 합산하지 마). 앵커: 5=어떤 장르에도 붙는 범용 템플릿 수준 / 7=탄탄하지만 다듬을 곳이 분명히 있음 / 9=지금 바로 Suno에 넣어 곡을 만들어도 되는 수준. 실제로 결함이 없는 항목엔 8~10을 줘도 돼 — 억지로 깎지 마.
 ${REVIEW_RUBRIC.map(r=>`- ${r.key}(${r.label}, 가중 ${r.w}): ${r.def}`).join('\n')}
-(레퍼런스 곡이 없으면 reference는 생략)`;
+(레퍼런스 곡이 없으면 reference는 생략)\n참고: 스타일 태그 안의 ' & '는 Suno가 세는 콤마 태그 개수를 줄이려는 의도된 결합이야 — '& 때문에 파싱이 비효율적'이라는 지적은 하지 마. 태그가 콤마 기준 12개를 넘거나 서술 문장이 섞였을 때만 parse를 깎아.`;
 const aiSuggestionActionable=s=>!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag||s.removePhrase);
 // 조언마다 버튼을 눌러 그때그때 hhGenerate하면 클릭 수만큼 화면이 프롬프트로 튀고 히스토리도 그만큼 쌓였음 —
 // 체크박스로 고른 것들을 한 번에 적용하고 재생성·히스토리 기록은 1번만
@@ -440,7 +440,7 @@ function applyAiSuggestionCore(sug){
   if(sug.removeTag){
     // tag(추가)와 달리 "지금 있는 걸 줄이자/빼자"는 조언은 새 문구가 없어서 위의 자동 충돌 제거가 못 잡음 — AI가 지목한 핵심 단어로 직접 제거
     st.texture=st.texture.filter(t=>!t.toLowerCase().includes(sug.removeTag));
-    st.extraTags=st.extraTags.filter(t=>!t.toLowerCase().includes(sug.removeTag));
+    st.extraTags=st.extraTags.filter(t=>(sug.tag||[]).includes(t)||!t.toLowerCase().includes(sug.removeTag));   // 같은 조언이 새로 넣은 태그는 지우지 않음("brass" 제거 + "metallic synth brass hybrid" 추가가 서로 지워졌음)
   }
 }
 function clearAiSuggestions(){
@@ -1012,7 +1012,7 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 
 [반드시 지킬 것 — 검사기가 확인함]
 - 섹션 헤더 줄([Intro], [Instrumental Hook 1: …] 등)은 [명세]의 structure 순서·문구 그대로, 각 헤더 다음 줄에 본문 한 덩어리를 괄호 "( … )"로 씀. 마디 수가 있는 섹션은 "(8 Bars: "로 시작.
-- 리드 악기는 인트로와 모든 훅에 이름으로 명시, 배경 악기는 훅에 최소 한 번, 고른 드럼은 전부 등장(메인 드럼은 모든 훅). 악기 이름·808 강도 라벨·BPM·Key·보컬 유무 지시는 동의어로 바꾸지 마.
+- 리드 악기는 인트로와 모든 훅에 이름으로 명시, 배경 악기는 훅에 최소 한 번, 고른 드럼은 전부 등장(메인 드럼은 모든 훅). 악기 이름·BPM·Key·보컬 유무 지시는 동의어로 바꾸지 마. 808 강도 라벨(예: Balanced 808)은 곡 전체에서 인트로 등 1~2곳에만 그대로 쓰고, 나머지 섹션에선 808의 질감·역할을 섹션마다 다른 단어로 묘사해 (라벨 복붙은 '설정값 나열'로 읽혀 감점).
 - 무보컬이면 "no vocals", "ZERO vocal chops" 외에 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir)를 쓰지 마. 보컬이 있으면 모든 훅에 그 보컬을 명시.
 - 스타일: fixedStyleTags를 그대로 포함, 총 950자 이하, 태그 13개 이하, 첫 태그들은 [Instrumental]/no vocals → 장르 순. 섹션 총합은 4900자 이하이고 각 섹션은 maxChars 안팎.
 - [지시]에 적힌 것은 사용자·리뷰어가 확정한 요구사항이니 해당 섹션에 반드시 구체적인 소리 표현으로 반영해(스타일 지시는 스타일 프롬프트에).

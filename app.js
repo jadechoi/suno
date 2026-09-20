@@ -547,6 +547,11 @@ function pickFreshNuance(opts,used){
   _toks(chosen).forEach(w=>used.add(w));
   return chosen;
 }
+// 프로듀서 레퍼런스 문구는 악기를 특정하는 경우가 있음("ominous brass stabs", "orchestral layers") — 고른 멜로디 악기에 그 악기가 없으면 스타일·섹션에 존재하지 않는 악기를 주장하게 되어 일관성/역할 점수가 깎임(실사용 리뷰 지적). 해당 조각만 뺌
+const REF_INSTR=[[/brass|horn/i,['Brass stab','Saxophone']],[/string|orchestral|violin/i,['Strings','Cello']],[/piano|ivory/i,['Emotional piano']],[/guitar/i,['Guitar loop']],[/flute/i,['Flute']]];
+function refFit(text,sep){
+  return (text||'').split(sep).filter(p=>REF_INSTR.every(([re,names])=>!re.test(p)||names.some(n=>st.melody.includes(n)))).join(sep);
+}
 // 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
 
@@ -1719,7 +1724,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const sAO=st.sectionArrangeOccurrence||{};
   // 이 장르의 섹션 편곡 방향({d}=메인 드럼,{m}=리드,{e}=808/베이스)과 프로듀서 레퍼런스의 핵심 특징 — 기본 생성물에 처음부터 포함
   const cue=type=>(GENRE_SECTION_CUE[st.genre]?.[type]||'').replace(/\{e\}/g,eDesc);
-  const refSig=REF_SIG[st.refs[0]]||'';
+  const refSig=refFit(REF_SIG[st.refs[0]]||'',' & ');
   const hookDrums=drumList.slice(0,3).join(' & ')||dDesc;
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
   // 이 타입의 진짜 클라이맥스 판정(isLast 등)과는 별개 — 그건 훅 서브타이틀/에너지 문구용으로 계속 그대로 씀
@@ -2262,8 +2267,8 @@ function hhGenerate(source,opts){
   if(g)tags.push(`${commMod?commMod+' ':''}${g.tag}${g.sig?' & '+g.sig:''}`);
   // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화), 여러 명이어도 한 태그로
   if(st.refs.length){
-    const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?p.en:kr;});
-    tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
+    const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?refFit(p.en,', '):kr;}).filter(Boolean);
+    if(refEns.length)tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
   }
   if(mood)tags.push(mood.tag);
   const usedW=new Set();   // 지금까지 스타일 태그에 쓴 단어 — 뒤에 붙는 무드 뉘앙스가 같은 말을 되풀이하지 않게
