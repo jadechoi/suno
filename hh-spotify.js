@@ -469,18 +469,41 @@ const isKoreanName=name=>/[가-힣]/.test(name);
 
 // 실제 Billboard 주간 Hip-Hop/R&B 차트 — RapidAPI billboard-charts-api. 순위 자체가 진짜 트렌드 신호.
 // id="r-b-hip-hop-songs" 는 실측으로 확인된 값 (카테고리 목록이 주는 id는 도메인 접두사가 깨져있어 못 씀)
-async function fetchBillboardHipHopChart(){
+// 계열별 차트 — 힙합은 Hip-Hop/R&B 주간 차트, 팝·R&B는 Hot 100. "r-b-hip-hop-songs"는 실측으로 확인된 id이고 "hot-100"도 실측 확인(100곡, 같은 응답 형식). Hot 100은 컨트리 등 전 장르가 섞여 있음
+const BILLBOARD_CHARTS={hiphop:{id:'r-b-hip-hop-songs',label:'Hip-Hop/R&B 주간 차트'},pop:{id:'hot-100',label:'Hot 100 차트'}};
+let _chartKey='hiphop';
+function setChart(k){
+  if(!BILLBOARD_CHARTS[k]||_chartKey===k)return;
+  _chartKey=k;
+  const chips=document.getElementById('hh-trending-chips');
+  if(chips)chips.innerHTML='<span style="font-size:11px;color:var(--text-3);align-self:center">새로고침을 누르면 이 차트의 핫한 아티스트가 표시됩니다</span>';
+  const acc=document.getElementById('hh-artists-typeBeat');if(acc)acc.innerHTML='<span style="font-size:11px;color:var(--text-3)">차트를 새로고침하면 이 차트의 아티스트가 자동으로 구성됩니다</span>';
+  renderChartChips();
+}
+function renderChartChips(){
+  const el=document.getElementById('hh-chart-chips');if(!el)return;
+  el.innerHTML='';
+  Object.entries(BILLBOARD_CHARTS).forEach(([k,c])=>{
+    const b=document.createElement('button');b.textContent=c.label.replace(' 주간 차트','').replace(' 차트','');
+    const on=_chartKey===k;
+    b.style.cssText=`padding:3px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--accent-dim)':'var(--surface-2)'};color:${on?'var(--accent-text)':'var(--text-2)'}`;
+    b.onclick=()=>setChart(k);
+    el.appendChild(b);
+  });
+}
+async function fetchBillboardChart(chartId){
   const key=getRapidApiKey();
   if(!key)return[];
   try{
-    const r=await fetch('https://billboard-charts-api.p.rapidapi.com/chart.php?id=r-b-hip-hop-songs',{
+    const r=await fetch(`https://billboard-charts-api.p.rapidapi.com/chart.php?id=${encodeURIComponent(chartId)}`,{
       headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'billboard-charts-api.p.rapidapi.com'}
     });
     if(!r.ok){console.warn('Billboard chart HTTP',r.status);return[];}
     const d=await r.json();
     return d.songs||[];
-  }catch(e){console.warn('fetchBillboardHipHopChart error',e);return[];}
+  }catch(e){console.warn('fetchBillboardChart error',e);return[];}
 }
+const fetchBillboardHipHopChart=()=>fetchBillboardChart(BILLBOARD_CHARTS.hiphop.id);
 
 // 429가 떴을 때 곧바로 재시도하면 아직 안 풀린 제한 구간을 한 번 더 건드려서 요청만 늘리고 회복에 도움이 안 됨 —
 // 재시도 대신 pMapLimit 쪽에서 애초에 완전 순차 + 충분한 간격으로 보내서 429 자체가 덜 나게 하는 쪽으로 대응.
@@ -688,11 +711,26 @@ const SP_GENRE_MAP=[
   {pats:['conscious hip hop'],idx:12},{pats:['trap soul','r&b','soul'],idx:13},
   {pats:['hyperpop'],idx:14},{pats:['trap','rap','hip hop'],idx:0},
 ];
+// 일렉·팝 계열 태그 → 통합 카탈로그 인덱스 (구체적인 태그부터)
+const SP_GENRE_MAP_EXTRA=[
+  {pats:['amapiano'],idx:30},{pats:['afro house'],idx:28},{pats:['melodic techno'],idx:27},{pats:['tech house'],idx:31},{pats:['techno'],idx:21},
+  {pats:['uk garage','speed garage'],idx:22},{pats:['drum and bass','drum & bass','jungle'],idx:23},{pats:['ambient'],idx:24},{pats:['trance'],idx:25},
+  {pats:['future bass'],idx:26},{pats:['idm','glitch'],idx:29},{pats:['deep house','progressive house','electro house','edm'],idx:20},
+  {pats:['k-pop','korean pop'],idx:35},{pats:['dance pop'],idx:34},{pats:['alt r&b','alternative r&b'],idx:38},{pats:['neo soul'],idx:39},
+  {pats:['dream pop','shoegaze'],idx:37},{pats:['bedroom pop'],idx:40},{pats:['synthpop','synth-pop','new wave'],idx:41},{pats:['indie pop'],idx:36},
+  {pats:['acoustic pop','singer-songwriter','folk pop'],idx:42},
+];
 function detectGenreFromSpotify(genres){
   const joined=(genres||[]).join(' ').toLowerCase();
-  for(const{pats,idx}of SP_GENRE_MAP){
-    if(pats.some(p=>joined.includes(p)))return idx;
+  const head=SP_GENRE_MAP.filter(m=>m.idx!==13&&m.idx!==0),tail=SP_GENRE_MAP.filter(m=>m.idx===13||m.idx===0);   // 13=trap soul(r&b), 0=일반 trap/rap
+  for(const list of [head,SP_GENRE_MAP_EXTRA]){
+    for(const{pats,idx}of list){if(pats.some(p=>joined.includes(p)))return idx;}
   }
+  if(_chartKey==='pop'){   // Hot 100 차트에서 온 아티스트의 일반 r&b/pop 태그는 팝·R&B 계열로
+    if(['r&b','soul'].some(p=>joined.includes(p)))return 33;
+    if(joined.includes('pop'))return 32;
+  }
+  for(const{pats,idx}of tail){if(pats.some(p=>joined.includes(p)))return idx;}
   return null;
 }
 
@@ -718,7 +756,8 @@ async function fetchTrendingArtists(){
   const chipsEl=document.getElementById('hh-trending-chips');
   const lastEl=document.getElementById('trending-last-update');
   if(btn)btn.textContent='로딩 중...';
-  if(statusEl){statusEl.textContent='📊 Billboard Hip-Hop/R&B 차트 조회 중…';statusEl.hidden=false;}
+  const chartCfg=BILLBOARD_CHARTS[_chartKey];
+  if(statusEl){statusEl.textContent=`📊 Billboard ${chartCfg.label} 조회 중…`;statusEl.hidden=false;}
   _spQuotaExceeded=false;
 
   const tok=await getSpotifyToken();
@@ -731,7 +770,7 @@ async function fetchTrendingArtists(){
     return;
   }
 
-  const chart=await fetchBillboardHipHopChart();
+  const chart=await fetchBillboardChart(chartCfg.id);
   if(!chart.length){
     if(chipsEl)chipsEl.innerHTML='<span style="font-size:11px;color:var(--danger)">⚠️ Billboard 차트를 가져오지 못했습니다. RapidAPI에 billboard-charts-api를 구독했는지 확인하세요.</span>';
     if(statusEl){statusEl.textContent='Billboard 차트 조회 실패';statusEl.hidden=false;}
@@ -764,15 +803,15 @@ async function fetchTrendingArtists(){
     if(btn)btn.textContent='↻ 새로고침';
     return;
   }
-  if(statusEl)statusEl.textContent=`Billboard Hip-Hop/R&B 차트 기준 ${scoredTop.length}명 (실제 이번 주 순위)`;
+  if(statusEl)statusEl.textContent=`Billboard ${chartCfg.label} 기준 ${scoredTop.length}명 (실제 이번 주 순위)`;
 
   // genres 채워넣기 — 서브장르 집계용 (Spotify가 안 주니 Musicae로)
   const genreMap=await fetchArtistGenresViaRapidAPI(scoredTop.map(a=>a.id));
   scoredTop.forEach(a=>{if(genreMap[a.id]&&genreMap[a.id].length)a.genres=genreMap[a.id];});
 
   // 세션 캐시
-  try{sessionStorage.setItem('sp_trending',JSON.stringify(scoredTop));
-    sessionStorage.setItem('sp_trending_ts',Date.now());}catch(e){}
+  try{sessionStorage.setItem('sp_trending_'+_chartKey,JSON.stringify(scoredTop));
+    sessionStorage.setItem('sp_trending_ts_'+_chartKey,Date.now());}catch(e){}
 
   renderTrendingChips(scoredTop);
   buildTrendingArtistAccordion(scoredTop,tok);
@@ -853,12 +892,13 @@ function openArtistRow(artistId){
 }
 
 
+renderChartChips();
 // 세션 캐시 복원
 (function restoreTrendingCache(){
   try{
-    const ts=+(sessionStorage.getItem('sp_trending_ts')||0);
+    const ts=+(sessionStorage.getItem('sp_trending_ts_'+_chartKey)||0);
     if(Date.now()-ts>3600000)return; // 1시간 이후 만료
-    const cached=sessionStorage.getItem('sp_trending');
+    const cached=sessionStorage.getItem('sp_trending_'+_chartKey);
     if(!cached)return;
     const data=JSON.parse(cached);
     renderTrendingChips(data);

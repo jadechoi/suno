@@ -28,7 +28,6 @@
 
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="hiphop">🎤 힙합</button>
-  <button class="tab-btn" data-tab="pop">🎵 팝·R&B</button>
   <button class="tab-btn" data-tab="rock">🎸 밴드·록</button>
 </div>
 
@@ -148,7 +147,8 @@
         <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎤 아티스트·요즘 핫한 곡에서 고르기</summary>
         <div style="margin-top:8px">
           <div style="font-size:11px;color:var(--text-3);line-height:1.7;margin-bottom:10px">곡을 누르면 위 입력칸에 "아티스트 - 곡명"이 들어가요. 아티스트 이름은 프롬프트에 쓰지 않고, 그 곡의 소리를 분석해서 반영해요.</div>
-          <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🔥 요즘 핫한 곡 <span style="font-weight:400;color:var(--text-3)">Billboard Hip-Hop/R&B 주간 차트 아티스트 · Spotify·RapidAPI 연동 필요</span></div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🔥 요즘 핫한 곡 <span style="font-weight:400;color:var(--text-3)">Billboard 차트 아티스트 · Spotify·RapidAPI 연동 필요</span></div>
+          <div id="hh-chart-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <span id="trending-last-update" style="font-size:10px;color:var(--text-3)">Spotify 연동 후 새로고침</span>
@@ -504,11 +504,6 @@
 
 
 </div><!-- /hiphop -->
-
-<!-- ========== POP·R&B TAB ========== -->
-<div class="tab-content" data-tab="pop">
-  <div id="pop-inner"></div>
-</div>
 
 <!-- ========== BAND·ROCK TAB ========== -->
 <div class="tab-content" data-tab="rock">

@@ -819,7 +819,7 @@ function renderHhGenres(){
     const b=document.createElement('button');
     b.textContent=label;
     b.style.cssText=`padding:4px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid ${_genreFamily===k?'var(--accent)':'var(--border)'};background:${_genreFamily===k?'var(--accent-dim)':'var(--surface-2)'};color:${_genreFamily===k?'var(--accent-text)':'var(--text-2)'}`;
-    b.onclick=()=>{_genreFamily=k;renderHhGenres();};
+    b.onclick=()=>{_genreFamily=k;if(k==='pop'||k==='hiphop')setChart(k);renderHhGenres();};   // 핫한 곡 차트도 계열을 따라감(힙합→Hip-Hop/R&B, 팝→Hot 100)
     fam.appendChild(b);
   });
   GENRES.forEach((g,i)=>{
@@ -889,6 +889,11 @@ function selectGenre(i){
   st.genre=deselect?null:i;
   _aiSuggestions=null;
   if(st.genre!==null){
+    if(GENRES[i].family==='pop'&&(!st.vocal||st.vocal==='No Vocal')){   // 팝·R&B는 노래가 중심이라 보컬을 제안(바꿀 수 있음)
+      st.vocal='Sung lead vocal';
+      chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
+      recommendVocalChar();
+    }
     if(!st.bpmSet){st.bpm=GENRES[i].bpm;}   // 내부 계산용 값일 뿐 — 프롬프트에는 사용자가 정하기 전까지 안 씀
     {const be=document.getElementById('hh-bpm');if(be&&!st.bpmSet)be.placeholder=`직접 입력 (이 장르는 보통 ${GENRES[i].bpmR[0]}–${GENRES[i].bpmR[1]})`;}
     renderGenreRefSuggestions(i);
@@ -3007,6 +3012,5 @@ hhInit();
 try{const t=sessionStorage.getItem('sp_direct_token');if(t)_spDirectToken=t;}catch(_){}
 updateSpPanelStatus();
 
-buildVocalTab('pop',POP_GENRES,POP_ARTISTS,POP_GENRE_PRESETS,POP_MOODS,POP_INSTR,POP_VOCAL_STYLES,POP_NARR,POP_STRUCT_PRESETS,POP_SEG_PALETTE);
 buildVocalTab('rock',ROCK_GENRES,ROCK_ARTISTS,ROCK_GENRE_PRESETS,ROCK_MOODS,ROCK_INSTR,ROCK_VOCAL_STYLES,ROCK_NARR,ROCK_STRUCT_PRESETS,ROCK_SEG_PALETTE);
 updateFloatSummary();

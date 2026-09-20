@@ -757,3 +757,39 @@ GENRE_FUSION.push(['deep disco funk','club-pop house'],['industrial noise','dark
 const GENRE_ALIAS={20:9,21:5,22:9,23:10,24:7,25:14,26:14,27:7,28:11,29:15,30:11,31:9};
 // 보컬 옵션: 일렉·팝 계열은 랩이 아니라 노래하는 리드가 기본
 HH_VOCAL.push('Sung lead vocal');
+
+// ============================================================
+// 팝·R&B 계열 — 인덱스 32~42. 훅=코러스로 취급(가사 헤더는 [Chorus]), 보컬 곡이 기본이라 선택 시 Sung lead vocal을 제안
+// ============================================================
+GENRES.push(
+  {kr:'팝',en:'Pop',tag:'pop',family:'pop',bpm:110,bpmR:[95,128],instr:['catchy synth hooks','punchy drums','warm bass'],vocal:'sung lead',pts:['big singable chorus','bright hooks','polished'],sound:'bright catchy',energy:'mid-high',drum:'pop drums'},
+  {kr:'R&B',en:'R&B',tag:'r&b',family:'pop',bpm:90,bpmR:[70,105],instr:['smooth keys','warm bass','laid-back drums'],vocal:'sung, smooth',pts:['smooth vocals','laid-back groove','sensual'],sound:'smooth sensual',energy:'low-mid',drum:'laid-back drums'},
+  {kr:'댄스팝',en:'Dance Pop',tag:'dance pop',family:'pop',bpm:120,bpmR:[110,130],instr:['four-on-the-floor kick','synth bass','bright synths'],vocal:'sung, energetic',pts:['danceable groove','catchy chorus','glossy synths'],sound:'glossy danceable',energy:'high',drum:'dance drums'},
+  {kr:'K-Pop',en:'K-Pop',tag:'k-pop',family:'pop',bpm:115,bpmR:[100,130],instr:['layered synths','tight drums','punchy bass'],vocal:'sung, layered harmonies',pts:['polished production','dynamic sections','catchy hooks'],sound:'polished layered',energy:'high',drum:'tight pop drums'},
+  {kr:'인디팝',en:'Indie Pop',tag:'indie pop',family:'pop',bpm:105,bpmR:[90,125],instr:['jangly guitar','light drums','soft synths'],vocal:'sung, airy',pts:['light and airy','charming melody','lo-fi charm'],sound:'light charming',energy:'mid',drum:'light drums'},
+  {kr:'드림팝',en:'Dream Pop',tag:'dream pop',family:'pop',bpm:95,bpmR:[75,115],instr:['reverb-soaked guitars','shimmering pads','soft drums'],vocal:'sung, ethereal',pts:['hazy reverb','ethereal vocals','floating'],sound:'hazy ethereal',energy:'low',drum:'soft drums'},
+  {kr:'얼트 알앤비',en:'Alt R&B',tag:'alt r&b',family:'pop',bpm:85,bpmR:[65,100],instr:['moody pads','sparse drums','deep sub bass'],vocal:'sung, intimate',pts:['moody atmosphere','sparse groove','intimate vocals'],sound:'moody intimate',energy:'low',drum:'sparse drums'},
+  {kr:'네오소울',en:'Neo Soul',tag:'neo soul',family:'pop',bpm:88,bpmR:[70,100],instr:['rhodes chords','live-feel drums','warm bass'],vocal:'sung, soulful',pts:['jazzy chords','soulful vocals','organic groove'],sound:'warm soulful',energy:'low-mid',drum:'live-feel drums'},
+  {kr:'베드룸팝',en:'Bedroom Pop',tag:'bedroom pop',family:'pop',bpm:100,bpmR:[80,120],instr:['lo-fi guitar','soft synths','drum machine'],vocal:'sung, close and quiet',pts:['lo-fi intimacy','homemade feel','soft melody'],sound:'intimate lo-fi',energy:'low-mid',drum:'drum machine'},
+  {kr:'신스팝',en:'Synthpop',tag:'synthpop',family:'pop',bpm:118,bpmR:[100,130],instr:['analog synths','gated drums','arpeggios'],vocal:'sung, bright',pts:['retro synths','catchy melody','driving beat'],sound:'retro bright',energy:'mid-high',drum:'gated drums'},
+  {kr:'어쿠스틱 팝',en:'Acoustic Pop',tag:'acoustic pop',family:'pop',bpm:100,bpmR:[80,120],instr:['acoustic guitar','soft percussion','warm piano'],vocal:'sung, warm',pts:['warm acoustic','heartfelt melody','simple arrangement'],sound:'warm heartfelt',energy:'low-mid',drum:'soft percussion'},
+);
+GENRE_FAMILIES.splice(2,0,['pop','팝·R&B']);
+GENRE_FEEL.push(
+  '누구나 따라 부를 수 있는 큰 후렴과 반짝이는 신스. 라디오에서 흘러나오는 대중적이고 밝은 느낌',
+  '부드럽고 관능적인 보컬과 여유로운 그루브. 늦은 밤 분위기의 매끄러운 느낌',
+  '몸이 저절로 움직이는 4박자 킥과 화려한 신스. 파티 플레이리스트 같은 신나는 느낌',
+  '여러 겹으로 쌓인 화음과 완성도 높은 편곡, 곡 안에서 확 바뀌는 전개. 화려하고 세련된 느낌',
+  '가볍고 산뜻한 기타와 귀여운 멜로디. 소소하고 매력적인 느낌',
+  '리버브 가득한 아련한 소리와 몽환적인 보컬. 구름 위를 떠다니는 느낌',
+  '어둡고 은밀한 분위기에 성긴 비트와 깊은 베이스. 혼자 있는 밤 같은 친밀한 느낌',
+  '재즈풍 코드와 영혼이 담긴 보컬, 사람이 연주하는 듯한 따뜻한 그루브',
+  '집에서 혼자 녹음한 듯한 조용하고 친밀한 소리. 꾸밈없고 포근한 느낌',
+  '80년대 감성의 반짝이는 신스와 또렷한 멜로디. 복고풍인데 세련된 느낌',
+  '어쿠스틱 기타와 피아노 중심의 따뜻하고 진솔한 곡. 소박하고 마음에 와닿는 느낌',
+);
+GENRE_HOOK_NAME.push('Pop Chorus Lift','R&B Chorus Glow','Dance Pop Chorus','K-Pop Chorus Peak','Indie Pop Chorus','Dream Pop Bloom','Alt R&B Chorus','Neo Soul Chorus','Bedroom Pop Chorus','Synthpop Chorus','Acoustic Chorus');
+GENRE_FUSION.push(['radio-ready synth hooks','mainstream pop'],['modern trap soul','smooth contemporary r&b'],['club house pulse','glossy dance pop'],['edm drops','polished k-pop'],['jangly bedroom guitars','charming indie pop'],['shoegaze washes','ethereal dream pop'],['dark trap textures','moody alt r&b'],['jazz chords','warm neo soul'],['lo-fi textures','intimate bedroom pop'],['80s new wave','glossy synthpop'],['folk warmth','heartfelt acoustic pop']);
+[['로맨틱·달콤한',[33,32,40,42]],['감각적·관능적',[33,38,39]],['멜로딕·감성',[32,42,37]],['에너제틱·하입',[34,35,32]],['축제·환희',[34,35,36]],['사이키델릭·몽환',[37,38]],['칠·그루비',[39,33,40]],['슬프고·멜랑콜리',[38,42,37]],['노스탤직·향수',[41,39,36]],['내성적·사색',[40,42,37]]]
+  .forEach(([m,ids])=>{MOOD_GENRE_GUIDE[m]=[...(MOOD_GENRE_GUIDE[m]||[]),...ids.filter(i=>!(MOOD_GENRE_GUIDE[m]||[]).includes(i))];});
+Object.assign(GENRE_ALIAS,{32:14,33:13,34:9,35:14,36:8,37:7,38:16,39:13,40:8,41:14,42:8});
