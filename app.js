@@ -78,6 +78,7 @@ function moodGrid(container,moods,state,key,onChange){
 // ============================================================
 // HIP-HOP INIT
 // ============================================================
+setInterval(()=>{try{updateGenPending();}catch(_){}},700);
 function hhInit(){
   // Genre presets
   const presetRow=document.getElementById('hh-genre-presets');
@@ -2160,16 +2161,34 @@ function applySelectedAdv(){
     labels.push(window._advLabels[k]||m[1]);
   });
   _advSel=new Set();
-  hhGenerate(`룰 피드백 ${keys.length}개 적용: ${labels.slice(0,3).join(' · ')}${labels.length>3?` 외 ${labels.length-3}`:''}`,{noScroll:true});
-  showToast(`✅ 피드백 ${keys.length}개 적용됨`);
+  markPending(`룰 피드백 ${keys.length}개 적용: ${labels.slice(0,3).join(' · ')}${labels.length>3?` 외 ${labels.length-3}`:''}`);
+  hhGenerate(false,{noScroll:true});
+  showToast(`✅ 피드백 ${keys.length}개 적용됨 — Generate를 눌러 프롬프트에 반영하세요`);
 }
 function removeAdvTag(tag){
   st.extraTags=st.extraTags.filter(t=>t!==tag);
-  hhGenerate(`태그 제거: ${tag}`);
+  markPending(`태그 제거: ${tag}`);
+  hhGenerate(false,{noScroll:true});
 }
 
 // source: undefined = 사용자가 직접 Generate 누름 (기록에 라벨 없음), 문자열 = 어떤 적용 액션이 실제로 프롬프트를 바꿔서 다시 생성됐는지 (기록에 라벨로 남음), false = 프롬프트 내용은 안 바뀌고 UI만 갱신 (기록 안 남김)
+// Generate는 사용자가 버튼을 눌렀을 때만 새로 만든다. source===false는 "화면만 다시 그리기"(리뷰 결과 표시 등) — 이때는 지금 보이는 프롬프트 텍스트를 그대로 두고 AI 작성도 시작하지 않음.
+// AI 추천·분석·피드백 적용은 설정만 바꾸고 markPending()으로 표시 → 사용자가 Generate를 눌러야 반영
+let _pendingLabels=[],_lastGenFp=null;
+function markPending(label){if(label&&!_pendingLabels.includes(label))_pendingLabels.push(label);updateGenPending();}
+function updateGenPending(){
+  const on=_lastGenFp!==null&&document.getElementById('hh-out-blocks')?.style.display==='flex'&&hhWriteFingerprints().fpFull!==_lastGenFp;
+  document.querySelectorAll('.gen-btn,.float-gen-btn').forEach(b=>{
+    if(!b.dataset.label)b.dataset.label=b.textContent;
+    b.textContent=on?'✨ 설정이 바뀌었어요 — Generate로 반영':b.dataset.label;
+    b.style.boxShadow=on?'0 0 0 3px rgba(245,158,11,.55)':'';
+  });
+}
 function hhGenerate(source,opts){
+  const isRefresh=source===false;
+  if(source===undefined&&_pendingLabels.length)source=_pendingLabels.join(' + ');
+  const keepSect=isRefresh?document.getElementById('hh-sect-ta')?.value:null;
+  const keepStyle=isRefresh?document.getElementById('hh-style-ta')?.value:null;
   const hasAiKey=!!getAnthropicKey();
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
@@ -2234,6 +2253,7 @@ function hhGenerate(source,opts){
   _hhDraft={sect:sectText,style:null,fpFull:_fps.fpFull,fpBase:_fps.fpBase};
   const _wc=(aiWriteEnabled()&&_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpFull===_fps.fpFull)?_hhWritten:null;
   if(_wc)sectText=_wc.section;
+  if(isRefresh&&keepSect)sectText=keepSect;   // 화면만 다시 그릴 땐 보이던 텍스트 유지
   const sectBlock=makeOutBlock('② 섹션 프롬프트',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-sect-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${sectText.length>5000?'var(--danger)':sectText.length>4200?'#F59E0B':'var(--success)'}" title="Suno 가사/섹션 박스 한도">${sectText.length}/5000자</span></div><textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
     'hh-sect-ta','#8B5CF6');
@@ -2342,6 +2362,7 @@ function hhGenerate(source,opts){
   let styleText=applyRemovedStylePhrases(tags.join(', '));
   _hhDraft.style=styleText;
   if(_wc)styleText=_wc.style;
+  if(isRefresh&&keepStyle)styleText=keepStyle;
   const charCount=styleText.length;
   const charColor=charCount>1000?'var(--danger)':charCount>800?'#F59E0B':'var(--success)';
   // 적용된 extraTags 칩
@@ -2507,14 +2528,7 @@ function hhGenerate(source,opts){
   // 우리 AI 리뷰는 텍스트만 보고 짐작하지만, 실제로 완성된 곡을 들어본 외부 피드백(다른 AI 청취 평가, 사람 리뷰)이
   // 있으면 그게 훨씬 신뢰도 높은 정보라 — 붙여넣으면 같은 적용 파이프라인을 그대로 태움. _aiSuggestions 유무와 무관하게
   // Key만 있으면 항상 노출 (리뷰를 안 받아봤어도 외부 피드백은 바로 붙여넣을 수 있게)
-  const externalFeedbackHtml=hasAiKey?`<details style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
-      <summary style="cursor:pointer;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3)">🎧 들어본 피드백 붙여넣기 (클릭해서 펼치기)</summary>
-      <div style="margin-top:10px">
-        <div style="font-size:11px;color:var(--text-3);margin-bottom:8px;font-style:normal">실제로 완성된 곡을 듣고 받은 평가(다른 AI 청취 리뷰, 사람 피드백 등)를 붙여넣으면, 그 내용을 바로 적용 가능한 제안으로 바꿔줘요.</div>
-        <textarea id="hh-external-feedback-ta" placeholder="예: 훅이 반복될 때 변화가 부족해서 두 번째 임팩트가 약하다..." style="width:100%;min-height:80px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--border-hi);background:var(--surface-2);color:var(--text-1);font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
-        <button id="hh-ai-external-btn" onclick="aiParseExternalFeedback()" style="margin-top:8px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;cursor:pointer">🎧 반영 제안 받기</button>
-      </div>
-    </details>`:'';
+  const externalFeedbackHtml='';   // 들어본 피드백 붙여넣기는 🎧 들어보고 확인하기 블록으로 이동
   container.appendChild(makeOutBlock('⑦ 프로듀서 노트',
     `<div style="font-size:12px;line-height:1.8;color:var(--text-2);font-style:italic;padding:4px 0">${noteLines.map(l=>`<p style="margin-bottom:5px">${l}</p>`).join('')}</div>${hasAiKey?aiReviewHtml+externalFeedbackHtml+advHtml:advHtml+aiReviewHtml}`,
     null,'#6B7280'));
@@ -2545,7 +2559,10 @@ function hhGenerate(source,opts){
   else if(!aiWriteEnabled()){_writeState='off';renderWriteBadge();}
   else if(_writePromise&&_hhDraft.fpFull===_fps.fpFull&&_writeState==='pending'&&source===false){renderWriteBadge();}
   else if(_fb&&source===false){_writeState='fallback';renderWriteBadge();}
+  else if(isRefresh){renderWriteBadge();}
   else hhAiWrite(_entryId);
+  if(!isRefresh){_lastGenFp=_fps.fpFull;_pendingLabels=[];}
+  updateGenPending();
 }
 
 // ============================================================

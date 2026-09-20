@@ -379,7 +379,8 @@ function applySelectedAiSuggestions(){
   // 무드 변경은 멜로디·808·드럼 룰 재추천을 다시 돌리니, 같이 고른 다른 조언(멜로디 리드 등)이 덮이지 않게 가장 먼저
   picked.sort((x,y)=>!!y.mood-!!x.mood);
   picked.forEach(applyAiSuggestionCore);
-  hhGenerate(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`,{noScroll:true});
+  markPending(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`);
+  hhGenerate(false,{noScroll:true});   // 제안 목록의 "적용됨" 표시만 갱신 — 프롬프트는 Generate를 눌러야 바뀜
 }
 function applyAiSuggestionCore(sug){
   sug.applied=true;
@@ -785,11 +786,11 @@ ${ctx}`;
       await aiRecommendProducerRef({regen:false});
       refNote=st.refs[0]?` · 프로듀서 레퍼런스: ${st.refs[0]}`:'';
     }catch(_){}
-    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 추천 적용 (악기·808·드럼·프로듀서)');
+    markPending('AI 추천 적용 (악기·808·드럼·프로듀서)');
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';
-      statusEl.textContent='✅ '+(parsed.reason||'추천 완료')+refNote;
+      statusEl.textContent='✅ '+(parsed.reason||'추천 완료')+refNote+' — Generate를 눌러 프롬프트에 반영하세요';
     }
   }catch(e){
     fail(e.message);
@@ -832,7 +833,7 @@ ${aiSelectionCtx({structure:false})}`;
     st._structAutoManaged=false;   // AI가 고른 걸 이후 무드·길이 변경이 조용히 덮어쓰지 않게
     renderStructBuilder('hh',HH_STRUCT_PRESETS,HH_SEG_PALETTE,st);
     clearAutoHint('hh-struct-hint');
-    if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate(`AI 구조 추천 적용: ${parsed.structure}`);
+    markPending(`AI 구조 추천 적용: ${parsed.structure}`);
     if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--success)';statusEl.textContent='✅ '+parsed.structure+' — '+(parsed.reason||'추천 완료');}
   }catch(e){
     fail(e.message);
@@ -880,11 +881,11 @@ ${st.extraTags.length?st.extraTags.join(', '):'(없음)'}`;
     st.refs=refs;
     renderProducerRef();
     clearAutoHint('hh-ref-hint');
-    if(opts?.regen!==false&&document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('AI 레퍼런스 추천 적용');
+    if(opts?.regen!==false)markPending('AI 레퍼런스 추천 적용');
 
     if(statusEl){
       statusEl.hidden=false;statusEl.style.color='var(--success)';
-      statusEl.textContent='✅ '+(parsed.reason||'추천 완료');
+      statusEl.textContent='✅ '+(parsed.reason||'추천 완료')+' — Generate를 눌러 프롬프트에 반영하세요';
     }
   }catch(e){
     fail(e.message);
@@ -1430,8 +1431,8 @@ function applyBrief(){
   renderHhGenres();
   renderBriefActive();
   const statusEl=document.getElementById('hh-brief-status');
-  if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--success)';statusEl.textContent='✅ 적용했어요 — 아래 항목에서 바꾸고 싶은 것만 고치면 돼요';}
-  if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('곡/느낌 분석 적용');
+  if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--success)';statusEl.textContent='✅ 적용했어요 — 아래 항목에서 바꾸고 싶은 것만 고친 뒤 Generate를 눌러 프롬프트를 만드세요';}
+  markPending('곡/느낌 분석 적용');
 }
 // 반영 중인 소리 특징 표시 + 해제
 function renderBriefActive(){
@@ -1444,7 +1445,7 @@ function renderBriefActive(){
 function clearBrief(){
   st.brief=null;
   renderBriefActive();
-  if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('소리 특징 해제');
+  markPending('소리 특징 해제');
 }
 
 // ============================================================
