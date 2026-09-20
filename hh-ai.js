@@ -41,7 +41,8 @@ function reportCacheStatus(status,usage){
 }
 // claude-sonnet-5는 temperature 파라미터를 거부함("deprecated for this model", 실사용 확인) — 채점 안정화는 scoringAnchor로 함.
 // 대신 think:false로 숨은 추론을 끄면 리뷰 145초→23초, 작성 61초→17초(출력 토큰 1/4~1/9)로 빨라짐 — 추천·채점·분석처럼 답이 짧게 정해지는 호출용
-async function callAnthropic(key,{maxTokens,staticText,dynamicText,think}){
+// onText를 주면 스트리밍(SSE)으로 받아서 글자가 나오는 대로 콜백(누적 텍스트) — 채팅처럼 바로 보이게. 끝나면 전체 텍스트 반환
+async function callAnthropic(key,{maxTokens,staticText,dynamicText,think,onText}){
   const url='https://api.anthropic.com/v1/messages';
   const headers={
     'content-type':'application/json',
@@ -53,6 +54,7 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText,think}){
     model:'claude-sonnet-5',
     max_tokens:maxTokens,
     ...(think===false?{thinking:{type:'disabled'}}:{}),
+    ...(onText?{stream:true}:{}),
     messages:[{role:'user',content:useCache
       ?[{type:'text',text:staticText,cache_control:{type:'ephemeral'}},{type:'text',text:dynamicText}]
       :staticText+dynamicText
@@ -68,6 +70,28 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText,think}){
   if(!res.ok){
     const errText=await res.text().catch(()=>'');
     throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
+  }
+  if(onText){
+    const reader=res.body.getReader(),dec=new TextDecoder();
+    let buf='',acc='',stop='';
+    for(;;){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let i;
+      while((i=buf.indexOf('\n\n'))>=0){
+        const ev=buf.slice(0,i);buf=buf.slice(i+2);
+        const line=ev.split('\n').find(l=>l.startsWith('data:'));
+        if(!line)continue;
+        let j;try{j=JSON.parse(line.slice(5));}catch(_){continue;}
+        if(j.type==='content_block_delta'&&j.delta?.type==='text_delta'){acc+=j.delta.text;onText(acc);}
+        else if(j.type==='message_delta'&&j.delta?.stop_reason)stop=j.delta.stop_reason;
+        else if(j.type==='error')throw new Error(`API 오류 ${j.error?.message||''}`.slice(0,150));
+      }
+    }
+    if(stop==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+    if(!acc.trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
+    return acc;
   }
   const data=await res.json();
   // usage.cache_creation_input_tokens/cache_read_input_tokens가 응답에 실제로 있어야 캐싱이 "진짜" 동작한 것 —
@@ -1074,7 +1098,7 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 <style>
 스타일 프롬프트 한 줄
 </style>`;
-async function writeOnce({mode,spec,draft,prev,errors}){
+async function writeOnce({mode,spec,draft,prev,errors,onPartial}){
   const key=getAnthropicKey();
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
@@ -1098,7 +1122,8 @@ ${draft.sect}
 [참고 스타일 초안]
 ${draft.style}
 ${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
-  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText});
+  // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
+  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
   const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   return {section:sec[1].trim(),style:sty[1].trim().replace(/\s*\n\s*/g,' ')};
@@ -1140,7 +1165,14 @@ async function hhAiWrite(entryId){
       const spec=buildWriteSpec(draft.sect,draft.style,mode==='edit'?_hhWritten:null);
       let errors=null,result=null,lastErrors=null;
       for(let attempt=0;attempt<2;attempt++){
-        const out=await writeOnce({mode,spec,draft,prev:mode==='edit'?_hhWritten:null,errors});
+        const out=await writeOnce({mode,spec,draft,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
+          if(token!==_writeToken)return;
+          const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i);
+          const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
+          if(sm&&ta)ta.value=sm[1].trim();
+          if(tm&&sa)sa.value=tm[1].trim().replace(/\s*\n\s*/g,' ');
+          updateWriteCounters();
+        }});
         if(token!==_writeToken)return;
         const v=validateWritten(spec,out.section,out.style);
         if(v.ok){result=out;break;}
@@ -1158,17 +1190,26 @@ async function hhAiWrite(entryId){
       }else{
         _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:draft.sect,style:draft.style,meta:{ok:false,errors:lastErrors}};
         _writeState='fallback';_writeErr=(lastErrors||[]).slice(0,3).join(' / ');
+        restoreDraftText(draft);
       }
     }catch(e){
       if(token!==_writeToken)return;
       _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:draft.sect,style:draft.style,meta:{ok:false,errors:[e.message]}};
       _writeState='fallback';_writeErr=e.message;
+      restoreDraftText(draft);
     }finally{
       if(token===_writeToken){renderWriteBadge();_writePromise=null;}
     }
   })();
   _writePromise=run;
   return run;
+}
+// 스트리밍 중 화면에 보이던 미완성 AI 텍스트를 규칙 초안으로 되돌림
+function restoreDraftText(draft){
+  const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
+  if(ta)ta.value=draft.sect;
+  if(sa&&draft.style)sa.value=draft.style;
+  updateWriteCounters();
 }
 // 같은 설정으로 강제 재작성 ("✍️ 다시 쓰기")
 function hhAiRewrite(){
