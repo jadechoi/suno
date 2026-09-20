@@ -1031,8 +1031,11 @@ function validateWritten(spec,section,style){
   }
   // 보컬 규칙
   if(!spec.vocal){
-    const stripped=(section+' '+style).replace(/no vocals|no vocal samples|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
-    if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
+    const stripped=(section+' '+style).replace(/vocal-?less|without (?:any )?vocals?|non-vocal|no vocals|no vocal samples|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
+    if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir/humming/chant/ad-lib)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
+    // 보컬 없음을 고르면 "보컬찹 없음"이 무엇보다 우선 — 스타일과 첫·마지막 훅에 반드시 명시
+    if(!/zero vocal chops/i.test(style))errors.push('무보컬 곡의 스타일에 "ZERO vocal chops"가 반드시 있어야 함');
+    [hooks[0],hooks[hooks.length-1]].filter(Boolean).forEach(s=>{if(!/zero vocal chops/i.test(s.body))errors.push(`${s.header}에 "ZERO vocal chops"가 반드시 있어야 함`);});
   }else{
     // 보컬이 있는 곡: 무보컬 신호가 하나라도 있으면 Suno가 보컬을 끄거나 결과가 엉킴 (예시 프롬프트가 전부 무보컬이라 AI가 [Instrumental]을 따라 쓰는 경우가 있었음)
     const noVoc=(style+' '+section).match(/\[instrumental\]|\bno vocals?\b|zero vocal chops|no vocal samples|(?:purely|completely) instrumental|\bvocal chops?\b/i);
@@ -1080,6 +1083,9 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 회수: 아웃트로는 인트로의 소리·이미지를 다시 불러와 끝맺고(콜백) 마지막에 남는 소리를 명시.
 - 인간미(antiAI가 true일 때): 이 곡의 실제 악기·드럼마다 구체적인 불완전함(타이밍 밀림, 벨로시티 불균일, 피치 흔들림, 필터 비대칭 등)을 섹션에 나눠서 몇 군데.
 - 믹스 분리: 리드·배경·베이스가 겹칠 수 있는 구간에서는 분리 방법(하이패스, 사이드체인, 옥타브 분리)을 훅에 한두 번 명시.
+
+[무보컬 곡 — 다른 어떤 디테일보다 우선]
+- 명세의 vocal이 null이면 보컬찹·보컬 샘플·허밍·애드립·챈트·합창은 **절대 금지**야. 장르 관습이더라도(저지 클럽·하이퍼팝의 보컬찹 등) 넣지 마. 스타일에 "no vocals & ZERO vocal chops & no vocal samples" 묶음을 넣고, 첫 훅과 마지막 훅 본문에도 "ZERO vocal chops"를 넣어. 샘플 초핑 악기를 쓰면 "instrumental sample chops"처럼 보컬 샘플이 아님을 분명히 해.
 
 [보컬 곡]
 - 예시는 전부 무보컬이라 [Instrumental]·"no vocals & ZERO vocal chops…" 묶음이 있어. **명세의 vocal이 null이 아니면(보컬 곡) 이건 절대 쓰지 마.** 스타일에 [Instrumental]도, 섹션에 "purely/completely instrumental"이나 "vocal chops"도 금지. 보컬은 메뉴 이름(Heavy hooks, Light ad-libs, Full rap feature)을 그대로 쓰지 말고 실제로 들리는 소리(속삭임, 클로즈 마이크, 짧은 후크 라인, 톤, 처리)로 묘사해. 헤더가 "Instrumental"인 섹션(브릿지 등)에는 보컬 묘사를 넣지 마.
@@ -1197,7 +1203,7 @@ async function hhAiWrite(entryId){
       const mode=(_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
       const spec=buildWriteSpec(draft.sect,draft.style,mode==='edit'?_hhWritten:null);
       let errors=null,result=null,lastErrors=null;
-      for(let attempt=0;attempt<2;attempt++){
+      for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
         const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
           if(token!==_writeToken)return;
           const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i);
