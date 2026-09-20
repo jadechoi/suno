@@ -1494,3 +1494,29 @@ function openGeminiBrief(){
   const d=document.getElementById('hh-brief-gemini');if(d)d.open=true;
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+// ============================================================
+// 아티스트·핫한 곡 선택기 → 입력칸 (예전 "아티스트 타입비트" 탭을 ✨ 박스 안으로 합침)
+// ============================================================
+let _refCandidate=null;
+function setRefSongFromPicker(label,cand){
+  if(!label)return;
+  const r=document.getElementById('hh-ref-song');if(r)r.value=label;
+  const b=document.getElementById('hh-brief');if(b)b.value=label;
+  if(cand&&cand.genre!==undefined&&cand.genre!==null&&st.genre!==cand.genre)selectGenre(cand.genre);   // 곡 데이터에 달린 장르 태그만 반영
+  _refCandidate=(cand&&(cand.bpm||cand.key!==undefined&&cand.key!==null))?{bpm:cand.bpm||null,key:(cand.key!==undefined&&cand.key!==null)?cand.key:null}:null;
+  const s=document.getElementById('hh-brief-status');
+  if(s){
+    s.hidden=false;s.style.color='var(--text-1)';
+    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. 이제 <b>AI로 분석·추천</b>이나 <b>Gemini로 정확하게 분석</b>을 눌러 이 곡의 소리를 가져오세요.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터의 BPM·Key 참고값: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">참고값 적용</button></div>`:''}`;
+  }
+  document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
+  markPending('참고 곡 선택');
+}
+function applyRefCandidate(){
+  const c=_refCandidate;if(!c)return;
+  if(c.bpm){st.bpm=c.bpm;st.bpmSet=true;document.getElementById('hh-bpm').value=c.bpm;}
+  if(c.key!==null){st.key=c.key;st.keySet=true;document.getElementById('hh-key').value=c.key;}
+  const s=document.getElementById('hh-brief-status');if(s){s.hidden=false;s.textContent='✅ 참고값을 BPM·Key에 넣었어요 — 곡과 다르면 02 KEY & BPM에서 고치세요';s.style.color='var(--success)';}
+  markPending('참고 곡 BPM·Key');
+}

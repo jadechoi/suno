@@ -38,12 +38,6 @@
 <!-- ========== HIP-HOP TAB ========== -->
 <div class="tab-content active" data-tab="hiphop">
 
-  <!-- MODE TOGGLE -->
-  <div style="display:flex;gap:8px;margin-bottom:10px">
-    <button class="hh-mode-btn active" data-mode="genre" onclick="setHHMode('genre')" style="flex:1;padding:10px 0;border-radius:var(--r);border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.15s">🎛 장르 기반 비트</button>
-    <button class="hh-mode-btn" data-mode="typeBeat" onclick="setHHMode('typeBeat')" style="flex:1;padding:10px 0;border-radius:var(--r);border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.15s">🎤 아티스트 타입비트</button>
-  </div>
-
   <!-- SPOTIFY SETTINGS PANEL -->
   <div id="sp-panel" style="margin-bottom:16px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
     <div onclick="toggleSpPanel()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface-2);cursor:pointer;user-select:none">
@@ -151,6 +145,25 @@
         <button id="hh-brief-btn" onclick="aiAnalyzeBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🤖 AI로 분석·추천</button>
         <span style="font-size:11px;color:var(--text-3)">장르를 몰라도 돼요 — 곡명이든 "이런 느낌" 설명이든 OK. 결과를 확인하고 원하는 것만 적용해요.</span>
       </div>
+      <details id="hh-picker" style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎤 아티스트·요즘 핫한 곡에서 고르기</summary>
+        <div style="margin-top:8px">
+          <div style="font-size:11px;color:var(--text-3);line-height:1.7;margin-bottom:10px">곡을 누르면 위 입력칸에 "아티스트 - 곡명"이 들어가요. 아티스트 이름은 프롬프트에 쓰지 않고, 그 곡의 소리를 분석해서 반영해요.</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🔥 요즘 핫한 곡 <span style="font-weight:400;color:var(--text-3)">Billboard Hip-Hop/R&B 주간 차트 아티스트 · Spotify·RapidAPI 연동 필요</span></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span id="trending-last-update" style="font-size:10px;color:var(--text-3)">Spotify 연동 후 새로고침</span>
+          <button onclick="fetchTrendingArtists()" id="trending-refresh-btn" style="padding:5px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer;transition:.15s">↻ 새로고침</button>
+        </div>
+        <div id="hh-trending-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px">
+          <span style="font-size:11px;color:var(--text-3);align-self:center">연결 후 새로고침을 누르면 현재 핫한 아티스트가 표시됩니다</span>
+        </div>
+        <div id="trending-status" hidden style="font-size:11px;color:var(--text-3);margin-top:6px"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);margin:14px 0 6px">🎤 아티스트</div>
+
+        <div id="hh-artists-typeBeat"><span style="font-size:11px;color:var(--text-3)">상단 🔥 실시간 트렌딩 새로고침 후 Billboard 차트 아티스트가 자동으로 구성됩니다</span></div>
+        </div>
+      </details>
       <details id="hh-brief-gemini" style="margin-top:10px">
         <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎧 더 정확하게: Gemini가 곡을 듣고 분석하게 하기 (참고 곡이 있을 때 추천)</summary>
         <div style="margin-top:8px;font-size:11px;color:var(--text-2);line-height:1.8">Claude가 곡을 기억만으로 분석하면 매번 결과가 달라질 수 있어요. Gemini는 검색이나 실제 소리로 분석해서 더 정확합니다. <b>파일을 올리지 않아도 돼요</b> — 곡명만으로도 되고, 유튜브 링크를 함께 붙이면 더 정확해요.<br>① Gemini 열기 (원하면 mp3 또는 유튜브 링크 첨부) → ② 아래 <b>요청문 복사</b>를 눌러 붙여넣기 (위 참고 곡 칸의 곡명이 요청문에 자동으로 들어가요) → ③ Gemini가 준 <b>{ … } JSON</b>을 아래 칸에 붙여넣고 <b>분석 적용</b><div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="copyGeminiBriefRequest(this)" style="padding:5px 12px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">📋 Gemini 요청문 복사</button></div>
@@ -196,36 +209,6 @@
 </div>
 
   <!-- ARTIST PRESETS (타입비트 모드에서만 표시) -->
-  <div id="hh-typeBeat-section" style="display:none">
-    <!-- 실시간 트렌딩 -->
-    <div class="section">
-      <div class="section-header open" onclick="toggleSection(this)">
-        <div class="section-title">🔥 실시간 트렌딩 <span style="font-size:10px;color:var(--text-3);margin-left:4px">Billboard Hip-Hop/R&B 주간 차트 기준</span></div>
-        <span class="caret">▼</span>
-      </div>
-      <div class="section-body">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <span id="trending-last-update" style="font-size:10px;color:var(--text-3)">Spotify 연동 후 새로고침</span>
-          <button onclick="fetchTrendingArtists()" id="trending-refresh-btn" style="padding:5px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer;transition:.15s">↻ 새로고침</button>
-        </div>
-        <div id="hh-trending-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px">
-          <span style="font-size:11px;color:var(--text-3);align-self:center">연결 후 새로고침을 누르면 현재 핫한 아티스트가 표시됩니다</span>
-        </div>
-        <div id="trending-status" hidden style="font-size:11px;color:var(--text-3);margin-top:6px"></div>
-      </div>
-    </div>
-    <!-- 큐레이션 아티스트 -->
-    <div class="section">
-      <div class="section-header open" onclick="toggleSection(this)">
-        <div class="section-title">🎤 아티스트 선택 <span style="font-size:10px;color:var(--text-3);margin-left:4px">실시간 트렌딩 새로고침 후 자동 구성 · 곡 클릭 → Key·BPM·무드·808 자동 세팅</span></div>
-        <span class="caret">▼</span>
-      </div>
-      <div class="section-body">
-        <div id="hh-artists-typeBeat"><span style="font-size:11px;color:var(--text-3)">상단 🔥 실시간 트렌딩 새로고침 후 Billboard 차트 아티스트가 자동으로 구성됩니다</span></div>
-      </div>
-    </div>
-  </div>
-
   <!-- 02 BPM -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">

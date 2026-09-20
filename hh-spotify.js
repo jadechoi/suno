@@ -405,6 +405,7 @@ async function applySpotifyTrack(trackId,label){
   hideSpotifyDropdown();
   const inp=document.getElementById('hh-ref-song');
   if(inp)inp.value=label;
+  {const bi=document.getElementById('hh-brief');if(bi)bi.value=label;}
   const statusEl=document.getElementById('sp-search-status');
   if(statusEl){statusEl.textContent='⚙️ 오디오 피처 분석 중...';statusEl.hidden=false;}
   const af=await getAudioFeatures(trackId);
@@ -560,6 +561,7 @@ async function resolveTrackByArtistAndTitle(artist,title,tok){
 
 async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackName){
   const statusEl=document.getElementById('trending-status');
+  setRefSongFromPicker(`${artistName} - ${trackName}`,null);   // 오디오 피처를 못 가져와도 곡은 입력칸에 들어감
   if(statusEl){statusEl.textContent=`🎧 ${artistName} — ${trackName} 분석 중…`;statusEl.hidden=false;}
   const tok=await getSpotifyToken();
   if(!tok)return;

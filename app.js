@@ -1047,53 +1047,10 @@ function recommendStructure(){
 // 구조 추천에 쓰이는 신호(길이·색깔·밀도·보컬)가 바뀌면 자동 추천 상태일 때만 다시 계산
 function onStructSignalChange(){if(st._structAutoManaged)recommendStructure();}
 
-// HH mode toggle: 'genre' = 장르 기반, 'typeBeat' = 아티스트 타입비트
-let hhMode='genre';
-function setHHMode(mode){
-  hhMode=mode;
-  document.querySelectorAll('.hh-mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
-  document.getElementById('hh-genre-section').style.display=mode==='genre'?'':'none';
-  document.getElementById('hh-typeBeat-section').style.display=mode==='typeBeat'?'':'none';
-}
-
 function applyArtistSong(tabKey,song,artist){
   if(tabKey==='hh'){
-    if(song.genre!==undefined)st.genre=song.genre;
-    if(song.bpm){st.bpm=song.bpm;st.bpmSet=true;}
-    if(song.key!==undefined){st.key=song.key;st.keySet=true;}
-    if(st.bpmSet)document.getElementById('hh-bpm').value=st.bpm;
-    if(st.keySet)document.getElementById('hh-key').value=st.key;
-    // 레퍼런스 곡 자동 입력
-    const refEl=document.getElementById('hh-ref-song');
-    if(refEl&&artist&&song.title)refEl.value=`${artist.name} - ${song.title}`;
-    // 808·드럼·전환효과 자동 추천 (곡 장르 기반)
-    const auto=GENRE_AUTO[song.genre];
-    if(auto){
-      st._808=auto.a808;
-      st.drums=[...auto.aDrums];
-      st.transitionFx=[...auto.fx];
-      st.groove=auto.groove;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
-      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
-      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
-      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
-      setAutoHint('hh-808-hint','808: '+auto.a808);
-      setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
-      setAutoHint('hh-fx-hint',auto.fx.join(', '));
-      setAutoHint('hh-groove-hint',auto.groove);
-    }
-    // 무드 자동 추천 (실제 오디오 분석은 없으므로 장르 기반 추정치)
-    const defMood=GENRE_DEFAULT_MOOD[song.genre];
-    if(defMood){
-      st.mood=defMood;
-      moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
-    }
-    recommendMelodyTexture();
-    recommendProducerRef();
-    recommendStructure();
-    renderHhGenres();
-    showToast(`🎵 <b>${artist?.name||''} — ${song.title||''}</b><br>Key: ${KEYS[st.key]||'?'} · ${st.bpm}BPM · 무드: ${defMood||'-'} (장르 추정) 적용됨`);
-    updateFloatSummary();
+    // 곡을 누르면 장르 기본값을 채우는 대신 입력칸에 곡만 넣음 — 소리는 분석(AI/Gemini)으로, BPM·Key는 곡에서 가져오거나 사용자가 정함
+    setRefSongFromPicker(artist&&song.title?`${artist.name} - ${song.title}`:(song.title||''),{bpm:song.bpm,key:song.key,genre:song.genre});
   } else {
     const s=VTS[tabKey];
     if(song.tag)s.genre=song.tag;
@@ -2791,7 +2748,7 @@ function hhReset(){
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
-  {const b=document.getElementById('hh-brief');if(b)b.value='';_briefProposal=null;const r=document.getElementById('hh-brief-result');if(r)r.hidden=true;}
+  {const b=document.getElementById('hh-brief');if(b)b.value='';_briefProposal=null;_refCandidate=null;const r=document.getElementById('hh-brief-result');if(r)r.hidden=true;}
   document.getElementById('hh-bpm').value='';document.getElementById('hh-bpm').placeholder='직접 입력';
   document.getElementById('hh-key').value='';
   const outBlocks=document.getElementById('hh-out-blocks');
