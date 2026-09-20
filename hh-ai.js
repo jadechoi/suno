@@ -1558,7 +1558,7 @@ function applyBrief(){
   if(on('density')){st.density=v.density;chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);}
   if(on('vocal')){
     st.vocal=v.vocal;
-    chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
+    chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,onVocalChange);
     recommendVocalChar();
     if(v.vocalChar&&st.vocal!=='No Vocal'){st.vocalChar=v.vocalChar;chipGrid(document.getElementById('hh-vocal-char'),HH_VOCAL_CHAR,st,'vocalChar',1,null);}
     if(v.vocalStyle&&st.vocal!=='No Vocal'){st.vocalStyle=v.vocalStyle;chipGrid(document.getElementById('hh-vocal-style'),HH_VOCAL_STYLE,st,'vocalStyle',1,null);}

@@ -79,11 +79,15 @@ function moodGrid(container,moods,state,key,onChange){
 // ============================================================
 // HIP-HOP INIT
 // ============================================================
+// 보컬 칩을 누를 때마다(어느 경로로 그려진 칩이든) 같은 처리 — 가사 칸이 바로 나타나고 사라지게
+function onVocalChange(){recommendVocalChar();onStructSignalChange();syncLyricBox();}
 let _lyricLangTouched=false,_lyricLangForced=false;   // 사용자가 직접 언어를 고르면 장르 선택이 언어를 바꾸지 않음
 function syncLyricBox(){
   const box=document.getElementById('hh-lyric-box');if(!box)return;
   const on=!!(st.vocal&&st.vocal!=='No Vocal');
   box.hidden=!on;
+  // 보컬 없음이면 결과 화면의 가사 블록(가사 프롬프트·가사만)도 숨김 — 보컬 곡을 만든 뒤 No Vocal로 바꿔도 남아 있지 않게
+  ['hh-lyrics-ta','hh-lyrics-only-ta'].forEach(id=>{const ob=document.getElementById(id)?.closest('.output-box');if(ob)ob.style.display=on?'':'none';});
   const lt=document.getElementById('hh-lyric-theme');if(lt&&document.activeElement!==lt&&lt.value!==(st.lyricTheme||''))lt.value=st.lyricTheme||'';
   const lg=document.getElementById('hh-lyric-lang');
   const fixed=GENRE_LYRIC_LANG_FIXED[st.genre]||null;
@@ -169,7 +173,7 @@ function renderHhChips(){
   chipGrid(document.getElementById('hh-melody-tone'),HH_MELODY_TONE,st,'melodyTone',1,null);
   moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);
   renderGenreGuide();
-  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
+  chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,onVocalChange);
   renderProducerRef();
   chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
@@ -896,8 +900,9 @@ function selectGenre(i){
   if(st.genre!==null){
     if(GENRES[i].family==='pop'&&(!st.vocal||st.vocal==='No Vocal')){   // 팝·R&B는 노래가 중심이라 보컬을 제안(바꿀 수 있음)
       st.vocal='Sung lead vocal';
-      chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
+      chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,onVocalChange);
       recommendVocalChar();
+      syncLyricBox();
     }
     if(GENRE_LYRIC_LANG_FIXED[i]){st.lyricLang=GENRE_LYRIC_LANG_FIXED[i];_lyricLangForced=true;}   // J-Pop은 일본어 고정
     else if(_lyricLangForced){st.lyricLang='English';_lyricLangForced=false;}                   // 고정 장르에서 벗어나면 되돌림
