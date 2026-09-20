@@ -633,6 +633,14 @@ function complementBg(lead,bg,ranked){
 // 장르·무드(+시대감)를 보고 멜로디 리드/배경 + 믹스 텍스처 2개를 자동 추천 — 음악 지식 없이도 기본값이 채워지도록
 function recommendMelodyTexture(){
   if(st.genre===null)return;
+  if(!GENRE_MELODY_TIPS[st.genre]&&!GENRE_TEXTURE_TIPS[st.genre]&&!GENRE_DRUMS_TIPS[st.genre]&&!st.mood){
+    // 장르 기본값 자료가 없는 장르(일렉·클럽)는 무드를 고르기 전까지 비워 둠 — 이전 장르의 값이 남지 않게 지우고 AI가 정하게 함
+    st.melody=[];st.texture=[];st.drums=[];st.melodyTone=null;st.melodyLeadIdx=0;
+    chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);renderMelodyRoleUI();
+    chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
+    chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
+    return;
+  }
   const rankedMelody=scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null);
   let [lead,bg]=rankedMelody;
   // 둘 다 저역 지속음이면 상위 후보 중 대역이 다른 악기로 배경을 교체 (예: Dark synth + Ambient pad → 밝은 플럭/벨 계열)
@@ -651,6 +659,7 @@ function recommendMelodyTexture(){
   // 아프로 트랩은 로그드럼 + 샤커(중역대 퍼커션 질감) + 트랩 하이햇 3개가 정체성 — 무드 추천(예: 킥 패턴)이 샤커를 밀어내지 않게 보너스, 개수도 3개
   const rankedDrums=scorePick(HH_DRUMS,GENRE_DRUMS_TIPS,MOOD_DRUMS_FIT,st.genre,st.mood,GENRE_DRUM_BONUS[st.genre]);
   st.drums=rankedDrums.slice(0,(GENRE_DRUMS_TIPS[st.genre]||'').split(' + ').length>=3?3:2);
+  if(GENRES[st.genre].family!=='hiphop'&&!GENRE_DRUMS_TIPS[st.genre])st.drums=[];   // 힙합 드럼 메뉴(Boom Bap kick 등)를 일렉 장르에 억지로 붙이지 않음 — AI가 정함
 
   recommendRhythm();
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
@@ -897,6 +906,12 @@ function selectGenre(i){
       setAutoHint('hh-fx-hint',auto.fx.join(', '));
       setAutoHint('hh-groove-hint',auto.groove);
     }
+    else{
+      st._808='Balanced';st.transitionFx=[];st.groove=null;
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
+      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
+    }
     recommendMelodyTexture();
     recommendProducerRef();
     recommendStructure();
@@ -1032,7 +1047,7 @@ function renderProducerRef(){
 function recommendProducerRef(){
   if(st.genre===null)return;
   const refs=GENRE_REF[st.genre];
-  if(!refs)return;
+  if(!refs){st.refs=[];renderProducerRef();clearAutoHint('hh-ref-hint');return;}
   // 2명이 자동으로 붙으면 설명 6개가 스타일 박스의 ~28%를 차지하고 서로 충돌하기도 해서(예: Ronny J + Mike Dean) 1명만 —
   // 더 원하면 직접 고르거나 AI 추천(지금까지 고른 걸 보고 1명)을 받음
   st.refs=[refs[0]];
@@ -2974,7 +2989,8 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // ============================================================
 // 새 일렉 장르(인덱스 20~)의 표 값을 가장 가까운 힙합 장르에서 빌려 채움 — AI 작성 경로에서는 참고값, 규칙 초안(폴백)이 죽지 않게 하는 용도
 function extendGenreTables(){
-  const tables=[typeof GENRE_REF!=='undefined'&&GENRE_REF,typeof GENRE_STRUCTURE!=='undefined'&&GENRE_STRUCTURE,GENRE_SECTION_CUE,GENRE_HUMAN,GENRE_AUTO,GENRE_ARTICULATION,GENRE_DEFAULT_MOOD,GENRE_MELODY_TIPS,GENRE_MELODY_TONE,GENRE_TEXTURE_TIPS,GENRE_DRUMS_TIPS,GENRE_VOCAL_CHAR,GENRE_VOCAL_STYLE,GENRE_ARRANGE_PROFILE].filter(Boolean);
+  // 규칙 초안(폴백)이 죽지 않게 하는 엔진 표만 빌림. 화면에 보이는 추천(프로듀서·드럼·808·멜로디·텍스처·톤)은 빌리지 않음 — 하우스에 힙합 프로듀서가 뜨면 안 되므로 비워 두고 AI가 곡의 의도에 맞게 정함
+  const tables=[typeof GENRE_STRUCTURE!=='undefined'&&GENRE_STRUCTURE,GENRE_SECTION_CUE,GENRE_HUMAN,GENRE_ARTICULATION,GENRE_ARRANGE_PROFILE].filter(Boolean);
   Object.entries(GENRE_ALIAS).forEach(([i,from])=>{tables.forEach(t=>{if(t[i]===undefined&&t[from]!==undefined)t[i]=t[from];});});
 }
 extendGenreTables();
