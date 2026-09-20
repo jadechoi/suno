@@ -39,7 +39,10 @@ function reportCacheStatus(status,usage){
   else if(status==='active')el.textContent=`🎯 캐싱 작동 중 (생성 ${usage.cache_creation_input_tokens||0} / 재사용 ${usage.cache_read_input_tokens||0} 토큰)`;
   else el.textContent='⚠️ 캐싱 요청이 거부되진 않았지만 실제 사용 흔적이 없음';
 }
-async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
+// temperature: 채점·고쳐쓰기는 낮게 — 기본값(1.0)이면 같은 텍스트도 매번 다른 점수·다른 문구가 나와서 라운드마다 점수가 요동치고 고쳐쓰기가 안 건드린 부분까지 흔들림.
+// 모델이 temperature를 거부하면 한 번 기록해두고 이후엔 생략
+let _aiTempUnsupported=false;
+async function callAnthropic(key,{maxTokens,staticText,dynamicText,temperature}){
   const url='https://api.anthropic.com/v1/messages';
   const headers={
     'content-type':'application/json',
@@ -50,6 +53,7 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
   const body=useCache=>JSON.stringify({
     model:'claude-sonnet-5',
     max_tokens:maxTokens,
+    ...(temperature!=null&&!_aiTempUnsupported?{temperature}:{}),
     messages:[{role:'user',content:useCache
       ?[{type:'text',text:staticText,cache_control:{type:'ephemeral'}},{type:'text',text:dynamicText}]
       :staticText+dynamicText
@@ -57,6 +61,10 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
   });
   const attemptCache=!_aiCachingUnsupported;
   let res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});
+  if(!res.ok&&temperature!=null&&!_aiTempUnsupported){
+    const t=await res.clone().text().catch(()=>'');
+    if(/temperature/i.test(t)){_aiTempUnsupported=true;res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});}
+  }
   if(!res.ok&&attemptCache){
     _aiCachingUnsupported=true;
     reportCacheStatus('rejected');
@@ -198,6 +206,25 @@ ${styleText||'(아직 생성 안 됨)'}
 [현재 생성된 섹션 프롬프트]
 ${sectText||'(아직 생성 안 됨)'}`;
 }
+// 라운드마다 "새로 채점"하면 같은 텍스트도 ±5~10점씩 흔들리고, 피드백을 적용할수록 지적거리가 새로 생겨 점수가 내려가 보임.
+// 같은 설정에서 피드백만 적용한 재채점이면 직전 점수를 앵커로 주고, 실제로 바뀐 섹션만 근거로 올리거나 내리게 함(악화도 그대로 반영)
+let _lastReview=null;   // 직전 채점 {criteria,score,fpBase,sect,style}
+function noteScored(criteria,score){
+  _lastReview=criteria&&Number.isFinite(score)?{criteria,score,fpBase:hhWriteFingerprints().fpBase,sect:(document.getElementById('hh-sect-ta')?.value||'').trim(),style:(document.getElementById('hh-style-ta')?.value||'').trim()}:null;
+}
+function scoringAnchor(){
+  const p=_lastReview;
+  if(!p||p.fpBase!==hhWriteFingerprints().fpBase)return '';
+  const cur=(document.getElementById('hh-sect-ta')?.value||'').trim(),sty=(document.getElementById('hh-style-ta')?.value||'').trim();
+  const before=new Map(parseSections(p.sect).map(x=>[x.header,x.body]));
+  const changed=parseSections(cur).filter(x=>before.get(x.header)!==x.body).map(x=>x.header);
+  return `
+
+[직전 채점 — 같은 설정에서 피드백만 적용한 결과를 다시 채점하는 중]
+${REVIEW_RUBRIC.map(r=>`${r.key} ${p.criteria[r.key]??'-'}`).join(', ')} (총 ${p.score})
+직전 채점 이후 바뀐 곳: 섹션 ${changed.join(' | ')||'없음'} / 스타일 ${sty!==p.style?'바뀜':'그대로'}
+채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 1~2점 올리거나 내려 (개선이 확인되면 올리고, 새 모순·중복·태그 증가·서술문 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
+}
 async function aiProducerReview(){
   const key=getAnthropicKey();
   const btn=document.getElementById('hh-ai-arrange-btn');
@@ -253,20 +280,20 @@ ${aiPromptSnapshot()}
 [현재 적용돼 있는 섹션별 지시 — 이 안에서 모순되거나 과한 건 지적해도 됨]
 ${Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)'}
 
-[글자 예산] 섹션 프롬프트 ${(document.getElementById('hh-sect-ta')?.value||'').length}/5000자, 스타일 ${(document.getElementById('hh-style-ta')?.value||'').length}/1000자
+[글자 예산] 섹션 프롬프트 ${(document.getElementById('hh-sect-ta')?.value||'').length}/5000자, 스타일 ${(document.getElementById('hh-style-ta')?.value||'').length}/1000자${scoringAnchor()}
 
 [이전 라운드에서 이미 적용된 조언 — 이건 이미 반영됐으니 절대 똑같이 다시 제안하지 마, 그 위에 새로 찾은 걸 더해]
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
 
     // 최소 4~6개 제안 + narrDir 같은 다항목 필드를 요구하면서 출력이 꽤 길어짐 — 8000으로는 자주 잘려서 올림
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,temperature:0.2});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
     // "다시" 눌러서 재리뷰할 때 이전에 적용한 조언까지 통째로 갈아치우면 🔍 적용 검증이 추적할 이력이 사라짐 —
     // 이미 적용된 건 남기고 새로 받은 라운드만 그 뒤에 이어붙임
     _aiSuggestions=[...appliedSoFar,...list.map(s=>normalizeAiSuggestion(s,uniqueSegs,occKeys))];
-    {const tot=_aiSuggestions.find(s=>s.category==='총평'&&!s.applied);recordAiScore(tot?.score,tot?.criteria);}   // 리뷰 대상이던 텍스트가 아직 화면에 있을 때
+    {const tot=_aiSuggestions.find(s=>s.category==='총평'&&!s.applied);recordAiScore(tot?.score,tot?.criteria);noteScored(tot?.criteria,tot?.score);}   // 리뷰 대상이던 텍스트가 아직 화면에 있을 때
     hhGenerate(false,{noScroll:true});
   }catch(e){
     fail(e.message);
@@ -465,7 +492,7 @@ ${(_aiSuggestions||[]).filter(s=>s.applied).map((s,i)=>`${i+1}. (${s.category}) 
 ${feedback}`;
 
     // aiProducerReview와 같은 이유(최소 3~5개 다항목 제안 요구)로 출력이 길어질 수 있어서 같은 한도로 맞춤
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,temperature:0.2});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('피드백에서 반영할 내용을 찾지 못했습니다');
@@ -500,7 +527,7 @@ async function aiVerifyAppliedSuggestions(){
 
 각 조언마다 정확히 이 순서로 판정해: pass(의도한 대로 정확히 반영됨) | partial(반영되긴 했는데 의도랑 다르거나 일부만 됨) | fail(반영 안 됨). partial·fail이면 왜 그런지 한국어 한 문장으로 이유를 적어.
 
-그리고 지금 [최종 프롬프트] 상태 전체를 아래 루브릭으로 다시 채점해 — 조언 적용 전 점수에 얽매이지 말고 지금 상태 자체를 기준으로.
+그리고 지금 [최종 프롬프트] 상태 전체를 아래 루브릭으로 다시 채점해. [직전 채점]이 주어지면 거기 적힌 채점 규칙을 따르고, 없으면 지금 상태 자체를 기준으로 채점해.
 ${RUBRIC_TEXT()}
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해 (checks 배열 순서는 조언 목록 순서와 정확히 같아야 해):
@@ -509,7 +536,7 @@ ${RUBRIC_TEXT()}
 
 [적용된 조언 목록]
 ${applied.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n')}
-${oldScore!=null?`\n[적용 전 총평 점수] ${oldScore}/100 (참고용 — 지금 상태 기준으로 새로 채점해)`:''}
+${oldScore!=null?`\n[적용 전 총평 점수] ${oldScore}/100 (참고용)`:''}${scoringAnchor()}
 
 [최종 섹션 프롬프트]
 ${sectText}
@@ -517,7 +544,7 @@ ${sectText}
 [최종 스타일 프롬프트]
 ${styleText}`;
 
-    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText,temperature:0.2});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const checks=parsed.checks||[];
     let matched=0;
@@ -537,6 +564,7 @@ ${styleText}`;
         totalRow.score=newScore;
         if(newCriteria&&rubricScore(newCriteria)!=null)totalRow.criteria=newCriteria;
         recordAiScore(newScore,newCriteria);
+        noteScored(totalRow.criteria,newScore);
       }
     }
     hhGenerate(false,{noScroll:true});
@@ -1026,7 +1054,7 @@ ${draft.sect}
 [참고 스타일 초안]
 ${draft.style}
 ${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
-  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText});
+  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,temperature:mode==='edit'?0.2:0.6});
   const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   return {section:sec[1].trim(),style:sty[1].trim().replace(/\s*\n\s*/g,' ')};
