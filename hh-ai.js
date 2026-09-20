@@ -39,10 +39,8 @@ function reportCacheStatus(status,usage){
   else if(status==='active')el.textContent=`🎯 캐싱 작동 중 (생성 ${usage.cache_creation_input_tokens||0} / 재사용 ${usage.cache_read_input_tokens||0} 토큰)`;
   else el.textContent='⚠️ 캐싱 요청이 거부되진 않았지만 실제 사용 흔적이 없음';
 }
-// temperature: 채점·고쳐쓰기는 낮게 — 기본값(1.0)이면 같은 텍스트도 매번 다른 점수·다른 문구가 나와서 라운드마다 점수가 요동치고 고쳐쓰기가 안 건드린 부분까지 흔들림.
-// 모델이 temperature를 거부하면 한 번 기록해두고 이후엔 생략
-let _aiTempUnsupported=false;
-async function callAnthropic(key,{maxTokens,staticText,dynamicText,temperature}){
+// claude-sonnet-5는 temperature 파라미터를 거부함("deprecated for this model", 실사용 확인) — 채점 안정화는 scoringAnchor로 함
+async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
   const url='https://api.anthropic.com/v1/messages';
   const headers={
     'content-type':'application/json',
@@ -53,7 +51,6 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText,temperature})
   const body=useCache=>JSON.stringify({
     model:'claude-sonnet-5',
     max_tokens:maxTokens,
-    ...(temperature!=null&&!_aiTempUnsupported?{temperature}:{}),
     messages:[{role:'user',content:useCache
       ?[{type:'text',text:staticText,cache_control:{type:'ephemeral'}},{type:'text',text:dynamicText}]
       :staticText+dynamicText
@@ -61,10 +58,6 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText,temperature})
   });
   const attemptCache=!_aiCachingUnsupported;
   let res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});
-  if(!res.ok&&temperature!=null&&!_aiTempUnsupported){
-    const t=await res.clone().text().catch(()=>'');
-    if(/temperature/i.test(t)){_aiTempUnsupported=true;res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});}
-  }
   if(!res.ok&&attemptCache){
     _aiCachingUnsupported=true;
     reportCacheStatus('rejected');
@@ -185,6 +178,7 @@ function aiSelectionCtx({refs=true,structure=true}={}){
     hasVocal?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
     refs&&refProducers?`프로듀서 레퍼런스: ${refProducers}`:null,
     refSong?`타겟 레퍼런스 곡: ${refSong}`:null,
+    briefCtxLine(),
     st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
     st.length?`목표 길이: ${st.length}`:null,
     structure?`구조: ${st.structSegs.join(' → ')}`:null,
@@ -271,7 +265,7 @@ ${occKeys.join(' → ')}
 ${hasVocal?'보컬 있음: '+st.vocal:'인스트루멘탈 (보컬 없음)'}
 
 [레퍼런스 곡]
-${refSong?`"${refSong}"`:'없음 — "레퍼런스 부합도" 카테고리는 쓰지 마'}
+${refSong?`"${refSong}"`:(st.brief?`(곡명 없음) 사용자가 원하는 느낌: "${st.brief.text}" — ${st.brief.understood} / 소리 특징: ${(st.brief.styleTags||[]).join(' & ')}`:'없음 — "레퍼런스 부합도" 카테고리는 쓰지 마')}
 
 ${aiPromptSnapshot()}
 
@@ -286,7 +280,7 @@ ${Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없�
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
 
     // 최소 4~6개 제안 + narrDir 같은 다항목 필드를 요구하면서 출력이 꽤 길어짐 — 8000으로는 자주 잘려서 올림
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,temperature:0.2});
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
@@ -492,7 +486,7 @@ ${(_aiSuggestions||[]).filter(s=>s.applied).map((s,i)=>`${i+1}. (${s.category}) 
 ${feedback}`;
 
     // aiProducerReview와 같은 이유(최소 3~5개 다항목 제안 요구)로 출력이 길어질 수 있어서 같은 한도로 맞춤
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,temperature:0.2});
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('피드백에서 반영할 내용을 찾지 못했습니다');
@@ -544,7 +538,7 @@ ${sectText}
 [최종 스타일 프롬프트]
 ${styleText}`;
 
-    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText,temperature:0.2});
+    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const checks=parsed.checks||[];
     let matched=0;
@@ -648,6 +642,7 @@ async function aiRecommendMelodyTexture(){
       st.era?`시대감: ${st.era}`:null,
       st.region?`지역색: ${st.region}`:null,
       (document.getElementById('hh-ref-song')?.value||'').trim()?`타겟 레퍼런스 곡: ${(document.getElementById('hh-ref-song').value||'').trim()}`:null,
+      briefCtxLine(),
       st.vocal&&st.vocal!=='No Vocal'?`보컬: ${st.vocal}`:'보컬 없음 (인스트루멘탈)',
       st.commercial?`색깔: ${st.commercial}`:null,
       st.density?`밀도: ${st.density}`:null,
@@ -939,6 +934,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     transitionFx:[...(st.transitionFx||[])],groove:st.groove,texture:[...st.texture],
     producerReference:st.refs[0]||null,
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
+    brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,styleTagsInDraft:styleTags.length,
     limits:{sectionTotal:WRITE_LIMITS.section,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
@@ -982,6 +978,19 @@ function validateWritten(spec,section,style){
   if(spec.background&&hooks.length&&!hooks.some(s=>s.body.toLowerCase().includes(spec.background.toLowerCase())))errors.push(`배경 악기 "${spec.background}"가 훅에 최소 한 번은 등장해야 함`);
   spec.drums.forEach(d=>{if(!low.includes(d.toLowerCase()))errors.push(`고른 드럼 "${d}"가 섹션 어디에도 없음`);});
   if(spec.drums[0]&&hooks.some(s=>!s.body.toLowerCase().includes(spec.drums[0].toLowerCase())))errors.push(`메인 드럼 "${spec.drums[0]}"가 모든 훅에 들어가야 함`);
+  // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
+  {
+    const names=[...HH_REF.map(r=>r.kr),...(spec.referenceSong||'').split(' - ')[0].split(/\s+(?:feat\.?|featuring|ft\.?|x|&)\s+|,\s*/i)].map(n=>n.trim().toLowerCase()).filter(n=>n.length>=4);
+    const hay=(section+' '+style).toLowerCase();
+    const hit=[...new Set(names)].find(n=>hay.includes(n));
+    if(hit)errors.push(`실존 아티스트/프로듀서 이름 "${hit}"이 들어감 — 이름 대신 그 소리의 특징을 묘사하는 키워드로 바꿀 것`);
+  }
+  // brief(곡명/느낌 분석)의 스타일 태그 중 최소 하나는 스타일에 반영돼야 함
+  if(spec.brief?.styleTags?.length){
+    const sty=_toks(style);
+    const ok=spec.brief.styleTags.some(t=>{const tt=[..._toks(t)];return tt.length&&tt.filter(w=>sty.has(w)).length/tt.length>=0.6;});
+    if(!ok)errors.push(`brief 스타일 태그(${spec.brief.styleTags.join(' / ')}) 중 하나 이상이 스타일 프롬프트에 그대로 반영돼야 함`);
+  }
   // 보컬 규칙
   if(!spec.vocal){
     const stripped=(section+' '+style).replace(/no vocals|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
@@ -1005,6 +1014,10 @@ function validateWritten(spec,section,style){
   return {ok:!errors.length,errors};
 }
 const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가야. 규칙 엔진이 만든 [명세]와 [참고 초안]을 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 직접 써.
+
+[brief · 이름 규칙]
+- 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 참고 초안이 brief와 다르게 밋밋하거나 일반적이면 brief 쪽을 따라.
+- 실존 아티스트·프로듀서·곡 이름을 출력에 절대 쓰지 마(Suno 정책 — 명세의 producerReference·referenceSong도 소리 특징으로만 풀어 써). "OO-inspired" 같은 표현도 금지.
 
 [Suno 사실]
 - 스타일 박스는 1000자, 섹션(가사) 박스는 5000자 한도이고 넘으면 뒤가 잘림. 스타일 태그는 10개 안팎을 넘으면 뒤쪽이 무시됨(관련 요소는 " & "로 융합해서 태그 1개로).
@@ -1054,7 +1067,7 @@ ${draft.sect}
 [참고 스타일 초안]
 ${draft.style}
 ${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
-  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,temperature:mode==='edit'?0.2:0.6});
+  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText});
   const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   return {section:sec[1].trim(),style:sty[1].trim().replace(/\s*\n\s*/g,' ')};
@@ -1130,4 +1143,186 @@ async function hhAiWrite(entryId){
 function hhAiRewrite(){
   _hhWritten=null;
   hhGenerate();
+}
+
+// ============================================================
+// BRIEF — 곡명 또는 "이런 느낌의 곡" 한 줄을 선택 항목으로 번역 (장르·음악을 잘 몰라도 시작할 수 있게)
+// ============================================================
+let _briefProposal=null;
+// 무보컬을 골랐는데 브리프 문구에 보컬 묘사("whispered vocals")가 있으면 Suno가 보컬을 넣을 수 있어서 그런 문구는 뺌
+function effectiveBrief(){
+  const b=st.brief;
+  if(!b||(st.vocal&&st.vocal!=='No Vocal'))return b;
+  const bad=/\b(vocals?|voices?|sing(?:ing|er)?|lyrics?|choir|whisper\w*|ad-?libs?|chant\w*|rap\w*|hushed|breathy)\b/i;
+  return {...b,styleTags:(b.styleTags||[]).filter(t=>!bad.test(t)),cues:Object.fromEntries(Object.entries(b.cues||{}).filter(([,c])=>!bad.test(c)))};
+}
+function briefCtxLine(){return st.brief?`원하는 곡의 느낌: "${st.brief.text}" — ${st.brief.understood} / 소리 특징: ${(st.brief.styleTags||[]).join(' & ')}`:null;}
+const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는 프로듀서야. 사용자는 Suno AI로 곡을 만들려고 하고, (a) 참고할 곡명("아티스트 - 제목") 또는 (b) 만들고 싶은 느낌·상황("신나고 춤추고 싶어지는 곡")을 한 줄로 적었어. 이걸 프롬프트 빌더의 선택 항목으로 번역해줘.
+
+규칙:
+- 곡명이면 kind="song": 그 곡의 실제 사운드(템포, 드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 아는 대로 반영해. 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤, 입력의 다른 단서로만 골라.
+- 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·BPM·악기를 골라.
+- genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle/key는 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 이 프로그램은 힙합 계열 장르만 있으니 팝·EDM 곡이면 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해.
+- styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). [선택지]에 없는 악기를 새로 주장하지 마.
+- cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
+- producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
+- vocalChar: 보컬 녹음 질감 목록 중 하나(속삭임·친밀한 곡은 드라이/클로즈 계열).
+- vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
+- 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
+{"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","bpm":0,"key":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+async function aiAnalyzeBrief(){
+  const key=getAnthropicKey();
+  const text=(document.getElementById('hh-brief')?.value||'').trim();
+  const btn=document.getElementById('hh-brief-btn');
+  const statusEl=document.getElementById('hh-brief-status');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!text){fail('곡명이나 만들고 싶은 느낌을 한 줄 적어주세요');return;}
+  btn.disabled=true;btn.textContent='🤖 분석 중...';
+  if(statusEl)statusEl.hidden=true;
+  try{
+    const dynamicText=`
+
+[사용자 입력]
+${text}
+
+[선택지]
+장르(en — 느낌):
+${GENRES.map((g,i)=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
+무드: ${HH_MOODS.map(m=>m.kr).join(' | ')}
+드럼: ${HH_DRUMS.join(' | ')}
+808: ${HH_808.join(' | ')}
+멜로디 악기: ${HH_MELODY.join(' | ')}
+텍스처: ${HH_TEXTURE.join(' | ')}
+밀도: ${HH_DENSITY.join(' | ')}
+보컬: ${HH_VOCAL.join(' | ')}
+보컬 스타일: ${HH_VOCAL_STYLE.join(' | ')}
+보컬 질감(vocalChar): ${HH_VOCAL_CHAR.join(' | ')}
+프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}
+Key: ${KEYS.join(' | ')}`;
+    const raw=await callAnthropic(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText});
+    const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    _briefProposal=buildBriefProposal(text,p);
+    renderBriefResult();
+  }catch(e){
+    fail(e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 AI로 분석·추천';
+  }
+}
+// AI 응답을 메뉴 값으로 검증 — 목록에 없는 값은 버리고, 이름이 섞인 소리 키워드는 걸러냄
+function buildBriefProposal(text,p){
+  const names=HH_REF.map(r=>r.kr.toLowerCase());
+  const clean=(s,max)=>{const t=String(s||'').replace(/[,\n]+/g,' ').replace(/\s+/g,' ').trim().slice(0,max);return t&&!names.some(n=>t.toLowerCase().includes(n))?t:'';};
+  const v={};
+  v.genre=GENRES.findIndex(g=>g.en===p.genre||g.tag===p.genre);
+  v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
+  v.bpm=Math.min(220,Math.max(60,Math.round(Number(p.bpm)||0)))||null;
+  v.key=KEYS.indexOf(p.key);
+  v.drums=(p.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
+  v.bass808=HH_808.includes(p.bass808)?p.bass808:null;
+  v.lead=HH_MELODY.includes(p.melodyLead)?p.melodyLead:null;
+  v.bg=HH_MELODY.includes(p.melodyBackground)&&p.melodyBackground!==v.lead?p.melodyBackground:null;
+  v.texture=pickCompatibleTextures((p.texture||[]).filter(t=>HH_TEXTURE.includes(t)));
+  v.density=HH_DENSITY.includes(p.density)?p.density:null;
+  v.vocal=HH_VOCAL.includes(p.vocal)?p.vocal:null;
+  v.vocalStyle=HH_VOCAL_STYLE.includes(p.vocalStyle)?p.vocalStyle:null;
+  v.vocalChar=HH_VOCAL_CHAR.includes(p.vocalChar)?p.vocalChar:null;
+  v.producer=HH_REF.find(r=>r.kr===p.producer)?.kr||null;
+  const styleTags=(Array.isArray(p.styleTags)?p.styleTags:[]).map(t=>clean(t,70)).filter(Boolean).slice(0,2);
+  const cues={};
+  ['intro','hook','verse','bridge','outro'].forEach(k=>{const c=clean(p.cues?.[k],110);if(c)cues[k]=c;});
+  const items=[];
+  const add=(id,label,val,show)=>{if(val)items.push({id,label,text:show,on:true});};
+  add('mood','무드',v.mood,v.mood);
+  add('genre','장르',v.genre>=0,v.genre>=0?`${GENRES[v.genre].kr} — ${GENRE_FEEL[v.genre]||''}`:'');
+  add('bpm','BPM',v.bpm,`${v.bpm} BPM`);
+  add('key','Key',v.key>=0,v.key>=0?KEYS[v.key]:'');
+  add('drums','드럼',v.drums.length,v.drums.join(', '));
+  add('808','808',v.bass808,v.bass808);
+  add('melody','멜로디',v.lead,[v.lead,v.bg].filter(Boolean).join(' + '));
+  add('texture','믹스 텍스처',v.texture.length,v.texture.join(', '));
+  add('density','밀도',v.density,v.density);
+  add('vocal','보컬',v.vocal,[v.vocal,v.vocalStyle,v.vocalChar].filter(Boolean).join(' · '));
+  if('producer' in p)add('producer','프로듀서',true,v.producer||'없음 — 어울리는 프로듀서가 없어 소리 특징 키워드로 대신해요');
+  add('sound','소리 특징',styleTags.length||Object.keys(cues).length,[...styleTags,...Object.values(cues)].join(' / '));
+  if(!items.length)throw new Error('AI가 목록에 있는 값을 반환하지 못했습니다');
+  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,items};
+}
+function renderBriefResult(){
+  const box=document.getElementById('hh-brief-result');
+  const P=_briefProposal;
+  if(!box)return;
+  if(!P){box.hidden=true;return;}
+  box.hidden=false;
+  const rows=P.items.map((it,i)=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer"><input type="checkbox" ${it.on?'checked':''} onchange="toggleBriefItem(${i},this.checked)" style="margin-top:2px"><span style="width:84px;color:var(--text-3);flex-shrink:0">${it.label}</span><span style="color:var(--text-1)">${escHtml(it.text)}</span></label>`).join('');
+  box.innerHTML=`<div style="font-size:12px;color:var(--text-1);margin-bottom:8px">🧠 ${escHtml(P.understood)}${P.reason?` <span style="color:var(--text-3)">· ${escHtml(P.reason)}</span>`:''}</div>${rows}<div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="hh-brief-apply" onclick="applyBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer"></button></div>`;
+  updateBriefApplyBtn();
+}
+function toggleBriefItem(i,on){if(_briefProposal?.items[i])_briefProposal.items[i].on=!!on;updateBriefApplyBtn();}
+function updateBriefApplyBtn(){
+  const b=document.getElementById('hh-brief-apply');
+  if(b&&_briefProposal){const n=_briefProposal.items.filter(i=>i.on).length;b.textContent=`✅ 선택 적용 (${n})`;b.disabled=!n;b.style.opacity=n?'1':'.5';}
+}
+// 적용 순서: 무드 → 장르(selectGenre가 808·드럼·멜로디를 장르 기본값으로 자동 추천하므로 먼저) → 곡에서 뽑은 값으로 덮어쓰기
+function applyBrief(){
+  const P=_briefProposal;
+  if(!P)return;
+  const on=id=>P.items.some(i=>i.id===id&&i.on);
+  const v=P.v;
+  _aiSuggestions=null;
+  if(on('mood')){st.mood=v.mood;moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);}
+  if(on('genre')&&st.genre!==v.genre)selectGenre(v.genre);
+  else if(on('mood'))onMoodChange();
+  if(on('bpm')){st.bpm=v.bpm;document.getElementById('hh-bpm').value=v.bpm;}
+  if(on('key')){st.key=v.key;document.getElementById('hh-key').value=v.key;}
+  if(on('drums')){st.drums=[...v.drums];chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
+  if(on('808')){st._808=v.bass808;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);clearAutoHint('hh-808-hint');}
+  if(on('melody')){
+    let bg=v.bg;
+    if(bg&&v.lead!==bg)bg=complementBg(v.lead,bg,scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null));
+    st.melody=bg?[v.lead,bg]:[v.lead];
+    st.melodyLeadIdx=(bg&&MELODY_ROLE[v.lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
+    st._mtAutoManaged=false;
+    chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
+    renderMelodyRoleUI();
+    clearAutoHint('hh-melody-hint');
+  }
+  if(on('texture')){
+    st.texture=[...v.texture];st._mtAutoManaged=false;
+    chipGrid(document.getElementById('hh-texture'),HH_TEXTURE,st,'texture',2,onTextureManualChange);
+    clearAutoHint('hh-texture-hint');
+  }
+  if(on('density')){st.density=v.density;chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);}
+  if(on('vocal')){
+    st.vocal=v.vocal;
+    chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
+    recommendVocalChar();
+    if(v.vocalChar&&st.vocal!=='No Vocal'){st.vocalChar=v.vocalChar;chipGrid(document.getElementById('hh-vocal-char'),HH_VOCAL_CHAR,st,'vocalChar',1,null);}
+    if(v.vocalStyle&&st.vocal!=='No Vocal'){st.vocalStyle=v.vocalStyle;chipGrid(document.getElementById('hh-vocal-style'),HH_VOCAL_STYLE,st,'vocalStyle',1,null);}
+    onStructSignalChange();
+  }
+  if(on('producer')){st.refs=v.producer?[v.producer]:[];renderProducerRef();clearAutoHint('hh-ref-hint');}
+  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues}:null;
+  if(P.kind==='song'){const r=document.getElementById('hh-ref-song');if(r)r.value=P.text;}
+  _briefProposal=null;
+  const box=document.getElementById('hh-brief-result');if(box)box.hidden=true;
+  renderHhGenres();
+  renderBriefActive();
+  const statusEl=document.getElementById('hh-brief-status');
+  if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--success)';statusEl.textContent='✅ 적용했어요 — 아래 항목에서 바꾸고 싶은 것만 고치면 돼요';}
+  if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('곡/느낌 분석 적용');
+}
+// 반영 중인 소리 특징 표시 + 해제
+function renderBriefActive(){
+  const el=document.getElementById('hh-brief-active');
+  if(!el)return;
+  if(!st.brief){el.hidden=true;return;}
+  el.hidden=false;
+  el.innerHTML=`🧬 <b>반영 중인 소리 특징</b> — ${escHtml([...(st.brief.styleTags||[]),...Object.values(st.brief.cues||{})].join(' / '))} <button onclick="clearBrief()" style="margin-left:8px;padding:2px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:10px;cursor:pointer">해제</button>`;
+}
+function clearBrief(){
+  st.brief=null;
+  renderBriefActive();
+  if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('소리 특징 해제');
 }

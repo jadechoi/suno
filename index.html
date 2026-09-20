@@ -133,6 +133,22 @@
 
   <!-- 01 GENRE (장르 기반 모드에서만 표시) -->
   <div id="hh-genre-section">
+  <div class="section" id="hh-brief-section">
+    <div class="section-header open" onclick="toggleSection(this)">
+      <div class="section-title">✨ 어떤 곡을 만들고 싶으세요? <span style="font-size:10px;color:var(--text-3);margin-left:4px">곡명이나 느낌을 그대로 적으면 AI가 장르·무드·악기까지 추천</span></div>
+      <span class="caret">▼</span>
+    </div>
+    <div class="section-body">
+      <textarea id="hh-brief" rows="2" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:8px 10px;resize:vertical" placeholder="예) 신나고 춤추고 싶어지는 곡 · 비 오는 밤 혼자 듣는 몽환적인 곡 · Charli xcx - Guess featuring Billie Eilish" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+        <button id="hh-brief-btn" onclick="aiAnalyzeBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🤖 AI로 분석·추천</button>
+        <span style="font-size:11px;color:var(--text-3)">장르를 몰라도 돼요 — 곡명이든 "이런 느낌" 설명이든 OK. 결과를 확인하고 원하는 것만 적용해요.</span>
+      </div>
+      <div id="hh-brief-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
+      <div id="hh-brief-result" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2)"></div>
+      <div id="hh-brief-active" hidden style="margin-top:10px;font-size:11px;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-3);color:var(--text-2)"></div>
+    </div>
+  </div>
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
       <div class="section-title">📊 요즘 뜨는 서브장르 <span style="font-size:10px;color:var(--text-3);margin-left:4px">인기 아티스트 장르 태그 집계 · 추정치, 공식 차트 아님</span></div>

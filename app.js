@@ -7,6 +7,7 @@ const st={
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
   narrSt:{},narrAI:{},narrDirs:{},removedPhrases:[],structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
+  brief:null, // AI가 곡명/느낌 입력에서 뽑은 소리 특징 {text,kind,understood,styleTags,cues} — 규칙 엔진·작성기·리뷰가 함께 씀
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
   _structAutoManaged:true, // 구조(STRUCTURE BUILDER)가 아직 자동 추천 상태인지 — 프리셋 클릭·세그먼트 추가/삭제하면 false
@@ -114,6 +115,7 @@ function hhInit(){
 // hhInit·hhReset이 공통으로 쓰는 칩/그리드 렌더 블록 — 한쪽만 고치고 잊어버리는 걸 방지
 function renderHhChips(){
   renderHhGenres();
+  renderBriefActive();
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
@@ -1724,6 +1726,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const sAO=st.sectionArrangeOccurrence||{};
   // 이 장르의 섹션 편곡 방향({d}=메인 드럼,{m}=리드,{e}=808/베이스)과 프로듀서 레퍼런스의 핵심 특징 — 기본 생성물에 처음부터 포함
   const cue=type=>(GENRE_SECTION_CUE[st.genre]?.[type]||'').replace(/\{e\}/g,eDesc);
+  // 곡명/느낌 분석(st.brief)에서 나온 섹션별 소리 특징 — 장르 기본 cue와 별개로, 원하는 곡의 느낌을 직접 반영
+  const bc=type=>effectiveBrief()?.cues?.[type]||'';
+  const bcS=type=>bc(type)?`, ${bc(type)}`:'';
   const refSig=refFit(REF_SIG[st.refs[0]]||'',' & ');
   const hookDrums=drumList.slice(0,3).join(' & ')||dDesc;
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
@@ -1742,13 +1747,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
         introVibe='the immediate vocal entrance';
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else if(lowEnergy){
         introVibe='the mood-first, minimal-build opening';
-        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else {
         introVibe=`the ${fxOpen} cold open`;
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} ${dyn.entry||'slam in immediately'} in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} ${dyn.entry||'slam in immediately'} in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1777,8 +1782,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       // 마지막 훅은 첫 훅에 이미 쓴 문구를 반복하지 않고 "무엇이 더 커졌는지"만 쓴다: 드럼 필 밀도, 그루브 최대치, 무드별 정점, 리드 옥타브 더블링
       const lastOfMany=isLast&&cnt.hook>1;
       const hookBodyRaw=lastOfMany
-        ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',cue('peak'),dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
-        :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+        ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',cue('peak'),bc('hook'),dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
+        :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),isEdge&&bc('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       const hookBody=tidyBody(hookBodyRaw,_names);
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
@@ -1786,7 +1791,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const sub=cnt.verse===1?(/^Stripped/.test(verseSub)?verseSub:`Stripped & ${verseSub}`):`${['Rhythmic Switch','Half-Time Tension','Last Calm'][Math.min(cnt.verse-2,2)]} & ${verseSub}`;
       const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
-        ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,texLine('verse')].filter(Boolean).join(', ')
+        ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),bc('verse'),`${melodyRef('verse',1)} softened`,texLine('verse')].filter(Boolean).join(', ')
         :(cnt.verse===2
           ?[`Slightly varied ${dDesc} bounce, ${bassWord==='bass'||GENRES[st.genre]?.energy==='low'||GENRES[st.genre]?.energy==='low-mid'?'steady warm bassline':'deeper continuous sub-bass'}`,melodyRef('verse',cnt.verse),'intimate groove',isMellowMood?'':'still coiled, anticipation building quietly toward the next hook'].filter(Boolean).join(', ')
           :(cnt.verse===3
@@ -1817,7 +1822,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const desc=isLastB
         ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} phrase echoing`,rollPhrase,fxPhrase,BRIDGE_TECH[(cnt.bridge+2)%BRIDGE_TECH.length],'maximum tension',spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
         :(cnt.bridge===1
-          ?[dyn.bridge||'Heavy low-pass filter muffles the beat',cue('bridge'),texLine('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
+          ?[dyn.bridge||'Heavy low-pass filter muffles the beat',cue('bridge'),bc('bridge'),texLine('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
           :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_TECH[(cnt.bridge-2)%BRIDGE_TECH.length],spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', '));
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
       lines.push(`(${bB} Bars: ${tidyBody(desc,_names)}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
@@ -1825,7 +1830,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
       // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
-      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
+      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${bcS('outro')}${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
@@ -2271,6 +2276,8 @@ function hhGenerate(source,opts){
     if(refEns.length)tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
   }
   if(mood)tags.push(mood.tag);
+  const _bt=effectiveBrief()?.styleTags;
+  if(_bt?.length)tags.push(_bt.slice(0,2).map(t=>t.replace(/, /g,' & ')).join(' & '));   // 곡명/느낌 분석에서 온 소리 특징 (장르 메뉴로 못 담는 부분)
   const usedW=new Set();   // 지금까지 스타일 태그에 쓴 단어 — 뒤에 붙는 무드 뉘앙스가 같은 말을 되풀이하지 않게
   tags.forEach(t=>_toks(t).forEach(w=>usedW.add(w)));
   if(st.melody.length){
@@ -2716,10 +2723,11 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
+  st.transitionFx=[];st.groove=null;st.brief=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
+  {const b=document.getElementById('hh-brief');if(b)b.value='';_briefProposal=null;const r=document.getElementById('hh-brief-result');if(r)r.hidden=true;}
   document.getElementById('hh-bpm').value=140;
   document.getElementById('hh-key').value=7;
   const outBlocks=document.getElementById('hh-out-blocks');
