@@ -713,3 +713,47 @@ const MOOD_APPEAL=[
 // 무보컬 벌스에 넣는 "랩/멜로디가 들어올 자리" — 'vocal' 단어는 무보컬 규칙(검사기)에 걸리니 쓰지 않음. 0=랩 자리, 1=멜로디 탑라인 자리, 2=리드 멜로디 자리
 const VOCAL_SLOT_KIND=[0,0,1,0,0,0,0,1,2,0,0,1,0,1,1,1,1,0,0,0];
 const VOCAL_SLOT_TEXT=[['wide open pocket for rhythmic rap','leaving maximum space for the artist'],['perfect pocket for melodic rap flows','leaving space for a top-line melody'],['leaving space for a lead melody','open room for a topline']];
+
+// ============================================================
+// 일렉·클럽 계열 장르 — 힙합 파이프라인(AI 작성기)에 합류. 인덱스 20~31, family로 필터
+// 세부 표(GENRE_AUTO 등)는 app.js의 extendGenreTables()가 가장 가까운 힙합 장르 값을 기본으로 채움(AI 작성 경로에서는 참고값일 뿐)
+// ============================================================
+GENRES.forEach(g=>{g.family='hiphop';});
+const GENRE_FAMILIES=[['all','전체'],['hiphop','힙합'],['elec','일렉·클럽']];
+GENRES.push(
+  {kr:'하우스',en:'House',tag:'house',family:'elec',bpm:124,bpmR:[118,130],instr:['four-on-the-floor kick','offbeat hi-hats','warm bassline'],vocal:'sung topline or none',pts:['steady four-on-the-floor','groovy bassline','filtered chords'],sound:'groovy warm',energy:'mid-high',drum:'house drums'},
+  {kr:'테크노',en:'Techno',tag:'techno',family:'elec',bpm:132,bpmR:[125,140],instr:['hard kick','rolling bass','industrial percussion'],vocal:'none',pts:['relentless kick','hypnotic loop','dark warehouse'],sound:'hypnotic driving',energy:'high',drum:'techno drums'},
+  {kr:'UK 개러지',en:'UK Garage',tag:'uk garage',family:'elec',bpm:132,bpmR:[128,138],instr:['skippy 2-step drums','sub bass','chopped pads'],vocal:'sung or chopped',pts:['2-step shuffle','sub bass wobble','late-night'],sound:'skippy nocturnal',energy:'mid',drum:'2-step drums'},
+  {kr:'드럼 앤 베이스',en:'Drum & Bass',tag:'drum and bass',family:'elec',bpm:174,bpmR:[168,180],instr:['fast breakbeat','reese bass','atmospheric pads'],vocal:'none or MC',pts:['rapid breakbeats','rolling reese bass','high energy'],sound:'fast rolling',energy:'intense',drum:'breakbeat drums'},
+  {kr:'앰비언트',en:'Ambient',tag:'ambient',family:'elec',bpm:80,bpmR:[60,100],instr:['evolving pads','soft textures','minimal pulse'],vocal:'none',pts:['slow evolving pads','spacious','beatless or faint pulse'],sound:'spacious calm',energy:'low',drum:'minimal pulse'},
+  {kr:'트랜스',en:'Trance',tag:'trance',family:'elec',bpm:138,bpmR:[132,144],instr:['supersaw lead','rolling bass','arpeggios'],vocal:'ethereal topline or none',pts:['long build-ups','euphoric supersaw','arpeggiated'],sound:'euphoric uplifting',energy:'high',drum:'trance drums'},
+  {kr:'퓨처 베이스',en:'Future Bass',tag:'future bass',family:'elec',bpm:150,bpmR:[140,160],instr:['supersaw chords','vocal chops','half-time drums'],vocal:'chopped or sung',pts:['wobbly supersaw chords','bright drops','half-time'],sound:'bright emotional',energy:'high',drum:'half-time drums'},
+  {kr:'멜로딕 테크노',en:'Melodic Techno',tag:'melodic techno',family:'elec',bpm:124,bpmR:[120,128],instr:['pulsing bass','arpeggio synth','cinematic pads'],vocal:'none',pts:['emotional arpeggios','driving pulse','cinematic'],sound:'dark emotional',energy:'mid-high',drum:'techno drums'},
+  {kr:'아프로 하우스',en:'Afro House',tag:'afro house',family:'elec',bpm:122,bpmR:[118,126],instr:['percussion loops','deep bass','organic drums'],vocal:'chanted or none',pts:['tribal percussion','deep groove','warm and organic'],sound:'organic groovy',energy:'mid',drum:'afro percussion'},
+  {kr:'IDM',en:'IDM',tag:'IDM',family:'elec',bpm:140,bpmR:[110,170],instr:['glitchy breaks','detailed textures','odd meters'],vocal:'none',pts:['intricate glitch drums','evolving textures','experimental'],sound:'intricate experimental',energy:'mid',drum:'glitch breaks'},
+  {kr:'아마피아노',en:'Amapiano',tag:'amapiano',family:'elec',bpm:112,bpmR:[108,115],instr:['log drum bass','shakers','jazzy keys'],vocal:'sung or chanted',pts:['bouncy log drum','shaker groove','jazzy piano'],sound:'bouncy sunny',energy:'mid',drum:'amapiano drums'},
+  {kr:'테크 하우스',en:'Tech House',tag:'tech house',family:'elec',bpm:126,bpmR:[122,130],instr:['punchy kick','rolling bass','percussive loops'],vocal:'vocal snippets or none',pts:['tight groove','percussive loops','club-ready'],sound:'tight club',energy:'mid-high',drum:'tech house drums'},
+);
+GENRE_FEEL.push(
+  '규칙적인 "쿵-쿵-쿵-쿵" 킥 위에 따뜻하고 그루비한 베이스가 흐르는 클럽 음악. 몸이 자연스럽게 흔들리는 느낌',
+  '끝없이 반복되는 무거운 킥과 어두운 창고 분위기. 최면에 걸린 듯 계속 빠져드는 느낌',
+  '"타-타닥" 튀는 리듬에 묵직한 저음. 늦은 밤 도시 드라이브 같은 세련된 클럽 사운드',
+  '엄청 빠른 브레이크비트에 굵은 베이스가 굴러가는 음악. 숨 가쁘게 달리는 에너지',
+  '비트가 거의 없이 넓고 잔잔한 소리가 천천히 퍼지는 음악. 명상이나 집중할 때 어울리는 느낌',
+  '길게 차오르다가 한 번에 터지는 화려한 신스. 벅차고 황홀한 클라이맥스가 있는 느낌',
+  '반짝이고 출렁이는 신스 코드가 터지는 감성적인 EDM. 밝은데 살짝 아련한 느낌',
+  '어둡고 감성적인 아르페지오가 규칙적인 펄스 위에 쌓이는 음악. 영화 같은 긴장감과 여운',
+  '타악기 리듬이 살아 있는 따뜻하고 유기적인 하우스. 햇볕 아래 춤추는 듯한 느낌',
+  '잘게 쪼개진 글리치 리듬과 정교한 소리 조각들. 실험적이고 복잡한 느낌',
+  '통통 튀는 로그 드럼 베이스와 셰이커, 재즈풍 건반. 밝고 여유로운 파티 분위기',
+  '탄탄하게 조여진 킥과 타악 루프로 이어지는 클럽용 하우스. 세련되고 절제된 그루브',
+);
+GENRE_HOOK_NAME.push('House Groove Drop','Techno Pulse Drop','Garage Skip Drop','Jungle Roll Drop','Ambient Bloom','Trance Lift Drop','Future Bass Drop','Melodic Techno Rise','Afro House Groove','IDM Glitch Drop','Amapiano Bounce','Tech House Groove');
+GENRE_FUSION.push(['deep disco funk','club-pop house'],['industrial noise','dark warehouse techno'],['2-step garage','late-night club-pop'],['jungle breaks','rolling dnb'],['cinematic drones','spacious ambient'],['uplifting pop','euphoric trance'],['pop toplines','radiant future bass'],['cinematic synthwave','emotional melodic techno'],['tribal percussion','sunny afro house'],['glitch pop','playful idm'],['jazzy lounge','bouncy amapiano'],['minimal groove','polished tech house']);
+// 무드 → 장르 가이드에 일렉 장르 추가 (20~31)
+[['에너제틱·하입',[20,29,25,26]],['축제·환희',[25,26,28,30]],['사이키델릭·몽환',[24,27,21]],['칠·그루비',[20,28,30,31]],['긴장감·서스펜스',[21,27]],['어둡고 위압적',[21,23,27]],['감각적·관능적',[22,20]],['노스탤직·향수',[22,20]],['로맨틱·달콤한',[26,20]],['미스터리·신비',[24,27,21]],['멜로딕·감성',[26,27]],['자신감·플렉스',[31,22]],['분노·공격적',[23,21]],['내성적·사색',[24,27]],['슬프고·멜랑콜리',[24,26]],['승리감·웅장',[25,26]]]
+  .forEach(([m,ids])=>{MOOD_GENRE_GUIDE[m]=[...(MOOD_GENRE_GUIDE[m]||[]),...ids.filter(i=>!(MOOD_GENRE_GUIDE[m]||[]).includes(i))];});
+// 새 장르 → 표 기본값을 빌려 올 가장 가까운 힙합 장르(인덱스)
+const GENRE_ALIAS={20:9,21:5,22:9,23:10,24:7,25:14,26:14,27:7,28:11,29:15,30:11,31:9};
+// 보컬 옵션: 일렉·팝 계열은 랩이 아니라 노래하는 리드가 기본
+HH_VOCAL.push('Sung lead vocal');

@@ -29,7 +29,6 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="hiphop">🎤 힙합</button>
   <button class="tab-btn" data-tab="pop">🎵 팝·R&B</button>
-  <button class="tab-btn" data-tab="elec">🎛 전자음악</button>
   <button class="tab-btn" data-tab="rock">🎸 밴드·록</button>
 </div>
 
@@ -323,6 +322,11 @@
         <div id="hh-vocal-style-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
         <div class="chip-grid" id="hh-vocal-style"></div>
       </div>
+      <div id="hh-lyric-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">📝 가사 <span style="font-weight:400;color:var(--text-3)">어떤 느낌으로 쓰고 싶은지 적어 주세요 — 비워 두면 곡 분위기에 맞게 AI가 써요</span></div>
+        <textarea id="hh-lyric-theme" rows="2" oninput="st.lyricTheme=this.value" placeholder="예: 이별 후 새벽에 혼자 걷는 기분, 담담한데 아직 못 잊은 느낌" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:8px 10px;resize:vertical"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--text-2)">가사 언어 <span id="hh-lyric-lang" style="display:inline-flex;gap:6px"></span></div>
+      </div>
     </div>
   </div>
 
@@ -504,11 +508,6 @@
 <!-- ========== POP·R&B TAB ========== -->
 <div class="tab-content" data-tab="pop">
   <div id="pop-inner"></div>
-</div>
-
-<!-- ========== ELECTRONIC TAB ========== -->
-<div class="tab-content" data-tab="elec">
-  <div id="elec-inner"></div>
 </div>
 
 <!-- ========== BAND·ROCK TAB ========== -->

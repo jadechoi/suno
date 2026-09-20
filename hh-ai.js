@@ -226,7 +226,10 @@ ${ctx}
 ${styleText||'(아직 생성 안 됨)'}
 
 [현재 생성된 섹션 프롬프트]
-${sectText||'(아직 생성 안 됨)'}`;
+${sectText||'(아직 생성 안 됨)'}${(document.getElementById('hh-lyrics-ta')?.value||'').trim()?`
+
+[현재 가사]
+${document.getElementById('hh-lyrics-ta').value.trim()}`:''}`;
 }
 // 라운드마다 "새로 채점"하면 같은 텍스트도 ±5~10점씩 흔들리고, 피드백을 적용할수록 지적거리가 새로 생겨 점수가 내려가 보임.
 // 같은 설정에서 피드백만 적용한 재채점이면 직전 점수를 앵커로 주고, 실제로 바뀐 섹션만 근거로 올리거나 내리게 함(악화도 그대로 반영)
@@ -946,6 +949,16 @@ function editScopeFor(prev,headers){
   }
   return [...mutable];
 }
+// 가사 칸(Lyrics box)에 쓸 섹션 헤더 — 연출 설명의 헤더에서 파생: Hook→Chorus, Instrumental 구간→[Instrumental], 이름 뒤 부제 제거
+function lyricHeaders(structure){
+  return structure.map(s=>{
+    const m=s.header.match(/^\[(Instrumental )?(Intro|Hook|Verse|Bridge|Outro)(?: (\d+))?/i);
+    if(!m)return s.header;
+    const t=m[2].toLowerCase(),n=m[3]?` ${m[3]}`:'';
+    if(m[1]||t==='bridge')return '[Instrumental]';
+    return t==='hook'?`[Chorus${n}]`:t==='verse'?`[Verse${n}]`:t==='intro'?'[Intro]':'[Outro]';
+  });
+}
 function buildWriteSpec(draftSect,draftStyle,prev){
   const g=GENRES[st.genre];
   const roles=computeMelodyRoles(st.melody);
@@ -975,6 +988,8 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     prevLength:prev?prev.section.length:null,
     mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
     prevSections:prev?parseSections(prev.section).map(s=>({header:s.header,body:s.body})):null,
+    lyrics:hasVocal?{theme:(st.lyricTheme||'').trim()||null,lang:st.lyricLang||'English',headers:lyricHeaders(structure)}:null,
+    prevLyrics:(hasVocal&&prev&&prev.lyrics)?prev.lyrics:null,
   };
 }
 // 검사기 — 규칙 엔진이 만든 명세를 정답으로 AI 결과의 고정 정보를 확인
@@ -1016,7 +1031,7 @@ function validateWritten(spec,section,style,opts){
   // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
   {
     const names=[...HH_REF.map(r=>r.kr),...(spec.referenceSong||'').split(' - ')[0].split(/\s+(?:feat\.?|featuring|ft\.?|x|&)\s+|,\s*/i)].map(n=>n.trim().toLowerCase()).filter(n=>n.length>=4);
-    const hay=(section+' '+style).toLowerCase();
+    const hay=(section+' '+style+' '+((opts&&opts.lyrics)||'')).toLowerCase();
     const hit=[...new Set(names)].find(n=>hay.includes(n));
     if(hit)errors.push(`실존 아티스트/프로듀서 이름 "${hit}"이 들어감 — 이름 대신 그 소리의 특징을 묘사하는 키워드로 바꿀 것`);
   }
@@ -1049,6 +1064,35 @@ function validateWritten(spec,section,style,opts){
     // "Instrumental"이라고 표시한 섹션(예: 브릿지)에 보컬 묘사가 있으면 헤더와 본문이 모순
     const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
     secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
+  }
+  // 가사(보컬 곡) — 헤더 순서, 줄 수, 언어, 후렴 반복, 가사 칸에는 가사만
+  if(spec.lyrics){
+    const ly=((opts&&opts.lyrics)||'').trim();
+    if(!ly)errors.push('<lyrics> 가사가 비어 있음');
+    else{
+      const secsL=[];let stray=0;
+      ly.split('\n').forEach(l=>{const t=l.trim();if(!t)return;if(/^\[[^\]]+\]$/.test(t))secsL.push({header:t,lines:[]});else if(secsL.length)secsL[secsL.length-1].lines.push(t);else stray++;});
+      const want=spec.lyrics.headers;
+      if(stray||secsL.length!==want.length||secsL.some((s,i)=>s.header!==want[i]))errors.push(`가사 헤더/순서가 명세와 다름(헤더 앞에 다른 줄이 있어도 안 됨). 정확히 이 순서·문구: ${want.join(' | ')}`);
+      else secsL.forEach(s=>{
+        const n=s.lines.length;
+        if(/^\[Verse/.test(s.header)&&(n<6||n>20))errors.push(`${s.header} 가사가 ${n}줄 — 6~20줄로`);
+        if(/^\[Chorus/.test(s.header)&&(n<3||n>10))errors.push(`${s.header} 가사가 ${n}줄 — 3~10줄로`);
+        if(/^\[Instrumental/.test(s.header)&&n>0)errors.push(`${s.header}는 헤더만 두고 가사를 쓰지 말 것`);
+        if(/^\[(Intro|Outro)/.test(s.header)&&n>4)errors.push(`${s.header} 가사는 4줄 이하로`);
+        if(s.lines.some(l=>l.length>110))errors.push(`${s.header}에 너무 긴 줄이 있음 — 한 줄은 짧게`);
+      });
+      const longParen=(ly.match(/\(([^)]*)\)/g)||[]).find(p=>p.replace(/[()]/g,'').trim().split(/\s+/).length>4);
+      if(longParen)errors.push(`가사에 괄호 설명문(${longParen.slice(0,30)}…)이 있음 — 가사 칸에는 가사만 (짧은 (ooh) 같은 애드립만 허용)`);
+      const prod=ly.match(/\b(808|hi-?hats?|sub-?bass|sidechain|reverb|stereo|synths?|snare|bpm)\b/i);
+      if(prod)errors.push(`가사에 연출·악기 설명 단어(${prod[0]})가 있음 — 그런 건 <section>에`);
+      const hanN=(ly.match(/[\uAC00-\uD7A3]/g)||[]).length,letN=(ly.match(/[A-Za-z\uAC00-\uD7A3]/g)||[]).length,ratio=hanN/Math.max(1,letN);
+      if(spec.lyrics.lang==='한국어'&&ratio<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
+      if(spec.lyrics.lang==='English'&&ratio>0.05)errors.push('가사 언어가 English인데 한글이 섞임');
+      const ch=secsL.filter(s=>/^\[Chorus/.test(s.header));
+      if(ch.length>=2){const base=new Set(ch[0].lines.map(x=>x.toLowerCase()));if(ch[1].lines.filter(x=>base.has(x.toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
+      if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==ly.replace(/\s+/g,' ').trim())errors.push('고쳐쓰기에서는 가사를 이전 결과 글자 그대로 유지해야 함');
+    }
   }
   // ── 일곱 가지 개선 (프롬프트 리뷰에서 반복된 문제) ──
   const allText=section+' '+style;
@@ -1140,6 +1184,14 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 예시는 전부 무보컬이라 [Instrumental]·"no vocals & ZERO vocal chops…" 묶음이 있어. **명세의 vocal이 null이 아니면(보컬 곡) 이건 절대 쓰지 마.** 스타일에 [Instrumental]도, 섹션에 "purely/completely instrumental"이나 "vocal chops"도 금지. 보컬은 메뉴 이름(Heavy hooks, Light ad-libs, Full rap feature)을 그대로 쓰지 말고 실제로 들리는 소리(속삭임, 클로즈 마이크, 짧은 후크 라인, 톤, 처리)로 묘사해. 헤더가 "Instrumental"인 섹션(브릿지 등)에는 보컬 묘사를 넣지 마.
 - vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
 
+[가사 작성 — 명세의 lyrics가 null이 아닐 때(보컬 곡)]
+- 출력 맨 앞에 <lyrics>…</lyrics> 블록을 추가해(그 뒤에 <section>, <style>). 이 블록이 Suno의 Lyrics 칸에 그대로 들어가는 진짜 가사야. <section>은 가사와 별개인 "섹션별 연출 설명(참고용)"이고 지금까지처럼 써.
+- 언어는 명세 lyrics.lang. 주제·느낌은 lyrics.theme가 있으면 그걸 가장 우선해서 살려 쓰고, 없으면 무드·곡 분석·장르에서 이 곡에 어울리는 구체적인 이야기·장면·감정을 네가 정해. 무드와 어울리는 이미지·어휘로 일관되게 써.
+- 형식: lyrics.headers를 순서·글자 그대로 헤더 줄로 쓰고 그 아래에 가사 줄. [Verse]는 벌스 가사 8~12줄, [Chorus]는 후렴 4~6줄, [Intro]/[Outro]는 없거나 1~2줄, [Instrumental]은 헤더만(가사 없음).
+- 한 줄은 짧게(영어 5~12음절, 한국어 7~15자). 보컬이 랩(Full rap feature)이면 벌스를 12~16줄로 촘촘하고 리듬감 있게, 노래(Sung lead vocal, Heavy hooks)면 멜로디에 얹기 좋게 짧고 반복적으로.
+- 후렴의 핵심 한 줄(타이틀 라인)을 정해서 후렴마다 그대로 반복해(마지막 후렴에서만 살짝 변주 가능). 라임과 이미지를 곡 전체에서 일관되게.
+- 가사 칸에는 가사만: 악기·믹스·연출 설명, 괄호 설명문, 아티스트·곡 이름, 기존 노래 가사 인용은 금지. 아주 짧은 보컬 지시([Whispered], (ooh) 등)만 허용. 고쳐쓰기 모드에서는 가사를 [이전 결과]와 글자 그대로 유지.
+
 [악기·소리 추가 허용]
 - 사용자가 확정한 악기·드럼은 그대로 지키되, 이 곡의 의도(무드·레퍼런스·장르)에 비추어 소리가 부족하거나 밋밋하다고 판단하면 네가 악기·타악·베이스·효과음 레이어를 추가해도 돼 (예: 카운터 멜로디, 아르페지오, 스네어·클랩, 리스 베이스, 텍스처 레이어, 전환용 효과음).
 - 추가한 소리는 곡 전체의 기준이면 스타일 태그에도 넣고(태그는 12개 이하로 융합), 섹션에서는 역할이 있는 곳에만 써. 리드·배경 악기와 대역이 겹치면 옥타브·하이패스·사이드체인으로 분리하고, 리드 자리를 대신하지는 마. 무보컬 곡에서 보컬 계열 소리는 추가 금지.
@@ -1158,7 +1210,7 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 명세의 bpm·key가 null이면 사용자가 정하지 않은 거야 — 스타일과 섹션 어디에도 BPM 숫자나 Key("in A minor" 등)를 쓰지 마. 값이 있으면 그대로 정확히 써.
 
 [출력 형식 — 예시 프롬프트의 모양보다 이 규칙이 우선]
-- <section>…</section><style>…</style> 두 블록만. 섹션은 명세 structure의 순서·헤더를 글자 그대로 쓰고, 각 헤더 바로 다음 줄에 본문을 괄호로 감싼 한 줄로: 마디 수(bars)가 있는 섹션은 "(N Bars: 키워드, 키워드, …)", 마디 수가 없는 인트로/아웃트로는 "(키워드, …)".
+- 무보컬 곡은 <section>…</section><style>…</style> 두 블록만, 보컬 곡(명세 lyrics가 null이 아님)은 <lyrics>…</lyrics>를 맨 앞에 더한 세 블록만. 섹션은 명세 structure의 순서·헤더를 글자 그대로 쓰고, 각 헤더 바로 다음 줄에 본문을 괄호로 감싼 한 줄로: 마디 수(bars)가 있는 섹션은 "(N Bars: 키워드, 키워드, …)", 마디 수가 없는 인트로/아웃트로는 "(키워드, …)".
 - 리드 악기 이름은 인트로와 첫·마지막 훅에, 메인 드럼(drums[0]) 이름은 첫 훅에, 고른 드럼은 곡 전체에 걸쳐 전부, 배경 악기는 훅에 한 번 이상 — 이름 그대로.
 - 스타일은 콤마 태그 12개 이하(관련 요소는 " & "로 융합), fixedStyleTags 전부 포함, 프로듀서가 있으면 producerSound 키워드 포함.
 
@@ -1223,12 +1275,14 @@ ${directives}
 [의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, 그 외에 적힌 값(BPM·Key·보컬, 그리고 확정된 악기·드럼)은 사용자가 정한 것이니 그대로 지켜]
 ${aiSelectionCtx({soft:true})}
 ${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
-${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
+${spec.lyrics?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
   const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
   const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
-  return {section:sec[1].trim(),style:sty[1].trim().replace(/\s*\n\s*/g,' ')};
+  const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
+  if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
+  return {section:sec[1].trim(),style:sty[1].trim().replace(/\s*\n\s*/g,' '),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
@@ -1244,15 +1298,17 @@ function renderWriteBadge(){
 }
 function updateWriteCounters(){
   const sect=document.getElementById('hh-sect-ta')?.value||'',style=document.getElementById('hh-style-ta')?.value||'';
+  const lc=document.getElementById('hh-lyrics-count'),la=document.getElementById('hh-lyrics-ta');
+  if(lc&&la){lc.textContent=`${la.value.length}/5000자`;lc.style.color=la.value.length>5000?'var(--danger)':'var(--success)';}
   const a=document.getElementById('hh-sect-count'),b=document.getElementById('hh-style-count');
   if(a){a.textContent=`${sect.length}/5000자`;a.style.color=sect.length>5000?'var(--danger)':sect.length>4200?'#F59E0B':'var(--success)';}
   if(b){b.textContent=`${style.length}/1000자`;b.style.color=style.length>1000?'var(--danger)':style.length>800?'#F59E0B':'var(--success)';}
 }
-function updatePromptHistoryTexts(id,section,style){
+function updatePromptHistoryTexts(id,section,style,lyrics){
   if(!id)return;
   const list=loadPromptHistory();const e=list.find(x=>x.id===id);
   if(!e)return;
-  e.section=section;e.style=style;e.aiWritten=true;
+  e.section=section;e.style=style;e.aiWritten=true;if(lyrics)e.lyrics=lyrics;
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}
   renderPromptHistory();
 }
@@ -1269,30 +1325,32 @@ async function hhAiWrite(entryId){
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
         const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
           if(token!==_writeToken)return;
-          const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i);
-          const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
+          const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i),lm=txt.match(/<lyrics>([\s\S]*?)(?:<\/lyrics>|$)/i);
+          const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta'),la=document.getElementById('hh-lyrics-ta');
+          if(lm&&la)la.value=lm[1].trim();
           if(sm&&ta)ta.value=sm[1].trim();
           if(tm&&sa)sa.value=tm[1].trim().replace(/\s*\n\s*/g,' ');
           updateWriteCounters();
         }});
         if(token!==_writeToken)return;
-        const v=validateWritten(spec,out.section,out.style,{strict:true});
+        const v=validateWritten(spec,out.section,out.style,{strict:true,lyrics:out.lyrics});
         if(v.ok){result=out;break;}
         errors=v.errors;lastErrors=v.errors;
         // 구조·보컬·이름·길이 같은 핵심 검사(core)는 통과하고 추가 개선 검사(strict)만 못 넘은 결과 중 가장 나은 것을 기억
-        if(validateWritten(spec,out.section,out.style).ok&&(!best||v.errors.length<best.errors.length))best={out,errors:v.errors};
+        if(validateWritten(spec,out.section,out.style,{lyrics:out.lyrics}).ok&&(!best||v.errors.length<best.errors.length))best={out,errors:v.errors};
       }
       // 끝까지 완벽하지 못해도 핵심 검사를 통과한 AI 결과가 있으면 규칙 초안(의도 반영이 약함) 대신 그걸 쓰고 경고만 표시
       if(!result&&best){result=best.out;warn=best.errors;}
       if(token!==_writeToken)return;
       if(result){
-        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
+        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,lyrics:result.lyrics||'',meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
         _writeState='ok';_writeWarn=warn;
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=result.section;
         if(sa)sa.value=result.style;
+        {const la=document.getElementById('hh-lyrics-ta');if(la&&result.lyrics)la.value=result.lyrics;}
         updateWriteCounters();
-        updatePromptHistoryTexts(entryId,result.section,result.style);
+        updatePromptHistoryTexts(entryId,result.section,result.style,result.lyrics);
       }else{
         _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:draft.sect,style:draft.style,meta:{ok:false,errors:lastErrors}};
         _writeState='fallback';_writeErr=(lastErrors||[]).slice(0,3).join(' / ');

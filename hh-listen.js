@@ -29,7 +29,7 @@ function listenCopyAiRequest(btn){
 [스타일 프롬프트]
 ${style}
 
-[섹션 프롬프트]
+${(document.getElementById('hh-lyrics-ta')?.value||'').trim()?`[가사]\n${document.getElementById('hh-lyrics-ta').value.trim()}\n\n[섹션별 연출 설명]`:'[섹션 프롬프트]'}
 ${sect}`;
   navigator.clipboard.writeText(txt).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
 }

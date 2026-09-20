@@ -7,6 +7,7 @@ const st={
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
   narrSt:{},narrAI:{},narrDirs:{},removedPhrases:[],structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
+  lyricTheme:'',lyricLang:'English', // 보컬 곡에서 AI가 쓰는 가사의 방향(비우면 무드에 맞게)과 언어
   bpmSet:false,keySet:false, // BPM·Key는 기본값이 없음 — 사용자가 직접 정했거나 레퍼런스 곡에서 가져왔을 때만 true (false면 프롬프트에 안 씀)
   brief:null, // AI가 곡명/느낌 입력에서 뽑은 소리 특징 {text,kind,understood,styleTags,cues} — 규칙 엔진·작성기·리뷰가 함께 씀
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
@@ -78,7 +79,25 @@ function moodGrid(container,moods,state,key,onChange){
 // ============================================================
 // HIP-HOP INIT
 // ============================================================
-setInterval(()=>{try{updateGenPending();syncProducerLock();}catch(_){}},700);
+function syncLyricBox(){
+  const box=document.getElementById('hh-lyric-box');if(!box)return;
+  const on=!!(st.vocal&&st.vocal!=='No Vocal');
+  box.hidden=!on;
+  const lt=document.getElementById('hh-lyric-theme');if(lt&&document.activeElement!==lt&&lt.value!==(st.lyricTheme||''))lt.value=st.lyricTheme||'';
+  const lg=document.getElementById('hh-lyric-lang');
+  if(lg&&on&&lg.dataset.k!==(st.lyricLang||'English')){
+    lg.dataset.k=st.lyricLang||'English';
+    lg.innerHTML='';
+    ['English','한국어'].forEach(l=>{
+      const b=document.createElement('button');b.textContent=l;
+      const sel=(st.lyricLang||'English')===l;
+      b.style.cssText=`padding:3px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid ${sel?'var(--accent)':'var(--border)'};background:${sel?'var(--accent-dim)':'var(--surface-2)'};color:${sel?'var(--accent-text)':'var(--text-2)'}`;
+      b.onclick=()=>{st.lyricLang=l;syncLyricBox();};
+      lg.appendChild(b);
+    });
+  }
+}
+setInterval(()=>{try{updateGenPending();syncProducerLock();syncLyricBox();}catch(_){}},700);
 // 간편/상세 모드 — 간편은 곡의 의도(✨ 박스·장르·무드·보컬·BPM/Key)만 보이고, 악기·드럼·808·질감·전환·그루브·구조 같은 세부 항목은 접어 둠(값과 AI 추천은 그대로 동작, 화면에서만 숨김)
 const HH_DETAIL_NUMS=['03','04','06','08','09','10','11','12','13','14'];
 function uiMode(){try{return localStorage.getItem('hh_ui_mode')==='detail'?'detail':'simple';}catch(_){return 'simple';}}
@@ -778,10 +797,22 @@ function clearAutoHint(id){
   if(el)el.hidden=true;
 }
 
+let _genreFamily='all';
 function renderHhGenres(){
   const container=document.getElementById('hh-genre-chips');
   container.innerHTML='';
+  let fam=document.getElementById('hh-genre-family');
+  if(!fam){fam=document.createElement('div');fam.id='hh-genre-family';fam.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px';container.before(fam);}
+  fam.innerHTML='';
+  GENRE_FAMILIES.forEach(([k,label])=>{
+    const b=document.createElement('button');
+    b.textContent=label;
+    b.style.cssText=`padding:4px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid ${_genreFamily===k?'var(--accent)':'var(--border)'};background:${_genreFamily===k?'var(--accent-dim)':'var(--surface-2)'};color:${_genreFamily===k?'var(--accent-text)':'var(--text-2)'}`;
+    b.onclick=()=>{_genreFamily=k;renderHhGenres();};
+    fam.appendChild(b);
+  });
   GENRES.forEach((g,i)=>{
+    if(_genreFamily!=='all'&&g.family!==_genreFamily&&st.genre!==i)return;   // 고른 장르는 필터와 상관없이 계속 보임
     const el=document.createElement('div');
     el.className='chip'+(st.genre===i?' selected':'');
     el.textContent=g.kr;
@@ -2166,6 +2197,7 @@ function hhGenerate(source,opts){
   if(source===undefined&&_pendingLabels.length)source=_pendingLabels.join(' + ');
   const keepSect=isRefresh?document.getElementById('hh-sect-ta')?.value:null;
   const keepStyle=isRefresh?document.getElementById('hh-style-ta')?.value:null;
+  const keepLyrics=isRefresh?document.getElementById('hh-lyrics-ta')?.value:null;
   const hasAiKey=!!getAnthropicKey();
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
@@ -2234,7 +2266,12 @@ function hhGenerate(source,opts){
   const _wc=(aiWriteEnabled()&&_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpFull===_fps.fpFull)?_hhWritten:null;
   if(_wc)sectText=_wc.section;
   if(isRefresh&&keepSect)sectText=keepSect;   // 화면만 다시 그릴 땐 보이던 텍스트 유지
-  const sectBlock=makeOutBlock('② 섹션 프롬프트',
+  const _vocalOut=!!(st.vocal&&st.vocal!=='No Vocal');
+  const lyricsText=_vocalOut?((isRefresh&&keepLyrics!==null)?keepLyrics:(_wc?.lyrics||'')):'';
+  const lyricsBlock=_vocalOut?makeOutBlock('② 가사 (Suno의 Lyrics 칸)',
+    `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-lyrics-count" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--success)">${lyricsText.length}/5000자</span></div><textarea class="output-ta" id="hh-lyrics-ta" rows="14" placeholder="AI 작성이 켜져 있으면 여기에 곡 분위기에 맞는 가사가 만들어져요 (API Key 필요). 직접 쓴 가사를 붙여 넣어도 돼요." style="display:block;width:100%">${escHtml(lyricsText)}</textarea>`,
+    'hh-lyrics-ta','#F59E0B'):null;
+  const sectBlock=makeOutBlock(_vocalOut?'④ 연출 설명 (참고용 · 섹션별 편곡 지시)':'② 섹션 프롬프트',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-sect-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${sectText.length>5000?'var(--danger)':sectText.length>4200?'#F59E0B':'var(--success)'}" title="Suno 가사/섹션 박스 한도">${sectText.length}/5000자</span></div><textarea class="output-ta" id="hh-sect-ta" rows="14" readonly style="display:block;width:100%">${escHtml(sectText)}</textarea><div id="hh-ai-polish-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>`,
     'hh-sect-ta','#8B5CF6');
   {
@@ -2265,7 +2302,8 @@ function hhGenerate(source,opts){
     polishBtn.onclick=aiPolishSectionPrompt;
     actionsWrap.appendChild(polishBtn);
   }
-  container.appendChild(sectBlock);
+  if(_vocalOut)container.appendChild(lyricsBlock);
+  else container.appendChild(sectBlock);   // 보컬 곡은 가사 → 스타일 → 연출 설명 순
 
   // ③ 스타일 프롬프트
   // 순서: [Instrumental] → no vocals → genre → producer ref → mood → melody → 808/그루브/드럼(한 덩어리) → Key → BPM → texture → anti-AI
@@ -2353,6 +2391,7 @@ function hhGenerate(source,opts){
   container.appendChild(makeOutBlock('③ 스타일 프롬프트',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-style-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
+  if(_vocalOut)container.appendChild(sectBlock);
 
   // Suno Studio 세팅 팁 — Variety를 0보다 높게 두면 Suno가 위 스타일 태그를 자체적으로 고쳐써버려서
   // 여기서 공들여 만든 태그가 무시될 수 있음. 생성 전에 꼭 확인하라고 안내
@@ -2533,7 +2572,7 @@ function hhGenerate(source,opts){
   updateAdvApplyBtn();
   // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
   // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
-  const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:st.bpmSet?bpmVal:null,key:st.keySet?keyStr:null,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
+  const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:st.bpmSet?bpmVal:null,key:st.keySet?keyStr:null,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,lyrics:lyricsText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
   // 작성기 시작 — 캐시 적중이면 생략, 진행 중이면 중복 호출 안 함, 이전 실패가 같은 상태의 재렌더(source===false)면 재호출 안 함(명시적 Generate만 재시도)
   const _fb=_hhWritten&&_hhWritten.fpFull===_fps.fpFull&&!_hhWritten.meta?.ok;
   if(_wc){_writeState='ok';_writeWarn=_wc.meta?.warn||null;renderWriteBadge();}
@@ -2670,7 +2709,7 @@ function restorePromptHistoryEntry(id){
   // AI가 작성한 기록이면 그 텍스트를 이 상태의 캐시로 — 복원할 때마다 AI를 다시 부르지 않고 저장돼 있던 그 텍스트가 그대로 나옴
   if(entry.aiWritten&&entry.section&&entry.style){
     const f=hhWriteFingerprints();
-    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,meta:{ok:true,mode:'restored'},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
+    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,lyrics:entry.lyrics||'',meta:{ok:true,mode:'restored'},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
   }else _hhWritten=null;
   hhGenerate(`기록에서 복원: ${entry.label||entry.genre}`);
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});
@@ -2748,11 +2787,12 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.brief=null;st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
+  st.transitionFx=[];st.groove=null;st.brief=null;st.lyricTheme='';st.lyricLang='English';st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   {const b=document.getElementById('hh-brief');if(b)b.value='';_briefProposal=null;_refCandidate=null;const r=document.getElementById('hh-brief-result');if(r)r.hidden=true;}
+  {const lt=document.getElementById('hh-lyric-theme');if(lt)lt.value='';}
   document.getElementById('hh-bpm').value='';document.getElementById('hh-bpm').placeholder='직접 입력';
   document.getElementById('hh-key').value='';
   const outBlocks=document.getElementById('hh-out-blocks');
@@ -2932,12 +2972,17 @@ document.getElementById('antiAiToggle').addEventListener('change',e=>{
 // ============================================================
 // INIT
 // ============================================================
+// 새 일렉 장르(인덱스 20~)의 표 값을 가장 가까운 힙합 장르에서 빌려 채움 — AI 작성 경로에서는 참고값, 규칙 초안(폴백)이 죽지 않게 하는 용도
+function extendGenreTables(){
+  const tables=[typeof GENRE_REF!=='undefined'&&GENRE_REF,typeof GENRE_STRUCTURE!=='undefined'&&GENRE_STRUCTURE,GENRE_SECTION_CUE,GENRE_HUMAN,GENRE_AUTO,GENRE_ARTICULATION,GENRE_DEFAULT_MOOD,GENRE_MELODY_TIPS,GENRE_MELODY_TONE,GENRE_TEXTURE_TIPS,GENRE_DRUMS_TIPS,GENRE_VOCAL_CHAR,GENRE_VOCAL_STYLE,GENRE_ARRANGE_PROFILE].filter(Boolean);
+  Object.entries(GENRE_ALIAS).forEach(([i,from])=>{tables.forEach(t=>{if(t[i]===undefined&&t[from]!==undefined)t[i]=t[from];});});
+}
+extendGenreTables();
 hhInit();
 // Restore direct token from sessionStorage on page load
 try{const t=sessionStorage.getItem('sp_direct_token');if(t)_spDirectToken=t;}catch(_){}
 updateSpPanelStatus();
 
 buildVocalTab('pop',POP_GENRES,POP_ARTISTS,POP_GENRE_PRESETS,POP_MOODS,POP_INSTR,POP_VOCAL_STYLES,POP_NARR,POP_STRUCT_PRESETS,POP_SEG_PALETTE);
-buildVocalTab('elec',ELEC_GENRES,ELEC_ARTISTS,ELEC_GENRE_PRESETS,ELEC_MOODS,ELEC_INSTR,ELEC_VOCAL_STYLES,ELEC_NARR,ELEC_STRUCT_PRESETS,ELEC_SEG_PALETTE);
 buildVocalTab('rock',ROCK_GENRES,ROCK_ARTISTS,ROCK_GENRE_PRESETS,ROCK_MOODS,ROCK_INSTR,ROCK_VOCAL_STYLES,ROCK_NARR,ROCK_STRUCT_PRESETS,ROCK_SEG_PALETTE);
 updateFloatSummary();
