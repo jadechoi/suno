@@ -78,7 +78,7 @@ function moodGrid(container,moods,state,key,onChange){
 // ============================================================
 // HIP-HOP INIT
 // ============================================================
-setInterval(()=>{try{updateGenPending();}catch(_){}},700);
+setInterval(()=>{try{updateGenPending();syncProducerLock();}catch(_){}},700);
 // 간편/상세 모드 — 간편은 곡의 의도(✨ 박스·장르·무드·보컬·BPM/Key)만 보이고, 악기·드럼·808·질감·전환·그루브·구조 같은 세부 항목은 접어 둠(값과 AI 추천은 그대로 동작, 화면에서만 숨김)
 const HH_DETAIL_NUMS=['03','04','06','08','09','10','11','12','13','14'];
 function uiMode(){try{return localStorage.getItem('hh_ui_mode')==='detail'?'detail':'simple';}catch(_){return 'simple';}}
@@ -995,6 +995,7 @@ function renderProducerRef(){
     };
     grid.appendChild(el);
   });
+  syncProducerLock();
 }
 // 장르 고르면 GENRE_REF로 프로듀서 레퍼런스 자동 채움 — 수동으로 클릭해서 언제든 바꿀 수 있음
 function recommendProducerRef(){
@@ -1710,7 +1711,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 상업적 매력 어휘 — "catchy bright synth lead"처럼 훅 리드가 얼마나 귀에 붙는지(예시 프롬프트의 패턴). 질감·디테일 문구와 함께 씀
   const appealLead=(MOOD_APPEAL[moodIdx]&&leadName)?`${MOOD_APPEAL[moodIdx].lead} ${leadName} hook melody`:'';
   const bcS=type=>bc(type)?`, ${bc(type)}`:'';
-  const refSig=refFit(REF_SIG[st.refs[0]]||'',' & ');
+  const refSig=producerRefActive()?refFit(REF_SIG[st.refs[0]]||'',' & '):'';
   const hookDrums=drumList.slice(0,3).join(' & ')||dDesc;
   // "마지막"으로 고정하면 조언이 "첫 훅"을 가리켜도 무시되니, AI가 정한 occurrence(기본은 기존처럼 마지막)를 그대로 따름 —
   // 이 타입의 진짜 클라이맥스 판정(isLast 등)과는 별개 — 그건 훅 서브타이틀/에너지 문구용으로 계속 그대로 씀
@@ -2195,7 +2196,7 @@ function hhGenerate(source,opts){
   if(st.melody.length)summaryRows.push(['🎵 멜로디',st.melody.join(', ')]);
   if(st.mood)summaryRows.push(['😶 분위기',st.mood+(mood?' · '+mood.tag:'')]);
   if(st.vocal&&st.vocal!=='No Vocal')summaryRows.push(['🎤 보컬',st.vocal]);
-  if(st.refs.length){
+  if(st.refs.length&&producerRefActive()){
     const refNames=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.vibes})`:kr;});
     summaryRows.push(['🎤 레퍼런스 프로듀서',refNames.join(' / ')]);
   }
@@ -2283,7 +2284,7 @@ function hhGenerate(source,opts){
   const fuse=(g&&st.commercial!=='Underground/Experimental')?GENRE_FUSION[st.genre]:null;
   if(g)tags.push(`${commMod?commMod+' ':''}${g.tag}${fuse?` meets ${fuse[0]} & ${fuse[1]}`:''}${g.sig?' & '+g.sig:''}`);
   // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화), 여러 명이어도 한 태그로
-  if(st.refs.length){
+  if(st.refs.length&&producerRefActive()){
     const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?refFit(p.en,', '):kr;}).filter(Boolean);
     if(refEns.length)tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
   }
@@ -2569,7 +2570,7 @@ function saveHhPromptAsMd(){
   if(st.melodyTone)rows.push(['악기 톤',st.melodyTone]);
   if(st.texture.length)rows.push(['믹스 텍스처',st.texture.join(', ')]);
   if(st.vocal&&st.vocal!=='No Vocal')rows.push(['보컬',st.vocal]);
-  if(st.refs.length)rows.push(['프로듀서 레퍼런스',st.refs.join(', ')]);
+  if(st.refs.length&&producerRefActive())rows.push(['프로듀서 레퍼런스',st.refs.join(', ')]);
   rows.push(['구조',st.structSegs.join(' → ')]);
 
   // 총평·레퍼런스 부합도는 애초에 적용(액션) 대상이 아니라 평가 자체가 목적이라, applied 여부와 무관하게 항상 포함 —

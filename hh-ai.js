@@ -189,7 +189,7 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const mood=HH_MOODS.find(m=>m.kr===st.mood);
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
   // 이름 없이 설명만 주면 removeRef에 "정확한 프로듀서 이름"을 요구해도 채울 수가 없어서(normalize도 st.refs 이름과 대조) 이름을 같이 줌
-  const refProducers=st.refs.length?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
+  const refProducers=(st.refs.length&&producerRefActive())?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   return [
     `장르: ${g.kr} (${g.sound})`,
@@ -783,7 +783,7 @@ ${ctx}`;
     // 어긋나는데도 그대로 남는다는 리뷰 지적 때문. 재생성·기록은 이 함수가 한 번만
     let refNote='';
     try{
-      await aiRecommendProducerRef({regen:false});
+      if(producerRefActive())await aiRecommendProducerRef({regen:false});
       refNote=st.refs[0]?` · 프로듀서 레퍼런스: ${st.refs[0]}`:'';
     }catch(_){}
     markPending('AI 추천 적용 (악기·808·드럼·프로듀서)');
@@ -962,8 +962,8 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
     drums:auto?[]:[...st.drums],bass808:auto?null:st._808,vocal:hasVocal?st.vocal:null,
     transitionFx:auto?[]:[...(st.transitionFx||[])],groove:auto?null:st.groove,texture:auto?[]:[...st.texture],
-    producerReference:auto?null:(st.refs[0]||null),
-    producerSound:(!auto&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
+    producerReference:(auto||!producerRefActive())?null:(st.refs[0]||null),
+    producerSound:(!auto&&producerRefActive()&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
     brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
@@ -1365,7 +1365,7 @@ function buildBriefProposal(text,p){
   add('texture','믹스 텍스처',v.texture.length,v.texture.join(', '));
   add('density','밀도',v.density,v.density);
   add('vocal','보컬',v.vocal,[v.vocal,v.vocalStyle,v.vocalChar].filter(Boolean).join(' · '));
-  if('producer' in p)add('producer','프로듀서',true,v.producer||'없음 — 어울리는 프로듀서가 없어 소리 특징 키워드로 대신해요');
+  if('producer' in p&&p.kind!=='song')add('producer','프로듀서',true,v.producer||'없음 — 어울리는 프로듀서가 없어 소리 특징 키워드로 대신해요');
   add('sound','소리 특징',styleTags.length||Object.keys(cues).length,[...styleTags,...Object.values(cues)].join(' / '));
   if(!items.length)throw new Error('AI가 목록에 있는 값을 반환하지 못했습니다');
   return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,items};
@@ -1498,6 +1498,18 @@ function openGeminiBrief(){
 // ============================================================
 // 아티스트·핫한 곡 선택기 → 입력칸 (예전 "아티스트 타입비트" 탭을 ✨ 박스 안으로 합침)
 // ============================================================
+// 레퍼런스 곡이 있으면 곡의 소리(분석)가 기준 — 프로듀서 레퍼런스까지 얹으면 둘이 부딪힘(실측: 레퍼런스 점수 2~4). 곡 없이 장르·무드만이면 프로듀서를 씀
+function refSongActive(){return !!(document.getElementById('hh-ref-song')?.value||'').trim()||!!(st.brief&&st.brief.kind==='song');}
+function producerRefActive(){return !refSongActive();}
+function syncProducerLock(){
+  const c=document.getElementById('hh-ref');if(!c)return;
+  const lock=!producerRefActive();
+  let n=document.getElementById('hh-ref-lock');
+  if(lock&&!n){n=document.createElement('div');n.id='hh-ref-lock';n.style.cssText='font-size:11px;line-height:1.7;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-3);color:var(--text-2);margin-bottom:8px';n.textContent='🎵 레퍼런스 곡이 있어서 프로듀서 레퍼런스는 쓰지 않아요 — 곡의 소리를 분석해서 반영해요. (곡을 지우면 다시 고를 수 있어요)';c.before(n);}
+  if(!lock&&n)n.remove();
+  c.style.opacity=lock?'.35':'';c.style.pointerEvents=lock?'none':'';
+  const ab=document.getElementById('hh-ref-ai-block');if(ab)ab.style.display=lock?'none':'';
+}
 let _refCandidate=null;
 function setRefSongFromPicker(label,cand){
   if(!label)return;
