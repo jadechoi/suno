@@ -108,7 +108,7 @@ function syncLyricBox(){
 }
 setInterval(()=>{try{updateGenPending();syncProducerLock();syncLyricBox();}catch(_){}},700);
 // 간편/상세 모드 — 간편은 곡의 의도(✨ 박스·장르·무드·보컬·BPM/Key)만 보이고, 악기·드럼·808·질감·전환·그루브·구조 같은 세부 항목은 접어 둠(값과 AI 추천은 그대로 동작, 화면에서만 숨김)
-const HH_DETAIL_NUMS=['03','04','06','08','09','10','11','12','13','14'];
+const HH_DETAIL_NUMS=['05','06','07','08','09','10','11','12','13','14'];   // 간편 모드에서 접는 세부 항목(808·드럼·멜로디·레퍼런스 프로듀서·텍스처·전환·그루브·연출·구조·고급)
 function uiMode(){try{return localStorage.getItem('hh_ui_mode')==='detail'?'detail':'simple';}catch(_){return 'simple';}}
 function setUiMode(m){try{localStorage.setItem('hh_ui_mode',m);}catch(_){}applyUiMode();}
 function applyUiMode(){

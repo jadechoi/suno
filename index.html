@@ -241,10 +241,47 @@
     </div>
   </div>
 
-  <!-- 03 808 -->
+  <!-- 03 VOCAL -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">03</span> 808</div>
+      <div class="section-title"><span class="section-num">03</span> VOCAL <span style="font-size:10px;color:var(--text-3);margin-left:4px">먼저 정해요 — 노래가 있는 곡인가요, 비트만인가요?</span></div>
+      <span class="caret">▼</span>
+    </div>
+    <div class="section-body">
+      <div class="chip-grid" id="hh-vocal"></div>
+      <div id="hh-vocal-char-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🎙 녹음 질감 <span style="font-weight:400;color:var(--text-3)">마이크 거리감·리버브 — 장르+무드 고르면 자동 추천</span></div>
+        <div id="hh-vocal-char-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
+        <div class="chip-grid" id="hh-vocal-char"></div>
+      </div>
+      <div id="hh-vocal-style-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🎤 보컬 스타일 <span style="font-weight:400;color:var(--text-3)">톤·감정 전달 방식 — 장르+무드 고르면 자동 추천</span></div>
+        <div id="hh-vocal-style-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
+        <div class="chip-grid" id="hh-vocal-style"></div>
+      </div>
+      <div id="hh-lyric-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">📝 가사 <span style="font-weight:400;color:var(--text-3)">어떤 느낌으로 쓰고 싶은지 적어 주세요 — 비워 두면 곡 분위기에 맞게 AI가 써요</span></div>
+        <textarea id="hh-lyric-theme" rows="2" oninput="st.lyricTheme=this.value" placeholder="예: 이별 후 새벽에 혼자 걷는 기분, 담담한데 아직 못 잊은 느낌" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:8px 10px;resize:vertical"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--text-2)">가사 언어 <span id="hh-lyric-lang" style="display:inline-flex;gap:6px"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 MOOD -->
+  <div class="section">
+    <div class="section-header open" onclick="toggleSection(this)">
+      <div class="section-title"><span class="section-num">04</span> MOOD</div>
+      <span class="caret">▼</span>
+    </div>
+    <div class="section-body">
+      <div class="mood-grid" id="hh-mood"></div>
+    </div>
+  </div>
+
+  <!-- 05 808 -->
+  <div class="section">
+    <div class="section-header open" onclick="toggleSection(this)">
+      <div class="section-title"><span class="section-num">05</span> 808</div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -253,10 +290,10 @@
     </div>
   </div>
 
-  <!-- 04 DRUMS -->
+  <!-- 06 DRUMS -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">04</span> DRUMS</div>
+      <div class="section-title"><span class="section-num">06</span> DRUMS</div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -265,21 +302,10 @@
     </div>
   </div>
 
-  <!-- 05 MOOD -->
+  <!-- 07 MELODY -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">05</span> MOOD</div>
-      <span class="caret">▼</span>
-    </div>
-    <div class="section-body">
-      <div class="mood-grid" id="hh-mood"></div>
-    </div>
-  </div>
-
-  <!-- 06 MELODY -->
-  <div class="section">
-    <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">06</span> MELODY <span style="font-size:10px;color:var(--text-3);margin-left:4px">max 2 · 장르+무드 고르면 자동 추천</span></div>
+      <div class="section-title"><span class="section-num">07</span> MELODY <span style="font-size:10px;color:var(--text-3);margin-left:4px">max 2 · 장르+무드 고르면 자동 추천</span></div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -300,32 +326,6 @@
         <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🎨 악기 톤/음색 <span style="font-weight:400;color:var(--text-3)">리드 악기 자체의 질감 — 장르+무드 고르면 자동 추천</span></div>
         <div id="hh-melody-tone-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
         <div class="chip-grid" id="hh-melody-tone"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 07 VOCAL -->
-  <div class="section">
-    <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">07</span> VOCAL</div>
-      <span class="caret">▼</span>
-    </div>
-    <div class="section-body">
-      <div class="chip-grid" id="hh-vocal"></div>
-      <div id="hh-vocal-char-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🎙 녹음 질감 <span style="font-weight:400;color:var(--text-3)">마이크 거리감·리버브 — 장르+무드 고르면 자동 추천</span></div>
-        <div id="hh-vocal-char-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
-        <div class="chip-grid" id="hh-vocal-char"></div>
-      </div>
-      <div id="hh-vocal-style-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">🎤 보컬 스타일 <span style="font-weight:400;color:var(--text-3)">톤·감정 전달 방식 — 장르+무드 고르면 자동 추천</span></div>
-        <div id="hh-vocal-style-hint" hidden style="font-size:10px;color:var(--accent-text);margin-bottom:8px">🤖 <span></span></div>
-        <div class="chip-grid" id="hh-vocal-style"></div>
-      </div>
-      <div id="hh-lyric-box" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">📝 가사 <span style="font-weight:400;color:var(--text-3)">어떤 느낌으로 쓰고 싶은지 적어 주세요 — 비워 두면 곡 분위기에 맞게 AI가 써요</span></div>
-        <textarea id="hh-lyric-theme" rows="2" oninput="st.lyricTheme=this.value" placeholder="예: 이별 후 새벽에 혼자 걷는 기분, 담담한데 아직 못 잊은 느낌" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:8px 10px;resize:vertical"></textarea>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--text-2)">가사 언어 <span id="hh-lyric-lang" style="display:inline-flex;gap:6px"></span></div>
       </div>
     </div>
   </div>
