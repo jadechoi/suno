@@ -278,10 +278,10 @@ async function getAudioFeaturesViaRapidAPI(trackId){
     if(r.ok){
       const d=await r.json();
       // SoundNet may return slightly different keys — normalize to Spotify format
-      if(d){
+      if(d&&Number.isFinite(d.tempo??d.bpm)){
         return{
-          tempo:d.tempo??d.bpm??140,
-          key:d.key??7,
+          tempo:d.tempo??d.bpm,
+          key:d.key??null,   // 모르면 null — 기본값(A)을 지어내지 않음
           mode:d.mode??0,
           energy:d.energy??0.7,
           valence:d.valence??0.5,
@@ -429,8 +429,7 @@ async function applySpotifyTrack(trackId,label){
   let bpm=Math.round(af.tempo);
   if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
   if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;
-  document.getElementById('hh-bpm').value=st.bpm;
+  if(Number.isFinite(bpm)&&bpm>0){st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;document.getElementById('hh-bpm').value=st.bpm;}
   // 808
   const level=af._808||sp808FromEnergy(af.energy);
   st._808=level;
@@ -581,8 +580,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
   let bpm=Math.round(af.tempo);
   if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
   if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;
-  document.getElementById('hh-bpm').value=st.bpm;
+  if(Number.isFinite(bpm)&&bpm>0){st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;document.getElementById('hh-bpm').value=st.bpm;}
   // 808
   const level=sp808FromEnergy(af.energy);
   st._808=level;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
