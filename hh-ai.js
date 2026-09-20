@@ -1001,7 +1001,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     prevLength:prev?prev.section.length:null,
     mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
     prevSections:prev?parseSections(prev.section).map(s=>({header:s.header,body:s.body})):null,
-    lyrics:hasVocal?{theme:(st.lyricTheme||'').trim()||null,lang:st.lyricLang||'English',headers:lyricHeaders(structure)}:null,
+    lyrics:hasVocal?{theme:(st.lyricTheme||'').trim()||null,lang:GENRE_LYRIC_LANG_FIXED[st.genre]||st.lyricLang||'English',headers:lyricHeaders(structure)}:null,
     prevLyrics:(hasVocal&&prev&&prev.lyrics)?prev.lyrics:null,
   };
 }
@@ -1100,9 +1100,10 @@ function validateWritten(spec,section,style,opts){
       if(longParen)errors.push(`가사에 괄호 설명문(${longParen.slice(0,30)}…)이 있음 — 가사 칸에는 가사만 (짧은 (ooh) 같은 애드립만 허용)`);
       const prod=ly.match(/\b(808|hi-?hats?|sub-?bass|sidechain|reverb|stereo|synths?|snare|bpm)\b/i);
       if(prod)errors.push(`가사에 연출·악기 설명 단어(${prod[0]})가 있음 — 그런 건 <section>에`);
-      const hanN=(ly.match(/[\uAC00-\uD7A3]/g)||[]).length,letN=(ly.match(/[A-Za-z\uAC00-\uD7A3]/g)||[]).length,ratio=hanN/Math.max(1,letN);
-      if(spec.lyrics.lang==='한국어'&&ratio<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
-      if(spec.lyrics.lang==='English'&&ratio>0.05)errors.push('가사 언어가 English인데 한글이 섞임');
+      const hanN=(ly.match(/[\uAC00-\uD7A3]/g)||[]).length,jpN=(ly.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length,letN=(ly.match(/[A-Za-z\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length||1;
+      if(spec.lyrics.lang==='한국어'&&hanN/letN<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
+      if(spec.lyrics.lang==='日本語'&&jpN/letN<0.4)errors.push('가사 언어가 日本語인데 일본어(가나·한자) 비율이 낮음');
+      if(spec.lyrics.lang==='English'&&(hanN+jpN)/letN>0.05)errors.push('가사 언어가 English인데 한글·일본어가 섞임');
       const ch=secsL.filter(s=>/^\[Chorus/.test(s.header));
       if(ch.length>=2){const base=new Set(ch[0].lines.map(x=>x.toLowerCase()));if(ch[1].lines.filter(x=>base.has(x.toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
       if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==ly.replace(/\s+/g,' ').trim())errors.push('고쳐쓰기에서는 가사를 이전 결과 글자 그대로 유지해야 함');
@@ -1202,7 +1203,7 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 출력 맨 앞에 <lyrics>…</lyrics> 블록을 추가해(그 뒤에 <section>, <style>). 이 블록이 Suno의 Lyrics 칸에 그대로 들어가는 진짜 가사야. <section>은 각 섹션의 연출 설명이고, 앱이 섹션마다 [가사 헤더] → (연출 설명) → 가사 줄로 합쳐서 Suno의 Lyrics 칸에 넣어. 그래서 보컬 곡의 연출 설명은 전체 3,000자 이하로 더 짧게, 가사는 1,800자 이하로 써(합쳐서 5,000자 안).
 - 언어는 명세 lyrics.lang. 주제·느낌은 lyrics.theme가 있으면 그걸 가장 우선해서 살려 쓰고, 없으면 무드·곡 분석·장르에서 이 곡에 어울리는 구체적인 이야기·장면·감정을 네가 정해. 무드와 어울리는 이미지·어휘로 일관되게 써.
 - 형식: lyrics.headers를 순서·글자 그대로 헤더 줄로 쓰고 그 아래에 가사 줄. [Verse]는 벌스 가사 8~12줄, [Chorus]는 후렴 4~6줄, [Intro]/[Outro]는 없거나 1~2줄, [Instrumental]은 헤더만(가사 없음).
-- 한 줄은 짧게(영어 5~12음절, 한국어 7~15자). 보컬이 랩(Full rap feature)이면 벌스를 12~16줄로 촘촘하고 리듬감 있게, 노래(Sung lead vocal, Heavy hooks)면 멜로디에 얹기 좋게 짧고 반복적으로.
+- 한 줄은 짧게(영어 5~12음절, 한국어 7~15자, 日本語 8~16자). J-Pop은 가사를 반드시 日本語로 쓰고, 스타일에는 장르 태그 "j-pop"을 그대로 써("Japanese vocals" 같은 언어 태그는 따로 넣지 마 — 장르 태그와 가사 언어로 충분해). K-Pop도 "k-pop" 태그만 써. 보컬이 랩(Full rap feature)이면 벌스를 12~16줄로 촘촘하고 리듬감 있게, 노래(Sung lead vocal, Heavy hooks)면 멜로디에 얹기 좋게 짧고 반복적으로.
 - 후렴의 핵심 한 줄(타이틀 라인)을 정해서 후렴마다 그대로 반복해(마지막 후렴에서만 살짝 변주 가능). 라임과 이미지를 곡 전체에서 일관되게.
 - 가사 칸에는 가사만: 악기·믹스·연출 설명, 괄호 설명문, 아티스트·곡 이름, 기존 노래 가사 인용은 금지. 아주 짧은 보컬 지시([Whispered], (ooh) 등)만 허용. 고쳐쓰기 모드에서는 가사를 [이전 결과]와 글자 그대로 유지.
 

@@ -79,22 +79,27 @@ function moodGrid(container,moods,state,key,onChange){
 // ============================================================
 // HIP-HOP INIT
 // ============================================================
+let _lyricLangTouched=false,_lyricLangForced=false;   // 사용자가 직접 언어를 고르면 장르 선택이 언어를 바꾸지 않음
 function syncLyricBox(){
   const box=document.getElementById('hh-lyric-box');if(!box)return;
   const on=!!(st.vocal&&st.vocal!=='No Vocal');
   box.hidden=!on;
   const lt=document.getElementById('hh-lyric-theme');if(lt&&document.activeElement!==lt&&lt.value!==(st.lyricTheme||''))lt.value=st.lyricTheme||'';
   const lg=document.getElementById('hh-lyric-lang');
-  if(lg&&on&&lg.dataset.k!==(st.lyricLang||'English')){
-    lg.dataset.k=st.lyricLang||'English';
+  const fixed=GENRE_LYRIC_LANG_FIXED[st.genre]||null;
+  if(fixed&&st.lyricLang!==fixed)st.lyricLang=fixed;
+  if(lg&&on&&lg.dataset.k!==(st.lyricLang||'English')+'|'+(fixed||'')){
+    lg.dataset.k=(st.lyricLang||'English')+'|'+(fixed||'');
     lg.innerHTML='';
-    ['English','한국어'].forEach(l=>{
+    ['English','한국어','日本語'].forEach(l=>{
       const b=document.createElement('button');b.textContent=l;
       const sel=(st.lyricLang||'English')===l;
       b.style.cssText=`padding:3px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid ${sel?'var(--accent)':'var(--border)'};background:${sel?'var(--accent-dim)':'var(--surface-2)'};color:${sel?'var(--accent-text)':'var(--text-2)'}`;
-      b.onclick=()=>{st.lyricLang=l;syncLyricBox();};
+      if(fixed&&l!==fixed){b.style.opacity='.35';b.style.pointerEvents='none';}
+      b.onclick=()=>{st.lyricLang=l;_lyricLangTouched=true;lg.dataset.k='';syncLyricBox();};
       lg.appendChild(b);
     });
+    if(fixed){const n=document.createElement('span');n.style.cssText='color:var(--text-3);font-size:11px';n.textContent=`${GENRES[st.genre].kr}은(는) ${fixed} 가사로 고정돼요`;lg.appendChild(n);}
   }
 }
 setInterval(()=>{try{updateGenPending();syncProducerLock();syncLyricBox();}catch(_){}},700);
@@ -894,6 +899,10 @@ function selectGenre(i){
       chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,()=>{recommendVocalChar();onStructSignalChange();});
       recommendVocalChar();
     }
+    if(GENRE_LYRIC_LANG_FIXED[i]){st.lyricLang=GENRE_LYRIC_LANG_FIXED[i];_lyricLangForced=true;}   // J-Pop은 일본어 고정
+    else if(_lyricLangForced){st.lyricLang='English';_lyricLangForced=false;}                   // 고정 장르에서 벗어나면 되돌림
+    else if(GENRE_LYRIC_LANG[i]&&!_lyricLangTouched)st.lyricLang=GENRE_LYRIC_LANG[i];           // K-Pop→한국어 제안
+    else if(!_lyricLangTouched&&st.lyricLang!=='English'&&!GENRE_LYRIC_LANG[i])st.lyricLang='English';
     if(!st.bpmSet){st.bpm=GENRES[i].bpm;}   // 내부 계산용 값일 뿐 — 프롬프트에는 사용자가 정하기 전까지 안 씀
     {const be=document.getElementById('hh-bpm');if(be&&!st.bpmSet)be.placeholder=`직접 입력 (이 장르는 보통 ${GENRES[i].bpmR[0]}–${GENRES[i].bpmR[1]})`;}
     renderGenreRefSuggestions(i);

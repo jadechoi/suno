@@ -793,3 +793,20 @@ GENRE_FUSION.push(['radio-ready synth hooks','mainstream pop'],['modern trap sou
 [['로맨틱·달콤한',[33,32,40,42]],['감각적·관능적',[33,38,39]],['멜로딕·감성',[32,42,37]],['에너제틱·하입',[34,35,32]],['축제·환희',[34,35,36]],['사이키델릭·몽환',[37,38]],['칠·그루비',[39,33,40]],['슬프고·멜랑콜리',[38,42,37]],['노스탤직·향수',[41,39,36]],['내성적·사색',[40,42,37]]]
   .forEach(([m,ids])=>{MOOD_GENRE_GUIDE[m]=[...(MOOD_GENRE_GUIDE[m]||[]),...ids.filter(i=>!(MOOD_GENRE_GUIDE[m]||[]).includes(i))];});
 Object.assign(GENRE_ALIAS,{32:14,33:13,34:9,35:14,36:8,37:7,38:16,39:13,40:8,41:14,42:8});
+
+// 컨트리 팝(43) · J-Pop(44) — 팝·R&B 계열. J-Pop은 가사 일본어를, K-Pop은 한국어를 제안
+GENRES.push(
+  {kr:'컨트리 팝',en:'Country Pop',tag:'country pop',family:'pop',bpm:105,bpmR:[85,125],instr:['acoustic guitar','pedal steel','snappy drums','warm bass'],vocal:'sung, warm twang',pts:['storytelling chorus','acoustic guitar with polished pop drums','pedal steel accents'],sound:'warm anthemic',energy:'mid',drum:'live-feel country drums'},
+  {kr:'J-Pop',en:'J-Pop',tag:'j-pop',family:'pop',bpm:135,bpmR:[110,170],instr:['bright synths','driving drums','melodic bass','piano'],vocal:'sung, bright and dynamic',pts:['dynamic melody','soaring chorus','energetic arrangement'],sound:'bright dynamic',energy:'high',drum:'driving pop-rock drums'},
+);
+GENRE_FEEL.push(
+  '어쿠스틱 기타와 페달 스틸 소리에 대중적인 팝 후렴이 얹힌 곡. 이야기를 들려주는 듯 따뜻하고 시원하게 뻗는 느낌',
+  '밝고 화려한 멜로디에 곡 중간에 분위기가 확 바뀌는 전개. 애니 오프닝처럼 감정이 벅차오르는 느낌',
+);
+GENRE_HOOK_NAME.push('Country Pop Chorus','J-Pop Chorus Lift');
+GENRE_FUSION.push(['pedal steel and banjo textures','radio-ready country pop'],['city pop grooves','bright j-pop']);
+[['노스탤직·향수',[43,44]],['로맨틱·달콤한',[43,44]],['칠·그루비',[43]],['축제·환희',[43,44]],['에너제틱·하입',[44]],['멜로딕·감성',[44,43]],['승리감·웅장',[44]]]
+  .forEach(([m,ids])=>{MOOD_GENRE_GUIDE[m]=[...(MOOD_GENRE_GUIDE[m]||[]),...ids.filter(i=>!(MOOD_GENRE_GUIDE[m]||[]).includes(i))];});
+Object.assign(GENRE_ALIAS,{43:8,44:14});
+const GENRE_LYRIC_LANG={35:'한국어',44:'日本語'};
+const GENRE_LYRIC_LANG_FIXED={44:'日本語'};   // J-Pop은 가사를 반드시 일본어로 — 바꿀 수 없음   // 장르를 고를 때 제안하는 가사 언어(직접 바꾸면 더는 제안하지 않음)

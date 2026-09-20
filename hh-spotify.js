@@ -719,12 +719,17 @@ const SP_GENRE_MAP_EXTRA=[
   {pats:['k-pop','korean pop'],idx:35},{pats:['dance pop'],idx:34},{pats:['alt r&b','alternative r&b'],idx:38},{pats:['neo soul'],idx:39},
   {pats:['dream pop','shoegaze'],idx:37},{pats:['bedroom pop'],idx:40},{pats:['synthpop','synth-pop','new wave'],idx:41},{pats:['indie pop'],idx:36},
   {pats:['acoustic pop','singer-songwriter','folk pop'],idx:42},
+  {pats:['country pop','contemporary country','modern country','country'],idx:43},
+  {pats:['j-pop','jpop','japanese pop','j-rock','city pop'],idx:44},
 ];
 function detectGenreFromSpotify(genres){
   const joined=(genres||[]).join(' ').toLowerCase();
   const head=SP_GENRE_MAP.filter(m=>m.idx!==13&&m.idx!==0),tail=SP_GENRE_MAP.filter(m=>m.idx===13||m.idx===0);   // 13=trap soul(r&b), 0=일반 trap/rap
   for(const list of [head,SP_GENRE_MAP_EXTRA]){
-    for(const{pats,idx}of list){if(pats.some(p=>joined.includes(p)))return idx;}
+    for(const{pats,idx}of list){
+      if(idx===43&&/\brap\b|hip hop|trap/.test(joined))continue;   // 컨트리 랩 등은 힙합 쪽
+      if(pats.some(p=>joined.includes(p)))return idx;
+    }
   }
   if(_chartKey==='pop'){   // Hot 100 차트에서 온 아티스트의 일반 r&b/pop 태그는 팝·R&B 계열로
     if(['r&b','soul'].some(p=>joined.includes(p)))return 33;
