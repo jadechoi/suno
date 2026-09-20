@@ -2330,7 +2330,7 @@ function hhGenerate(source,opts){
   const _vocalOut=!!(st.vocal&&st.vocal!=='No Vocal');
   const lyricsPure=_vocalOut?(_wc?.lyrics||_hhWritten?.lyrics||''):'';
   const lyricsText=_vocalOut?((isRefresh&&keepLyrics!==null)?keepLyrics:(_wc?.lyrics?(mergeLyricsAndDirection(_wc.lyrics,_wc.section)||_wc.lyrics):'')):'';
-  const lyricsBlock=_vocalOut?makeOutBlock('② 가사 프롬프트 (Suno의 Lyrics 칸 — [섹션: 연출 태그] + 가사)',
+  const lyricsBlock=_vocalOut?makeOutBlock('② 가사 프롬프트 (Suno의 Lyrics 칸 — 연출 설명 + 가사)',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-lyrics-count" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--success)">${lyricsText.length}/5000자</span></div><textarea class="output-ta" id="hh-lyrics-ta" rows="14" placeholder="AI 작성이 켜져 있으면 여기에 섹션마다 [헤더] → (연출 설명) → 가사가 합쳐져서 만들어져요 (API Key 필요). 직접 쓴 가사를 붙여 넣어도 돼요." style="display:block;width:100%">${escHtml(lyricsText)}</textarea>`,
     'hh-lyrics-ta','#F59E0B'):null;
   const sectBlock=makeOutBlock(_vocalOut?'④ 참고: 연출 설명만':'② 섹션 프롬프트',

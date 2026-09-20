@@ -967,20 +967,11 @@ function parseLyricSections(ly){
   (ly||'').split('\n').forEach(l=>{const t=l.trim();if(!t)return;if(/^\[[^\]]+\]$/.test(t))secs.push({header:t,lines:[]});else if(secs.length)secs[secs.length-1].lines.push(t);else stray++;});
   return {secs,stray};
 }
-// Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더: 연출 태그] → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
-// 연출은 대괄호 안(공식 메타태그 문법 "[Verse: …]")에 짧은 키워드로 — 소괄호 "( … )"는 Suno가 메타태그로 안 읽고 백킹보컬·가사로 불러버릴 수 있음
+// Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더] → (연출 설명) → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
 function mergeLyricsAndDirection(lyrics,section){
   const ly=parseLyricSections(lyrics).secs,se=parseSections(section);
   if(!ly.length||ly.length!==se.length)return '';
-  const tag=(hdr,body)=>{
-    let out='';
-    for(const p of body.replace(/^\(|\)$/g,'').replace(/^\d+\s*Bars?:\s*/i,'').split(',').map(x=>x.trim()).filter(Boolean)){
-      if((out?out.length+2:0)+p.length>150)break;   // 태그 안 설명이 길면 노래로 읽히거나 무시됨 — 앞쪽 핵심 키워드만
-      out+=(out?', ':'')+p;
-    }
-    return out?hdr.replace(/\]\s*$/,': '+out+']'):hdr;
-  };
-  return ly.map((l,i)=>[tag(l.header,se[i].body),...l.lines].join('\n')).join('\n\n');
+  return ly.map((l,i)=>[l.header,se[i].body,...l.lines].join('\n')).join('\n\n');
 }
 function lyricHeaders(structure){
   return structure.map(s=>{
@@ -1269,7 +1260,7 @@ ${PROMPT_EXAMPLES.map((e,i)=>`예시${i+1}\n스타일: ${e.style}\n${e.section}`
 [Suno 사실]
 - 스타일 박스는 1000자, 섹션(가사) 박스는 5000자 한도이고 넘으면 뒤가 잘림. 스타일 태그는 10개 안팎을 넘으면 뒤쪽이 무시됨(관련 요소는 " & "로 융합해서 태그 1개로).
 - 스타일 박스는 앞쪽 단어일수록 가중치가 커 — 무보컬 여부·장르·핵심 사운드를 맨 앞에, 부가 디테일은 뒤에. 일반어보다 구체어가 잘 먹혀("pop"보다 "synth-pop", "male vocals"보다 "raspy male vocals", "electronic"보다 "acid 303 bassline"). 서로 충돌하는 장르·질감(예: 트랩 + 오케스트라 + 록)을 한 줄에 쌓지 마.
-- 섹션 메타태그는 대괄호 "[Verse 1]", 곡 안 세부 지시는 "[Verse 1: 짧은 키워드]" 문법이 공식적이고, 소괄호는 메타태그로 읽히지 않아. (이 프로그램의 무보컬 섹션 프롬프트 "헤더 + ( … )" 형식은 사용자가 Suno에서 검증한 것이니 그대로 유지.) 보컬 곡의 Lyrics 칸에는 소괄호 설명문을 넣지 마 — 프로그램이 연출을 [헤더: 태그]로 옮겨 붙여.
+- 섹션 메타태그는 대괄호 "[Verse 1]", 곡 안 세부 지시는 "[Verse 1: 짧은 키워드]" 문법이 공식적이고, 소괄호는 메타태그로 읽히지 않아. (이 프로그램의 섹션 프롬프트 "[헤더] + ( … )" 형식은 사용자가 Suno에서 검증했고 Lyrics 칸에도 그 형식(연출 설명 + 가사)을 쓰기로 정했으니 그대로 유지.) 가사 자체에는 소괄호 설명문을 넣지 마.
 - BPM·Key는 정확한 제어가 아니라 방향 지시(근사치로 반영됨). "no drums" 같은 부정 표현은 스타일 칸에서 약해서 프로그램이 Exclude 칸을 따로 제공하니, 스타일에는 원하는 소리를 긍정 표현으로 쓰는 게 우선.
 - Suno는 문학적 비유가 아니라 실제로 들리는 소리(악기·이펙트·다이내믹·공간감·타이밍)를 콤마로 끊은 짧은 키워드 구로 지시할 때 가장 잘 반영함. 완결된 서술 문장은 금지.
 
