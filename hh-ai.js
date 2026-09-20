@@ -935,6 +935,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     drums:[...st.drums],bass808:st._808,vocal:hasVocal?st.vocal:null,
     transitionFx:[...(st.transitionFx||[])],groove:st.groove,texture:[...st.texture],
     producerReference:st.refs[0]||null,
+    producerSound:st.refs[0]?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
     brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
@@ -988,6 +989,12 @@ function validateWritten(spec,section,style){
     const hit=[...new Set(names)].find(n=>hay.includes(n));
     if(hit)errors.push(`실존 아티스트/프로듀서 이름 "${hit}"이 들어감 — 이름 대신 그 소리의 특징을 묘사하는 키워드로 바꿀 것`);
   }
+  // 프로듀서 레퍼런스는 이름 대신 소리 특징으로 남아야 함 — 빠지면 리뷰의 "레퍼런스 부합"이 바닥(실사용에서 2점)
+  if(spec.producerSound){
+    const hay=_toks(section+' '+style);
+    const ok=spec.producerSound.split(', ').some(p=>{const tt=[..._toks(p)];return tt.length&&tt.filter(w=>hay.has(w)).length/tt.length>=0.6;});
+    if(!ok)errors.push(`프로듀서 레퍼런스의 소리 특징(${spec.producerSound}) 중 하나 이상을 스타일에 소리 키워드로 반영해야 함 (이름은 쓰지 말 것)`);
+  }
   // brief(곡명/느낌 분석)의 스타일 태그 중 최소 하나는 스타일에 반영돼야 함
   if(spec.brief?.styleTags?.length){
     const sty=_toks(style);
@@ -1032,6 +1039,9 @@ const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가
 - 훅 리듬은 명세의 hookRhythm 역할대로 서로 다르게: 각 훅이 그 역할의 리듬 단어를 반드시 가져야 하고, 같은 드럼 조합 문구를 세 훅에 복붙하지 마.
 - 같은 악기는 곡 전체에서 같은 역할을 유지해(예: 브라스는 계속 카운터 액센트). 섹션마다 바뀌는 건 볼륨·밀도·등장 여부뿐이고, 안 나오는 섹션에서 "silent/absent"라고 쓰면 스타일의 "항상 나온다"는 뜻과 모순되니 그냥 언급하지 마.
 - 인트로의 진입 방식과 브릿지의 빌드업이 서로 모순되지 않게(인트로가 "no build-up"이면 브릿지 빌드업은 "이 곡에서 처음 나오는 빌드업"으로 표현).
+
+[프로듀서 레퍼런스]
+- 명세의 producerSound는 고른 프로듀서의 소리 특징이야. 이름은 쓰지 말고 이 키워드를 스타일(필요하면 훅)에 살려 써. 곡의 무드·에너지와 정반대(예: 미니멀 소리 vs 맥시멈 밀도)라면 억지로 섞지 말고 그 소리 특징을 리듬/베이스 한두 군데에만 짧게 반영해.
 
 [brief · 이름 규칙]
 - 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 참고 초안이 brief와 다르게 밋밋하거나 일반적이면 brief 쪽을 따라.
