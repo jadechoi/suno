@@ -491,9 +491,10 @@ const MOOD_GROOVE_FIT={
 // 톤과 충돌하는 뉘앙스 후보는 빼고 고름 (남는 게 없으면 톤만)
 const SOFT_NUANCE=/gentl|tender|silky|soft|delicate|quiet|fragile|thin|faint|hush|breath|smooth|dream|swirl|loose|easygoing|mourn/i;
 const HARSH_NUANCE=/harsh|violent|biting|saturated|menac|raw|coiled/i;
-function compatibleToneNuance(mood){
+function compatibleToneNuance(mood,used){
   const opts=(MOOD_TONE_NUANCE[mood]||[]).filter(n=>!(st.melodyTone==='디스토티드·그릿'&&SOFT_NUANCE.test(n))&&!(st.melodyTone==='소프트·머플드'&&HARSH_NUANCE.test(n)));
-  return opts.length?pick(opts):'';
+  if(!opts.length)return '';
+  return used?pickFreshNuance(opts,used):pick(opts);   // used를 주면 이미 쓴 단어와 안 겹치는 것만
 }
 // 리뷰가 인용해서 삭제하기로 한 구(removePhrase)를 규칙 엔진 결과에서 뺌 — 새 지시를 넣으면서 모순되는 기존 문구를 지울 수 있어야 덧붙이기만 하다 일관성이 깨지지 않음
 const _rmHit=(ph,rp)=>{const l=ph.toLowerCase().trim();return rp.some(p=>l===p||(p.length>=12&&l.includes(p))||(l.length>=12&&p.includes(l)));};
@@ -511,6 +512,40 @@ function applyRemovedStylePhrases(text){
   const rp=(st.removedPhrases||[]).map(p=>p.toLowerCase().trim()).filter(Boolean);
   if(!rp.length)return text;
   return text.split(', ').map(tag=>tag.split(' & ').filter(seg=>!_rmHit(seg,rp)).join(' & ')).filter(Boolean).join(', ');
+}
+// 섹션 본문 정리 — 같은 뜻이 여러 출처(무드 다이내믹·장르 cue·레퍼런스 시그니처·텍스처)에서 겹쳐 들어오는 걸 걸러냄(예: "tape wobble" 두 번, "pocket" 세 번,
+// "triplet hi-hat rolls" 시그니처가 이미 있는 드럼 문구를 또 반복). 악기·드럼 이름, 마디 수, 보컬 규칙, 공간감·전환효과 문구는 보호. 첫 문구(에너지)와 보호 문구는 그대로
+const _STOP=new Set(['the','and','into','with','under','than','for','from','that','this','its','own','one','two','all','are','out','off','over','back','more','most','just']);
+const _stem=w=>w.replace(/(ing|ed|es|s)$/,'');
+const _toks=s=>new Set(s.toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[^a-z0-9 -]/g,' ').split(/\s+/).map(w=>w.replace(/^-+|-+$/g,'')).filter(w=>w.length>2&&!_STOP.has(w)).map(_stem));
+function tidyBody(body,protectNames){
+  const phrases=body.split(/, (?![^()]*\))/).map(p=>p.trim()).filter(Boolean);
+  const protect=/bars?\b|instrumental|vocal|stereo|reverb|mono|riser|impact|crash|sweep|swell|snare roll|roll|silence|filter|last 2 bars|tape stop|wobble/i;
+  const names=(protectNames||[]).filter(Boolean).map(n=>n.toLowerCase());
+  const kept=[],seen=new Set(),count={};
+  phrases.forEach((p,i)=>{
+    const low=p.toLowerCase();
+    if(seen.has(low))return;                                        // 완전히 같은 구
+    const isProtected=i===0||protect.test(p)||names.some(n=>low.includes(n));
+    const t=_toks(p);
+    if(!isProtected&&t.size){
+      const near=kept.some(k=>{const kt=_toks(k);if(!kt.size)return false;const inter=[...t].filter(w=>kt.has(w)).length;return inter/Math.min(t.size,kt.size)>=0.6&&inter>=2;});
+      if(near)return;                                               // 이미 같은 말이 있음
+      if(t.size<=3&&[...t].some(w=>(count[w]||0)>=2))return;        // 이미 두 번 나온 단어를 또 쓰는 짧은 군더더기
+    }
+    seen.add(low);kept.push(p);
+    t.forEach(w=>{count[w]=(count[w]||0)+1;});
+  });
+  return kept.join(', ');
+}
+// 스타일 태그의 무드 뉘앙스(톤·808·그루브·드럼·텍스처)가 같은 무드 표에서 나와서 같은 단어가 여러 태그에 되풀이됨(예: "tightly wound"가 3번, "vintage worn … faded and worn").
+// 이미 쓴 단어와 겹치지 않는 후보를 고르고, 전부 겹치면 그 뉘앙스는 생략
+function pickFreshNuance(opts,used){
+  const cand=(Array.isArray(opts)?opts:[opts]).filter(Boolean);
+  const fresh=cand.filter(n=>![..._toks(n)].some(w=>used.has(w)));
+  const chosen=fresh.length?pick(fresh):'';
+  _toks(chosen).forEach(w=>used.add(w));
+  return chosen;
 }
 // 배열(또는 문자열)에서 하나 무작위로 — 문자열이면 그대로 반환. Generate 누를 때마다 문구가 조금씩 달라지게 하는 데 씀
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
@@ -1563,6 +1598,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const hookSubMap=[['Dark Drop','Shadow Drop'],['Sensual Chorus','Smooth Chorus'],['Melodic Chorus','Emotional Chorus'],['Hype Drop','Hype Surge'],['Cinematic Drop','Dreamy Drop'],['Chill Peak','Smooth Peak'],['Hard Drop','Aggressive Drop'],['Conscious Peak','Introspective Peak'],['Euphoric Anthem','Festival Anthem'],['Triumphant Peak','Victory Peak'],['Melancholic Peak','Sorrowful Peak'],['Flex Anthem','Cocky Chorus'],['Romantic Chorus','Tender Chorus'],['Suspense Peak','Anxious Peak'],['Nostalgic Chorus','Wistful Chorus'],['Mysterious Drop','Enigmatic Drop']];
   const hookEngMap=[['dark explosive','ominous explosive'],['sensual smooth','silky smooth'],['melodic uplifting','melodic emotional'],['maximum hype','peak hype'],['psychedelic dreamy','hazy cinematic'],['smooth peak','laid-back peak'],['aggressive hard','aggressive hard-hitting'],['conscious introspective','contemplative peak'],['euphoric explosive','festival explosive'],['triumphant anthemic','victorious anthemic'],['melancholic emotional','sorrowful emotional'],['confident flexing','cocky flexing'],['romantic sweet','tender sweet'],['tense suspenseful','anxious suspenseful'],['nostalgic wistful','sentimental wistful'],['mysterious enigmatic','cryptic enigmatic']];
   const verseSubMap=[['Grimy Pocket','Shadowy Pocket'],['Sensual Pocket','Smooth Pocket'],['Melodic Pocket','Emotional Pocket'],['Coiled Energy','Restrained Hype'],['Cinematic Build','Dreamy Drift'],['Chill Pocket','Groovy Pocket'],['Hard Pocket','Aggressive Pocket'],['Conscious Flow','Introspective Flow'],['Building Hype','Festival Flow'],['Rising Anthem','Victory Build'],['Sorrowful Pocket','Melancholic Pocket'],['Cocky Pocket','Flexing Pocket'],['Tender Pocket','Romantic Pocket'],['Anxious Pocket','Suspense Pocket'],['Wistful Pocket','Nostalgic Pocket'],['Enigmatic Pocket','Mysterious Pocket']];
+  // 'drop'은 EDM/트랩식 용어 — 붐뱁·로파이·컨셔스 같은 장르의 훅에 붙이면 어색하고 장르가 안 산다
+  const hookNoun=[2,6,7,8,12,13,16,17].includes(st.genre)?'hook':'drop';
   const hookSub=moodIdx>=0?pick(hookSubMap[moodIdx%hookSubMap.length]):'Euphoric Drop';
   // 'maximum hype'·'peak hype'처럼 무드 문구 자체가 절대 최대치면 첫 훅부터 천장을 찍어서 이후 훅의 "더 세게"가 성립 안 함(리뷰 지적) — 최대치 표현은 마지막 훅에만
   const hookEngRaw=moodIdx>=0?pick(hookEngMap[moodIdx%hookEngMap.length]):'euphoric';
@@ -1591,6 +1628,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const mDescFull=melodyRoles?`${melodyRoles.lead} lead, ${melodyRoles.bg} background`:mDesc;
   const bgName=melodyRoles?.bg||null;
   const leadName=leadInstrument||mDesc;
+  const _names=[leadName,melodyRoles?.bg,...drumList];   // tidyBody가 지우지 않을 이름들
   let introUsed=false;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
   // + 리드 악기 자체의 톤(웜·아날로그 등)은 첫 등장(인트로)에서만 무드 뉘앙스까지 얹음 (매번 붙이면 전 섹션에 토씨 그대로 반복)
@@ -1668,7 +1706,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       verse:occ>1
         ?`slightly wider than the previous verse, still ${revTex?'reverb-soaked':(wideTex?'open':'dry and close')}`
         :(revTex?'narrow but reverb-soaked, intimate stereo':(wideTex?'narrower than the hooks but still open stereo':'narrow, dry, intimate stereo')),
-      bridge:occ===total?'stereo collapsing toward mono just before the drop':(occ===1?'stereo narrowing as the filter closes, reverb tail cut short':'stereo pulling in tighter than the last bridge'),
+      bridge:occ===total?'stereo collapsing toward mono just before the drop':(occ===1?'stereo narrowing, reverb tail cut short':'stereo pulling in tighter than the last bridge'),
       climax:dryTex?'widest stereo yet still dry, saturated, full':(hasTex('Raw sound')?'widest stereo, raw and overdriven':'widest stereo, saturated, full'),
       outro:dryTex?'short reverb decay, stereo collapsing to mono':(revTex?'long reverb tail, stereo collapsing to mono':'reverb decay, stereo collapsing to mono'),
     }[role]||'');
@@ -1718,8 +1756,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
           ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} at its fullest, all layers present, deepest atmosphere`
           :`Maximum ${hookEng.replace(/^maximum /i,'')} energy, all layers activated, heaviest impact`)
         :(cnt.hook===1
-          ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop, ${isMellowMood?'full arrangement':'full energy'}`
-          :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} drop ${['returning a step denser than the previous hook','denser again, one layer short of the full peak','nearly at the peak, only the final push held back'][Math.min(cnt.hook-2,2)]}`);
+          ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} ${hookNoun}, ${isMellowMood?'full arrangement':'full energy'}`
+          :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} ${hookNoun} ${['returning a step denser than the previous hook','denser again, one layer short of the full peak','nearly at the peak, only the final push held back'][Math.min(cnt.hook-2,2)]}`);
       const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook${isEdge?`, ${vocalDesc}`:''}`:(isEdge?'completely instrumental, ZERO vocal chops':'instrumental');   // 보컬 질감 문구는 매 섹션 반복하면 길이만 늘어서(확장 구조+보컬은 5000자 한도에 근접) 첫·마지막 훅에만
       // 가운데 훅: 훅 1과 리듬 문구가 토씨까지 같으면 Suno가 같은 루프를 복붙함 — 보조 드럼이 있으면 그게 주도하는 변주, 없으면 필인
       const hookVary=(!isLast&&cnt.hook>=2)
@@ -1733,13 +1771,14 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       // 마지막 훅이 첫 훅과 리듬·장르·레퍼런스 문구를 그대로 공유해서(측정: 평균 66% 겹침) 리뷰가 세 장르 모두 "훅1과 훅3가 복붙"이라고 지적 —
       // 마지막 훅은 첫 훅에 이미 쓴 문구를 반복하지 않고 "무엇이 더 커졌는지"만 쓴다: 드럼 필 밀도, 그루브 최대치, 무드별 정점, 리드 옥타브 더블링
       const lastOfMany=isLast&&cnt.hook>1;
-      const hookBody=lastOfMany
+      const hookBodyRaw=lastOfMany
         ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',cue('peak'),dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
         :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+      const hookBody=tidyBody(hookBodyRaw,_names);
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
-      const sub=cnt.verse===1?`Stripped & ${verseSub}`:`${['Rhythmic Switch','Half-Time Tension','Last Calm'][Math.min(cnt.verse-2,2)]} & ${verseSub}`;
+      const sub=cnt.verse===1?(/^Stripped/.test(verseSub)?verseSub:`Stripped & ${verseSub}`):`${['Rhythmic Switch','Half-Time Tension','Last Calm'][Math.min(cnt.verse-2,2)]} & ${verseSub}`;
       const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
         ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),`${melodyRef('verse',1)} softened`,texLine('verse')].filter(Boolean).join(', ')
@@ -1757,7 +1796,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         preBuild=`last 2 bars: ${fx}${finalDrop&&dRoll?`, ${dRoll} accelerating`:''} into the ${finalDrop?'final drop':'drop'}`;
       }
       lines.push(`[${hasVocal?'':'Instrumental '}Verse ${cnt.verse}: ${sub}]`);
-      lines.push(`(${bV} Bars: ${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}${preBuild?', '+preBuild:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
+      lines.push(`(${bV} Bars: ${tidyBody(`${desc}, ${vocalPhrase}, ${spaceArc('verse',cnt.verse)}`,_names)}${preBuild?', '+preBuild:''}${boostOccursHere('verse',cnt.verse,totalVerses)?arrangeExtra('verse'):''}${aiNote(`verse${cnt.verse}`)}${cnt.verse===1?manualNote('버스/훅'):''})`);
     } else if(type==='bridge'){
       cnt.bridge++;
       const isLastB=cnt.bridge===totalBridges;
@@ -1771,21 +1810,23 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const fxPhrase=[...fxList.slice(off),...fxList.slice(0,off)].join(', ');
       const rollPhrase=dRoll?`${dRoll} accelerating`:'';
       const desc=isLastB
-        ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} chord echoing`,rollPhrase,fxPhrase,BRIDGE_TECH[(cnt.bridge+2)%BRIDGE_TECH.length],'maximum tension',spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
+        ?['Quick break',`isolated ${melodyRef('bridge',cnt.bridge,totalBridges)} phrase echoing`,rollPhrase,fxPhrase,BRIDGE_TECH[(cnt.bridge+2)%BRIDGE_TECH.length],'maximum tension',spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
         :(cnt.bridge===1
           ?[dyn.bridge||'Heavy low-pass filter muffles the beat',cue('bridge'),texLine('bridge'),fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', ')
           :[rollPhrase,fxPhrase,`${melodyRef('bridge',cnt.bridge,totalBridges)} building anticipation`,BRIDGE_TECH[(cnt.bridge-2)%BRIDGE_TECH.length],spaceArc('bridge',cnt.bridge,totalBridges)].filter(Boolean).join(', '));
       lines.push(`[Instrumental Bridge ${cnt.bridge}: ${sub}]`);
-      lines.push(`(${bB} Bars: ${desc}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
+      lines.push(`(${bB} Bars: ${tidyBody(desc,_names)}${boostOccursHere('bridge',cnt.bridge,totalBridges)?arrangeExtra('bridge'):''}${aiNote(`bridge${cnt.bridge}`)})`);
     } else if(type==='outro'){
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
       // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
-      lines.push(`(Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final chord rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}${aiNote('outro')+manualNote('아웃트로')})`);
+      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
-  return lines.join('\n').trim();
+  const out=lines.join('\n').trim();
+  // 붐뱁·로파이 등에선 헤더·에너지·전환 문구 어디에 있든 'drop'을 'hook'으로 ("drums drop out"처럼 동사로 쓰인 건 제외)
+  return hookNoun==='hook'?out.replace(/\bDrop\b(?!\s*out)/g,'Hook').replace(/\bdrop\b(?!\s*out)/g,'hook'):out;
 }
 
 // ============================================================
@@ -2225,19 +2266,22 @@ function hhGenerate(source,opts){
     tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
   }
   if(mood)tags.push(mood.tag);
+  const usedW=new Set();   // 지금까지 스타일 태그에 쓴 단어 — 뒤에 붙는 무드 뉘앙스가 같은 말을 되풀이하지 않게
+  tags.forEach(t=>_toks(t).forEach(w=>usedW.add(w)));
   if(st.melody.length){
     const roles=computeMelodyRoles(st.melody);
     const toneTagStyle=MELODY_TONE_TAG[st.melodyTone];
-    const toneNuanceStyle=mood&&compatibleToneNuance(mood.kr);
+    if(toneTagStyle)_toks(toneTagStyle).forEach(w=>usedW.add(w));
+    const toneNuanceStyle=mood&&compatibleToneNuance(mood.kr,usedW);
     const toneCombinedStyle=toneTagStyle&&toneNuanceStyle?`${toneTagStyle} ${toneNuanceStyle}`:toneTagStyle;
     // 리드·백킹도 별개 태그 2개 대신 " & "로 묶은 태그 1개로
     if(roles)tags.push(`${toneCombinedStyle?toneCombinedStyle+' ':''}${roles.lead.toLowerCase()} lead melody & ${roles.bg.toLowerCase()} background layer`);
     else tags.push(st.melody.map(m=>m.toLowerCase()).join(' & '));
   }
   // 808 + 그루브 + 드럼 — 전부 "리듬 섹션" 한 카테고리라 태그 1개로 통합 (예전엔 최대 3~5개 콤마 태그였음)
-  const nuance808=mood&&pick(MOOD_808_NUANCE[mood.kr]);
-  const nuanceGroove=mood&&pick(MOOD_GROOVE_NUANCE[mood.kr]);
-  const nuanceDrums=mood&&pick(MOOD_DRUMS_NUANCE[mood.kr]);
+  const nuance808=mood&&pickFreshNuance(MOOD_808_NUANCE[mood.kr],usedW);
+  const nuanceGroove=mood&&pickFreshNuance(MOOD_GROOVE_NUANCE[mood.kr],usedW);
+  const nuanceDrums=mood&&pickFreshNuance(MOOD_DRUMS_NUANCE[mood.kr],usedW);
   const rhythmParts=[];
   if(st._808&&st._808!=='None')rhythmParts.push(`${nuance808?nuance808+' ':''}${st._808} 808`);
   if(st.groove)rhythmParts.push(`${grooveText(st.groove)}${nuanceGroove?' '+nuanceGroove:''}`);
@@ -2252,7 +2296,7 @@ function hhGenerate(source,opts){
   tags.push(`Key of ${keyStr}`);
   tags.push(`${bpmVal} BPM`);
   if(st.texture.length){
-    const nuanceTexture=mood&&pick(MOOD_TEXTURE_NUANCE[mood.kr]);
+    const nuanceTexture=mood&&pickFreshNuance(MOOD_TEXTURE_NUANCE[mood.kr],usedW);
     tags.push(`${st.texture.map(t=>t.toLowerCase()).join(' & ')}${nuanceTexture?' '+nuanceTexture:''}`);
   }
   const contextParts=[];
@@ -2598,7 +2642,7 @@ function restorePromptHistoryEntry(id){
   // AI가 작성한 기록이면 그 텍스트를 이 상태의 캐시로 — 복원할 때마다 AI를 다시 부르지 않고 저장돼 있던 그 텍스트가 그대로 나옴
   if(entry.aiWritten&&entry.section&&entry.style){
     const f=hhWriteFingerprints();
-    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,meta:{ok:true,mode:'restored'}};
+    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,meta:{ok:true,mode:'restored'},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
   }else _hhWritten=null;
   hhGenerate(`기록에서 복원: ${entry.label||entry.genre}`);
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});

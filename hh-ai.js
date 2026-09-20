@@ -880,6 +880,19 @@ function parseSections(text){
 }
 function splitPhrases(body){return (body||'').replace(/^\(\d+ Bars: /,'').replace(/\)$/,'').split(/, (?![^()]*\))/).map(x=>x.trim().toLowerCase()).filter(Boolean);}
 // 명세: 고정 정보 + 힌트 — 검사기의 기준이기도 함
+// 고쳐쓰기에서 바뀌어도 되는 섹션 — 지시가 바뀐 섹션, 새로 삭제 확정된 구가 들어 있던 섹션만. 나머지는 이전 결과를 글자 그대로 유지해야 함
+// (AI가 전체를 다시 쓰면 지시와 무관한 섹션까지 조금씩 흔들려 라운드마다 일관성·파싱 적합이 깎이던 문제 — 수정 범위를 지시가 닿은 곳으로 제한)
+function editScopeFor(prev,headers){
+  const keys=structOccurrenceKeys();
+  const old=prev.dirSnap||{narrAI:{},removedPhrases:[]};
+  const mutable=new Set();
+  keys.forEach((k,i)=>{if((st.narrAI||{})[k]!==(old.narrAI||{})[k])mutable.add(headers[i]);});
+  const newRemoved=(st.removedPhrases||[]).filter(p=>!(old.removedPhrases||[]).includes(p));
+  if(newRemoved.length){
+    parseSections(prev.section).forEach(s=>{if(newRemoved.some(p=>s.body.toLowerCase().includes(p.toLowerCase())))mutable.add(s.header);});
+  }
+  return [...mutable];
+}
 function buildWriteSpec(draftSect,draftStyle,prev){
   const g=GENRES[st.genre];
   const roles=computeMelodyRoles(st.melody);
@@ -903,6 +916,8 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     limits:{sectionTotal:WRITE_LIMITS.section,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
     removedPhrases:[...(st.removedPhrases||[])],
     prevLength:prev?prev.section.length:null,
+    mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
+    prevSections:prev?parseSections(prev.section).map(s=>({header:s.header,body:s.body})):null,
   };
 }
 // 검사기 — 규칙 엔진이 만든 명세를 정답으로 AI 결과의 고정 정보를 확인
@@ -921,6 +936,14 @@ function validateWritten(spec,section,style){
   if(section.length>spec.limits.sectionTotal)errors.push(`섹션 프롬프트 총 ${section.length}자 — ${WRITE_LIMITS.section}자 이하여야 함`);
   // 고쳐쓰기에서 조언을 반영할 때 이전보다 길어지면 라운드마다 부풀어서 'Suno 파싱 적합'이 깎임 — 낡은/겹치는 문구를 빼서 총량을 유지
   if(spec.prevLength&&section.length>spec.prevLength*1.08+60)errors.push(`이전 결과(${spec.prevLength}자)보다 8% 넘게 길어짐(${section.length}자) — 지시를 반영하면서 겹치거나 낡은 문구를 삭제해 총량을 유지할 것`);
+  if(spec.mutableHeaders&&spec.prevSections&&secs.length===spec.prevSections.length){
+    const norm=s=>s.replace(/\s+/g,' ').trim();
+    secs.forEach((s,i)=>{
+      const p=spec.prevSections[i];
+      if(p&&p.header===s.header&&!spec.mutableHeaders.includes(s.header)&&norm(p.body)!==norm(s.body))
+        errors.push(`${s.header}는 이번 지시의 대상이 아니라서 이전 결과를 글자 그대로 유지해야 함 (바뀌면 안 됨)`);
+    });
+  }
   (spec.removedPhrases||[]).forEach(p=>{if((section+' '+style).toLowerCase().includes(p.toLowerCase()))errors.push(`삭제하기로 확정한 문구 "${p}"가 다시 들어감`);});
   const low=section.toLowerCase();
   const hooks=secs.filter(s=>s.type==='hook');
@@ -987,7 +1010,7 @@ async function writeOnce({mode,spec,draft,prev,errors}){
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
-[모드] ${mode==='edit'?'고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해 다시 써. 이미 좋은 부분은 유지하고, 중복·모순을 정리하고, 글자 예산 안에서 통째로 새로 써(이어붙이지 말 것)':'새로 쓰기 — [참고 초안]을 그대로 베끼지 말고 위 원칙에 맞게 처음부터 써'}
+[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **수정 가능한 섹션은 다음뿐이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 섹션은 전부 그대로)'}**. 그 외 섹션은 [이전 결과]의 본문을 한 글자도 바꾸지 말고 그대로 복사해(바꾸면 검사에서 실패). 수정 가능한 섹션 안에서는 중복·모순을 정리하고 총량이 늘지 않게 써, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [참고 초안]을 그대로 베끼지 말고 위 원칙에 맞게 처음부터 써'}
 
 [명세]
 ${JSON.stringify(spec,null,1)}
@@ -1053,7 +1076,7 @@ async function hhAiWrite(entryId){
       }
       if(token!==_writeToken)return;
       if(result){
-        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,meta:{ok:true,mode}};
+        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,meta:{ok:true,mode},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
         _writeState='ok';
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=result.section;
