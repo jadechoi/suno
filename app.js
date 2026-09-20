@@ -2138,9 +2138,8 @@ function applySelectedAdv(){
     labels.push(window._advLabels[k]||m[1]);
   });
   _advSel=new Set();
-  markPending(`룰 피드백 ${keys.length}개 적용: ${labels.slice(0,3).join(' · ')}${labels.length>3?` 외 ${labels.length-3}`:''}`);
-  hhGenerate(false,{noScroll:true});
-  showToast(`✅ 피드백 ${keys.length}개 적용됨 — Generate를 눌러 프롬프트에 반영하세요`);
+  hhGenerate(`룰 피드백 ${keys.length}개 적용: ${labels.slice(0,3).join(' · ')}${labels.length>3?` 외 ${labels.length-3}`:''}`,{noScroll:true});   // 피드백 적용은 바로 재생성
+  showToast(`✅ 피드백 ${keys.length}개 적용됨`);
 }
 function removeAdvTag(tag){
   st.extraTags=st.extraTags.filter(t=>t!==tag);

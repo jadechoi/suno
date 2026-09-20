@@ -379,8 +379,8 @@ function applySelectedAiSuggestions(){
   // 무드 변경은 멜로디·808·드럼 룰 재추천을 다시 돌리니, 같이 고른 다른 조언(멜로디 리드 등)이 덮이지 않게 가장 먼저
   picked.sort((x,y)=>!!y.mood-!!x.mood);
   picked.forEach(applyAiSuggestionCore);
-  markPending(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`);
-  hhGenerate(false,{noScroll:true});   // 제안 목록의 "적용됨" 표시만 갱신 — 프롬프트는 Generate를 눌러야 바뀜
+  // 피드백 적용은 예외 — 적용하자마자 고쳐 쓴 프롬프트를 보는 게 목적이라 바로 재생성 (다른 AI 추천·분석은 Generate를 눌러야 반영)
+  hhGenerate(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`,{noScroll:true});
 }
 function applyAiSuggestionCore(sug){
   sug.applied=true;
