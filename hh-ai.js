@@ -126,6 +126,12 @@ function saveAnthropicKey(){
 // 열린 판단은 못 함 — 그 갭을 메우기 위해 여러 관점(악기/편곡/구조/믹스/보컬/무드)에서 자유 형식 조언을 받고,
 // 그중 기존 컨트롤(스타일 태그·섹션 강화)로 바로 적용 가능한 것만 원클릭 적용 버튼을 붙임
 let _aiSuggestions=null;
+// AI 프로듀서의 전문 분야 — "힙합 프로듀서" 고정이면 팝·일렉 곡도 힙합 관점으로 평가함. 곡의 장르 계열에 맞춤
+function producerRole(){
+  const g=st.genre===null?null:GENRES[st.genre];
+  const field={hiphop:'힙합·트랩',pop:'팝·R&B(송라이팅·프로덕션)',elec:'일렉트로닉·클럽'}[g?.family]||'힙합·클럽 음악';
+  return `경험 많은 ${field} 전문 프로듀서${g?`(지금 곡의 장르는 ${g.kr} — 그 장르의 전문가 관점으로 판단)`:''}`;
+}
 const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯','악기':'🎹','편곡':'🎼','구조':'🏗','믹스':'🎚','보컬':'🎤','무드':'😶','전개':'🎬'};
 // aiProducerReview와 aiParseExternalFeedback(외부 피드백 파싱) 둘 다 "조언 → 실제 프롬프트에 적용 가능한 필드"로
 // 변환해야 해서, 그 필드 설명과 JSON 스키마를 공유 — 같은 스키마로 나와야 applyAiSuggestionCore가 출처 구분 없이 그대로 먹음
@@ -141,6 +147,9 @@ const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안
 - removePhrase: [현재 생성된 섹션/스타일 프롬프트]에 **실제로 있는 구를 글자 그대로** 인용한 배열(최대 3개, 각 60자 이하). tag/narrDir/boostText를 추가하면서 그것과 모순되거나 같은 말을 되풀이하는 기존 문구(예: 새로 "restrained until bar 5"를 넣는데 기존에 "full energy"가 있음, 새 "human micro-timing"과 기존 "tight quantized grid")가 있으면 반드시 같이 지정해 삭제해 — 추가만 하고 모순을 남기면 프롬프트 일관성이 떨어지고 길이만 늘어. 2라운드부터는 새 요소를 넣기 전에 겹치는 기존 문구를 빼는 게 우선이야
 - removeTag: 조언이 "지금 있는 X를 줄이자/빼자"는 뜻도 담고 있으면(예: "sidechain pump가 강하면 무드가 죽으니 줄이자") X를 가리키는 핵심 단어(예: "sidechain")를 넣어 — 그 단어를 포함하는 기존 텍스처/스타일 태그를 전부 제거해. tag(추가)랑 같이 써도 됨 — "줄이고 대신 이걸 넣자"는 조언이면 둘 다 채워
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
+
+결과 중심 표현(중요): text 조언은 한국어로 쉽게 쓰되, tag·boostText·narrDir처럼 **프롬프트에 들어가는 영어 문구는 작업 지시가 아니라 "들려야 할 소리"**로 써. Suno는 "improve the mix"·"increase reverb"·"make it better" 같은 지시를 못 알아들어 — 결과를 키워드로: 어떤 소리가 나는지("punchy kick cutting through the mix", "tight dry snare"), 어느 부분에서 무엇이 줄거나 빠지는지("hi-hats thin out during the verse", "bass drops out for 2 bars before the drop", "low end stays clean, no muddy low-mids"), 어떻게 변하는지("filter opens gradually into the hook"). nice·great·professional 같은 추상어 대신 bright·dry·wide·saturated 같은 소리 특성으로.
+관점: 이 곡의 장르([현재 설정]의 장르) 전문가로서 그 장르 청자가 기대하는 소리 기준으로 판단해 — 다른 장르의 관습(예: 팝 곡에 트랩 하이햇 롤, 클럽 곡에 붐뱁 샘플)을 요구하지 마.
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
 {"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(외부 피드백 총평일 때만, 1~100 정수)","criteria":"(프로듀서 리뷰 총평일 때만, {arc,variety,genre,coherence,roles,human,reference,parse} 각 0~10 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 짧은 구/키워드 결합)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 영어 짧은 구/키워드 결합)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)","removePhrase":"(추가하는 지시와 모순·중복되는 기존 문구를 글자 그대로 인용한 배열, 최대 3개)"}]}`;
@@ -270,7 +279,7 @@ async function aiProducerReview(){
     const hasVocal=st.vocal&&st.vocal!=='No Vocal';
     const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
     // 지시문/규칙은 호출마다 안 바뀌니 static — 상태에 따라 달라지는 건 전부 dynamic 쪽으로 몰아서 static이 매번 완전히 동일하게(캐싱 적중)
-    const staticText=`너는 경험 많은 힙합 프로듀서야. 아래 [현재 생성된 섹션 프롬프트](실제 텍스트)와 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘. 설정값만 보고 짐작하지 말고, 반드시 실제 텍스트를 읽고 거기 적힌 구체적인 단어·구절 기준으로 판단해.
+    const staticText=`너는 ${producerRole()}야. 아래 [현재 생성된 섹션 프롬프트](실제 텍스트)와 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘. 설정값만 보고 짐작하지 말고, 반드시 실제 텍스트를 읽고 거기 적힌 구체적인 단어·구절 기준으로 판단해.
 
 "총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 잘 된 부분은 한 줄로만 짚고 실질적인 문제 위주로.
 ${RUBRIC_TEXT()}
@@ -495,7 +504,7 @@ async function aiParseExternalFeedback(){
   if(statusEl)statusEl.hidden=true;
   try{
     const hasVocal=st.vocal&&st.vocal!=='No Vocal';
-    const staticText=`너는 경험 많은 힙합 프로듀서야. 사용자가 이 프롬프트로 실제 생성된 곡(오디오)을 듣고 받은 외부 피드백을 아래에 붙여넣었어. 텍스트 프롬프트만 보고 짐작하는 것보다 실제로 들어본 평가가 훨씬 신뢰도 높은 정보니까, 이 피드백을 곡의 진단서로 삼아서 프롬프트를 여러 방면(악기/편곡/구조/믹스/보컬/무드/전개)으로 더 디테일하고 발전시켜줘. 목표는 피드백 문장을 그대로 옮기는 게 아니라, 그 진단이 가리키는 약점을 실제로 해결하려면 프로듀서로서 구체적으로 뭘 더해야 하는지 여러 각도에서 제안하는 거야 — 완성도를 좌우하는 편곡·구조·훅 전개(반복·변화·텐션-릴리즈)를 표면적인 텍스처 추가보다 우선하되, 거기서 그치지 말고 그 문제를 뒷받침할 수 있는 다른 방면의 디테일(믹스 공간감, 악기 텍스처, 무드 뉘앙스 등)도 같이 채워줘.
+    const staticText=`너는 ${producerRole()}야. 사용자가 이 프롬프트로 실제 생성된 곡(오디오)을 듣고 받은 외부 피드백을 아래에 붙여넣었어. 텍스트 프롬프트만 보고 짐작하는 것보다 실제로 들어본 평가가 훨씬 신뢰도 높은 정보니까, 이 피드백을 곡의 진단서로 삼아서 프롬프트를 여러 방면(악기/편곡/구조/믹스/보컬/무드/전개)으로 더 디테일하고 발전시켜줘. 목표는 피드백 문장을 그대로 옮기는 게 아니라, 그 진단이 가리키는 약점을 실제로 해결하려면 프로듀서로서 구체적으로 뭘 더해야 하는지 여러 각도에서 제안하는 거야 — 완성도를 좌우하는 편곡·구조·훅 전개(반복·변화·텐션-릴리즈)를 표면적인 텍스처 추가보다 우선하되, 거기서 그치지 말고 그 문제를 뒷받침할 수 있는 다른 방면의 디테일(믹스 공간감, 악기 텍스처, 무드 뉘앙스 등)도 같이 채워줘.
 
 최소 3~5개의 구체적 제안을 만들어줘 (뻔한 일반론 금지, 카테고리가 겹쳐도 됨). 피드백에 문자 그대로 안 적혀 있어도 그 진단을 해결하는 데 실제로 필요한 조치면 프로듀서 판단으로 제안해도 되지만, 피드백의 핵심 방향과 모순되는 얘기는 하지 마. 피드백이 이미 점수를 언급했으면(예: "26점") "총평" 카테고리 하나에 그 점수를 score에 그대로 넣고, 피드백의 핵심(강점·약점·다음에 뭘 바꿔야 하는지)을 한국어 2~3문장으로 요약해서 text에 적어.
 
@@ -551,7 +560,7 @@ async function aiVerifyAppliedSuggestions(){
     const sectText=document.getElementById('hh-sect-ta')?.value||'';
     const styleText=document.getElementById('hh-style-ta')?.value||'';
     const oldScore=(_aiSuggestions||[]).find(s=>s.category==='총평')?.score;
-    const staticText=`너는 힙합 프로듀서 QA 담당이야. 아래 [적용된 조언 목록]과 [최종 프롬프트]를 비교해서, 각 조언이 실제로 프롬프트에 "의도한 대로" 반영됐는지 확인해줘. 단순히 비슷한 단어가 있는지가 아니라, 조언이 말하는 위치·대상·뉘앙스까지 실제로 맞는지 꼼꼼히 봐 (예: "마지막 훅 앞에 브릿지"라고 했는데 실제로 다른 위치에 있으면 fail).
+    const staticText=`너는 ${producerRole()} 겸 QA 담당이야. 아래 [적용된 조언 목록]과 [최종 프롬프트]를 비교해서, 각 조언이 실제로 프롬프트에 "의도한 대로" 반영됐는지 확인해줘. 단순히 비슷한 단어가 있는지가 아니라, 조언이 말하는 위치·대상·뉘앙스까지 실제로 맞는지 꼼꼼히 봐 (예: "마지막 훅 앞에 브릿지"라고 했는데 실제로 다른 위치에 있으면 fail).
 
 각 조언마다 정확히 이 순서로 판정해: pass(의도한 대로 정확히 반영됨) | partial(반영되긴 했는데 의도랑 다르거나 일부만 됨) | fail(반영 안 됨). partial·fail이면 왜 그런지 한국어 한 문장으로 이유를 적어.
 
@@ -622,7 +631,7 @@ async function aiPolishSectionPrompt(){
   btn.disabled=true;btn.textContent='🤖 다듬는 중...';
   if(statusEl)statusEl.hidden=true;
   try{
-    const staticText=`너는 Suno AI(텍스트를 실제 음악으로 변환하는 모델)에 넣을 섹션별 편곡 프롬프트를 다듬는 힙합 프로듀서야. 주어지는 텍스트는 규칙 기반으로 조합돼서 어휘와 문장 구조가 반복적이고 표현이 납작해.
+    const staticText=`너는 Suno AI(텍스트를 실제 음악으로 변환하는 모델)에 넣을 섹션별 편곡 프롬프트를 다듬는 ${producerRole()}야. 주어지는 텍스트는 규칙 기반으로 조합돼서 어휘와 문장 구조가 반복적이고 표현이 납작해.
 
 Suno는 추상적이거나 문학적인 표현("슬픔이 밀려오는 느낌")보다, 실제로 들리는 소리를 구체적인 프로덕션/오디오 엔지니어링 용어로 지시할 때 훨씬 더 잘 알아듣고 반영해. **그리고 서술형 완결 문장보다 짧은 구/키워드를 콤마로 나열하는 형식을 훨씬 정확하게 읽어** — 실측 확인된 사실이야. 예를 들어 "distorted gritty matching tonal palette chord echoing with delay throws" 같은 늘어진 서술 대신 "Gritty synth arpeggio, Delay throw, Filter sweep"처럼 짧은 구 나열로 다듬어줘. 원본이 이미 이 스타일로 압축돼 있는 부분은 다시 늘어진 문장으로 되돌리지 마 — 다듬는다고 문장을 길게 만드는 게 아니라, 여전히 짧은 구 형태를 유지한 채로 표현만 다양화하는 거야.
 
@@ -683,7 +692,7 @@ async function aiRecommendMelodyTexture(){
       st.length?`목표 길이: ${st.length}`:null,
       `BPM ${st.bpmSet?st.bpm:'미지정(프롬프트에 쓰지 않음)'} / Key ${st.keySet?KEYS[st.key]:'미지정(프롬프트에 쓰지 않음)'}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 808과 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 808과 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -818,7 +827,7 @@ async function aiRecommendStructure(){
   if(statusEl)statusEl.hidden=true;
   try{
     const list=HH_STRUCT_PRESETS.map(p=>`${p.name}: ${p.desc} (${p.segs.join('→')}, 약 ${fmtDur(structDurationSec(p.segs))})`).join('\n');
-    const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고 이 곡에 가장 어울리는 곡 구조 프리셋을 아래 목록에서 1개만 이름 그대로 골라줘. 장르·무드·보컬 유무·밀도·색깔(커머셜/언더그라운드)·목표 길이(있으면 예상 길이와 비교)와, 타겟 레퍼런스 곡이 있으면 그 곡의 실제 곡 구성(루프 하나로 가는 미니멀한 곡인지, 벌스로 쌓다가 훅에서 터지는지, 훅이 자주 돌아오는지 — 네가 아는 대로)을 종합해서 판단해. 특별히 다른 구조가 더 어울린다는 근거가 없으면 정석(Standard)이 무난한 기본값이야 — 억지로 독특한 구조를 고르지 마.
+    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고 이 곡에 가장 어울리는 곡 구조 프리셋을 아래 목록에서 1개만 이름 그대로 골라줘. 장르·무드·보컬 유무·밀도·색깔(커머셜/언더그라운드)·목표 길이(있으면 예상 길이와 비교)와, 타겟 레퍼런스 곡이 있으면 그 곡의 실제 곡 구성(루프 하나로 가는 미니멀한 곡인지, 벌스로 쌓다가 훅에서 터지는지, 훅이 자주 돌아오는지 — 네가 아는 대로)을 종합해서 판단해. 특별히 다른 구조가 더 어울린다는 근거가 없으면 정석(Standard)이 무난한 기본값이야 — 억지로 독특한 구조를 고르지 마.
 
 [구조 프리셋 — 괄호는 섹션 수 × 약 26초로 추정한 예상 길이(Suno는 마디 수를 거의 무시하고 섹션 수로 곡 길이가 정해짐)]
 ${list}
@@ -958,11 +967,20 @@ function parseLyricSections(ly){
   (ly||'').split('\n').forEach(l=>{const t=l.trim();if(!t)return;if(/^\[[^\]]+\]$/.test(t))secs.push({header:t,lines:[]});else if(secs.length)secs[secs.length-1].lines.push(t);else stray++;});
   return {secs,stray};
 }
-// Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더] → (연출 설명) → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
+// Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더: 연출 태그] → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
+// 연출은 대괄호 안(공식 메타태그 문법 "[Verse: …]")에 짧은 키워드로 — 소괄호 "( … )"는 Suno가 메타태그로 안 읽고 백킹보컬·가사로 불러버릴 수 있음
 function mergeLyricsAndDirection(lyrics,section){
   const ly=parseLyricSections(lyrics).secs,se=parseSections(section);
   if(!ly.length||ly.length!==se.length)return '';
-  return ly.map((l,i)=>[l.header,se[i].body,...l.lines].join('\n')).join('\n\n');
+  const tag=(hdr,body)=>{
+    let out='';
+    for(const p of body.replace(/^\(|\)$/g,'').replace(/^\d+\s*Bars?:\s*/i,'').split(',').map(x=>x.trim()).filter(Boolean)){
+      if((out?out.length+2:0)+p.length>150)break;   // 태그 안 설명이 길면 노래로 읽히거나 무시됨 — 앞쪽 핵심 키워드만
+      out+=(out?', ':'')+p;
+    }
+    return out?hdr.replace(/\]\s*$/,': '+out+']'):hdr;
+  };
+  return ly.map((l,i)=>[tag(l.header,se[i].body),...l.lines].join('\n')).join('\n\n');
 }
 function lyricHeaders(structure){
   return structure.map(s=>{
@@ -1176,7 +1194,7 @@ function validateWritten(spec,section,style,opts){
   });
   return {ok:!errors.length,errors};
 }
-const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프롬프트 작가야. 사용자의 [의도]와 [명세]를 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 처음부터 직접 써. 템플릿이나 장르의 평균적인 기본 문구로 채우지 말고, 이 곡의 의도(원하는 분위기·장르·레퍼런스 곡의 소리)에 맞는 구체적인 소리와 전개를 네가 직접 설계해.
+const WRITE_STATIC=`너는 장르 전문 음악 프로듀서이자 Suno AI 프롬프트 작가야(곡의 장르는 [명세]에 있으니 그 장르의 전문가로 써). 사용자의 [의도]와 [명세]를 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 처음부터 직접 써. 템플릿이나 장르의 평균적인 기본 문구로 채우지 말고, 이 곡의 의도(원하는 분위기·장르·레퍼런스 곡의 소리)에 맞는 구체적인 소리와 전개를 네가 직접 설계해.
 
 [좋은 프롬프트의 패턴 — 실제로 Suno에서 잘 나온 프롬프트에서 뽑은 것. 우리 프로그램의 질감·디테일과 합쳐서 써]
 - 스타일: 이 곡이 어떤 장르들의 만남인지 잘 드러나게(필요하면 "A meets B" 같은 크로스오버 표현), 귀에 붙는 매력 어휘는 의도에 맞는 것으로(밝고 신나는 곡은 catchy·bright·danceable, 어둡거나 몽환적인 곡은 hypnotic·menacing·shimmering처럼 — 항상 같은 단어를 쓰지 마). 금지어 묶음("no vocals & ZERO vocal chops & no vocal samples", 필요하면 "NO guitars")은 스타일에 한 번, 섹션에는 첫 훅·마지막 훅에만.
@@ -1186,6 +1204,7 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 스타일과 섹션 모두 "상업적 매력"과 "질감·디테일" 중 하나만 있으면 안 돼 — 둘을 같이.
 
 [편곡·디테일 원칙 — 장르 관습이나 템플릿 문구가 아니라, 이 곡의 의도(무드·레퍼런스·고른 악기)에서 구체적으로 뽑아 써. 초안이 없으니 이 디테일은 전부 네가 설계해야 해]
+- 결과 중심: 작업 지시("improve the mix", "add more reverb")가 아니라 **들려야 할 소리**를 키워드로 — 어떤 소리가 나는지("punchy kick cutting through"), 어느 부분에서 무엇이 줄거나 빠지는지("hats thin out in the verse", "bass drops out before the drop"), 어떻게 변하는지("filter opens into the hook"). nice·great 같은 추상어 금지.
 - 분량: 섹션마다 소리 요소를 6~10개 안팎으로 풍부하게, 섹션 프롬프트 전체는 2,800~3,800자 안팎(5,000자 한도 안). 뻔한 일반어로 채우지 말고 그 섹션에서 실제로 달라지는 소리를 써.
 - 공간·믹스 흐름(섹션 텍스트에만, 스타일 태그엔 쓰지 마): 인트로→벌스→훅→클라이맥스→아웃트로에서 스테레오 폭·리버브·드라이함이 어떻게 달라지는지 섹션마다 다르게. 클라이맥스 훅이 가장 넓고 꽉 차고, 아웃트로는 디케이/수축.
 - 편곡 변화: 벌스는 드럼·베이스·멜로디 중 무엇을 덜어내는지, 브릿지는 어떤 필터·리듬·효과로 긴장을 만드는지, 훅은 회차마다 무엇이 더해지는지를 구체적으로. 같은 타입 섹션끼리 문구를 반복하지 마.
@@ -1249,6 +1268,9 @@ ${PROMPT_EXAMPLES.map((e,i)=>`예시${i+1}\n스타일: ${e.style}\n${e.section}`
 
 [Suno 사실]
 - 스타일 박스는 1000자, 섹션(가사) 박스는 5000자 한도이고 넘으면 뒤가 잘림. 스타일 태그는 10개 안팎을 넘으면 뒤쪽이 무시됨(관련 요소는 " & "로 융합해서 태그 1개로).
+- 스타일 박스는 앞쪽 단어일수록 가중치가 커 — 무보컬 여부·장르·핵심 사운드를 맨 앞에, 부가 디테일은 뒤에. 일반어보다 구체어가 잘 먹혀("pop"보다 "synth-pop", "male vocals"보다 "raspy male vocals", "electronic"보다 "acid 303 bassline"). 서로 충돌하는 장르·질감(예: 트랩 + 오케스트라 + 록)을 한 줄에 쌓지 마.
+- 섹션 메타태그는 대괄호 "[Verse 1]", 곡 안 세부 지시는 "[Verse 1: 짧은 키워드]" 문법이 공식적이고, 소괄호는 메타태그로 읽히지 않아. (이 프로그램의 무보컬 섹션 프롬프트 "헤더 + ( … )" 형식은 사용자가 Suno에서 검증한 것이니 그대로 유지.) 보컬 곡의 Lyrics 칸에는 소괄호 설명문을 넣지 마 — 프로그램이 연출을 [헤더: 태그]로 옮겨 붙여.
+- BPM·Key는 정확한 제어가 아니라 방향 지시(근사치로 반영됨). "no drums" 같은 부정 표현은 스타일 칸에서 약해서 프로그램이 Exclude 칸을 따로 제공하니, 스타일에는 원하는 소리를 긍정 표현으로 쓰는 게 우선.
 - Suno는 문학적 비유가 아니라 실제로 들리는 소리(악기·이펙트·다이내믹·공간감·타이밍)를 콤마로 끊은 짧은 키워드 구로 지시할 때 가장 잘 반영함. 완결된 서술 문장은 금지.
 
 [반드시 지킬 것 — 검사기가 확인함]
@@ -1417,7 +1439,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 규칙:
 - 곡명이면 kind="song": 그 곡의 실제 사운드(템포, 드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 아는 대로 반영해. 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤, 입력의 다른 단서로만 골라.
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·BPM·악기를 골라.
-- genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle/key는 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 이 프로그램은 힙합 계열 장르만 있으니 팝·EDM 곡이면 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해.
+- genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle/key는 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 장르는 힙합·팝/R&B·일렉트로닉/클럽 계열이 다 있어 — 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해. drums·melodyLead·melodyBackground는 **고른 장르가 속한 계열의 목록에서만** 골라 (계열마다 목록이 달라). bass808은 힙합 계열일 때만 쓰고 나머지 계열이면 null.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). [선택지]에 없는 악기를 새로 주장하지 마.
 - cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
@@ -1432,9 +1454,8 @@ function briefOptionsText(){
 장르(en — 느낌):
 ${GENRES.map((g,i)=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
 무드: ${HH_MOODS.map(m=>m.kr).join(' | ')}
-드럼: ${HH_DRUMS.join(' | ')}
-808: ${HH_808.join(' | ')}
-멜로디 악기: ${HH_MELODY.join(' | ')}
+${Object.entries(MENU_BY_FAMILY).map(([f,m])=>`[${f}] 드럼: ${m.drums.join(' | ')}\n[${f}] 멜로디 악기: ${m.melody.join(' | ')}`).join('\n')}
+808(힙합 계열만): ${HH_808.join(' | ')}
 텍스처: ${HH_TEXTURE.join(' | ')}
 밀도: ${HH_DENSITY.join(' | ')}
 보컬: ${HH_VOCAL.join(' | ')}
@@ -1477,6 +1498,7 @@ function buildBriefProposal(text,p){
   const clean=(s,max)=>{const t=String(s||'').replace(/[,\n]+/g,' ').replace(/\s+/g,' ').trim().slice(0,max);return t&&!names.some(n=>t.toLowerCase().includes(n))?t:'';};
   const v={};
   v.genre=GENRES.findIndex(g=>g.en===p.genre||g.tag===p.genre);
+  setInstrumentMenus(GENRES[v.genre]?.family||(st.genre===null?null:GENRES[st.genre].family));   // 아래 검증이 새 장르 계열의 메뉴를 보게 (끝에서 원복)
   v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
   v.bpm=Math.min(220,Math.max(60,Math.round(Number(p.bpm)||0)))||null;
   v.key=KEYS.indexOf(p.key);
@@ -1484,6 +1506,7 @@ function buildBriefProposal(text,p){
   v.bass808=HH_808.includes(p.bass808)?p.bass808:null;
   v.lead=HH_MELODY.includes(p.melodyLead)?p.melodyLead:null;
   v.bg=HH_MELODY.includes(p.melodyBackground)&&p.melodyBackground!==v.lead?p.melodyBackground:null;
+  setInstrumentMenus(st.genre===null?null:GENRES[st.genre].family);   // 검증 끝 — 현재 장르 계열로 원복
   v.texture=pickCompatibleTextures((p.texture||[]).filter(t=>HH_TEXTURE.includes(t)));
   v.density=HH_DENSITY.includes(p.density)?p.density:null;
   v.vocal=HH_VOCAL.includes(p.vocal)?p.vocal:null;
@@ -1540,12 +1563,13 @@ function applyBrief(){
   else if(on('mood'))onMoodChange();
   if(on('bpm')){st.bpm=v.bpm;st.bpmSet=true;document.getElementById('hh-bpm').value=v.bpm;}
   if(on('key')){st.key=v.key;st.keySet=true;document.getElementById('hh-key').value=v.key;}
-  if(on('drums')){st.drums=[...v.drums];chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
+  if(on('drums')){st.drums=v.drums.filter(d=>HH_DRUMS.includes(d));chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
   if(on('808')){st._808=v.bass808;st.b808Set=true;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);clearAutoHint('hh-808-hint');}
   if(on('melody')){
     let bg=v.bg;
-    if(bg&&v.lead!==bg)bg=complementBg(v.lead,bg,scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null));
-    st.melody=bg?[v.lead,bg]:[v.lead];
+    if(!HH_MELODY.includes(v.lead))v.lead=null;else if(bg&&!HH_MELODY.includes(bg))bg=null;
+    if(v.lead&&bg&&v.lead!==bg)bg=complementBg(v.lead,bg,scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null));
+    st.melody=v.lead?(bg?[v.lead,bg]:[v.lead]):[];
     st.melodyLeadIdx=(bg&&MELODY_ROLE[v.lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
     st._mtAutoManaged=false;
     chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);

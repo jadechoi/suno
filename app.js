@@ -321,6 +321,7 @@ const MELODY_ARTICULATION={
   'Sitar':{intro:'droning sustained tone',hook:'rhythmic plucked buzz',verse:'sparse droning texture',bridge:'rising sliding drone',outro:'fading droning tone'},
   'Vocoder synth':{intro:'soft robotic sustained tone',hook:'rhythmic robotic stabs',verse:'sparse robotic texture',bridge:'rising pitched sweep',outro:'fading robotic tone'},
 };
+Object.entries(NEW_MELODY).forEach(([n,d])=>{MELODY_ROLE[n]=d.role;MELODY_ARTICULATION[n]=d.art;});
 // 멜로디 2개 선택 시 리드/배경 자동 배정 — st.melodyLeadIdx로 사용자가 ⇄ 바꾼 상태 반영
 function computeMelodyRoles(arr){
   if(!arr||arr.length!==2)return null;
@@ -896,10 +897,27 @@ function onMoodChange(){
   if(st._structAutoManaged)recommendStructure();
 }
 
+// 장르 계열이 바뀌면 악기 메뉴도 그 계열 것으로 — 새 메뉴에 없는 선택(힙합 악기 → 일렉 등)은 버림
+// 기타류가 자연스러운 경우(트랩 메탈·팝 계열·기타 계열 악기 선택) — 아니면 무보컬 프롬프트에 "NO guitars"를 붙이고 Exclude에도 넣음
+function guitarsAllowed(){
+  return st.genre===18||GENRES[st.genre]?.family==='pop'||st.melody.some(m=>/guitar|banjo|ukulele|pedal steel/i.test(m));
+}
+// Suno 고급 옵션의 Exclude styles에 넣을 값 — 스타일 칸의 "no ..."(부정 표현)는 무시되기도 해서, 공식 제외 칸이 더 확실함 (무보컬 곡만)
+function excludeStyles(){
+  if(st.vocal&&st.vocal!=='No Vocal')return '';
+  return ['vocals','vocal chops','vocal samples','singing','choir','humming','spoken word',...(guitarsAllowed()?[]:['guitars'])].join(', ');
+}
+function syncInstrumentMenus(){
+  setInstrumentMenus(st.genre===null?null:GENRES[st.genre].family);
+  st.melody=st.melody.filter(m=>HH_MELODY.includes(m));st.drums=st.drums.filter(d=>HH_DRUMS.includes(d));
+  chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);renderMelodyRoleUI();
+  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
+}
 function selectGenre(i){
   const deselect=st.genre===i;
   st.genre=deselect?null:i;
   _aiSuggestions=null;
+  syncInstrumentMenus();
   if(st.genre!==null){
     if(GENRES[i].family==='pop'&&(!st.vocal||st.vocal==='No Vocal')){   // 팝·R&B는 노래가 중심이라 보컬을 제안(바꿀 수 있음)
       st.vocal='Sung lead vocal';
@@ -2312,7 +2330,7 @@ function hhGenerate(source,opts){
   const _vocalOut=!!(st.vocal&&st.vocal!=='No Vocal');
   const lyricsPure=_vocalOut?(_wc?.lyrics||_hhWritten?.lyrics||''):'';
   const lyricsText=_vocalOut?((isRefresh&&keepLyrics!==null)?keepLyrics:(_wc?.lyrics?(mergeLyricsAndDirection(_wc.lyrics,_wc.section)||_wc.lyrics):'')):'';
-  const lyricsBlock=_vocalOut?makeOutBlock('② 가사 프롬프트 (Suno의 Lyrics 칸 — 연출 설명 + 가사)',
+  const lyricsBlock=_vocalOut?makeOutBlock('② 가사 프롬프트 (Suno의 Lyrics 칸 — [섹션: 연출 태그] + 가사)',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-lyrics-count" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--success)">${lyricsText.length}/5000자</span></div><textarea class="output-ta" id="hh-lyrics-ta" rows="14" placeholder="AI 작성이 켜져 있으면 여기에 섹션마다 [헤더] → (연출 설명) → 가사가 합쳐져서 만들어져요 (API Key 필요). 직접 쓴 가사를 붙여 넣어도 돼요." style="display:block;width:100%">${escHtml(lyricsText)}</textarea>`,
     'hh-lyrics-ta','#F59E0B'):null;
   const sectBlock=makeOutBlock(_vocalOut?'④ 참고: 연출 설명만':'② 섹션 프롬프트',
@@ -2360,7 +2378,7 @@ function hhGenerate(source,opts){
   if(!hhHasVocal){
     tags.push('[Instrumental]');
     // 금지어는 스타일에 한 번 묶어서(예시 프롬프트 패턴) — 안 쓸 악기도 같이("NO guitars": 트랩 메탈·기타 선택 때는 제외)
-    tags.push(`no vocals & ZERO vocal chops & no vocal samples${st.genre!==18&&!st.melody.includes('Guitar loop')?' & NO guitars':''}`);
+    tags.push(`no vocals & ZERO vocal chops & no vocal samples${guitarsAllowed()?'':' & NO guitars'}`);
   }
   // 색깔 수식어는 장르 단어 바로 앞에 붙임("commercial hyperpop") — 멀리 떨어진 별도 태그보다 장르에 확실히 걸림
   const commMod=st.commercial&&COMMERCIAL_TAG[st.commercial];
@@ -2435,6 +2453,9 @@ function hhGenerate(source,opts){
   container.appendChild(makeOutBlock('③ 스타일 프롬프트',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-style-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
+  {const ex=excludeStyles();
+    if(ex)container.appendChild(makeOutBlock('③-2 제외할 요소 (Suno 고급 옵션 → Exclude styles 칸에 붙여넣기)',
+      `<textarea class="output-ta" id="hh-exclude-ta" rows="2" readonly style="display:block;width:100%">${escHtml(ex)}</textarea><div style="font-size:11px;color:var(--text-3);margin-top:6px;line-height:1.6">스타일 칸의 "no vocals"만으로는 보컬이 섞일 때가 있어서, Suno의 공식 제외 칸에도 같이 넣으면 더 확실해요.</div>`,'hh-exclude-ta','#EF4444'));}
   if(_vocalOut){
     container.appendChild(sectBlock);
     container.appendChild(makeOutBlock('⑤ 참고: 가사만',`<textarea class="output-ta" id="hh-lyrics-only-ta" rows="10" readonly style="display:block;width:100%">${escHtml(lyricsPure)}</textarea>`,'hh-lyrics-only-ta','#F59E0B'));
@@ -2831,6 +2852,7 @@ function renderPromptHistory(){
 function hhReset(){
   _aiSuggestions=null;
   st.genre=null;st.key=7;st.bpm=140;st.bpmSet=false;st.keySet=false;
+  setInstrumentMenus(null);
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;

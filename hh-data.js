@@ -169,8 +169,31 @@ const HH_808=['None','Minimal','Balanced','Heavy','Dominant'];
 // Phonk(카우벨)·Westwood(라이브 재즈 드럼)도 같은 종류의 누락이었음 — GENRE_AUTO 주석엔 있었는데 어휘가 없어서
 // 매번 Boom Bap kick으로 대체됨. 18개 장르 전체 재대조 결과 이 2개가 마지막 누락(나머지 13개는 실제로 트랩/붐뱁
 // 계열이라 기존 어휘가 맞음 — 무차별로 더 추가하지 않음)
-const HH_DRUMS=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks','Four-on-the-floor kick','Jersey bounce kick','Afro log drum','Shaker groove','Conga accents','Rimshot snare','Memphis cowbell chop','Live jazz drums'];
-const HH_MELODY=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth','Flute','Harp','Music box','Organ','Vibraphone','Kalimba','Arp pluck synth','Cello','Sitar','Vocoder synth'];
+const HH_DRUMS_HIPHOP=['Sub-bass punch','Crisp hi-hats','Rolling triplets','Trap rolls','Boom Bap kick','Glitchy breaks','Four-on-the-floor kick','Jersey bounce kick','Afro log drum','Shaker groove','Conga accents','Rimshot snare','Memphis cowbell chop','Live jazz drums','Half-time snare','Layered claps','Ghost-note snares'];
+const HH_MELODY_HIPHOP=['Dark synth','Emotional piano','Guitar loop','Sample chop','Ambient pad','Brass stab','Strings','Psychedelic FX','Rhodes keys','Saxophone','Supersaw synth','Flute','Harp','Music box','Organ','Vibraphone','Kalimba','Arp pluck synth','Cello','Sitar','Vocoder synth','Synth bells','Rage synth','Whistle synth','Trumpet','Bass guitar','Acoustic guitar','Electric guitar'];
+
+// 계열별 악기 메뉴 — 힙합 메뉴 하나를 모든 장르가 공유해서 팝·일렉에는 Trap rolls·Sample chop 같은 항목이 보이고, 정작 필요한 악기(어쿠스틱 기타·303·클랩·베이스 등)는 없었음
+// HH_DRUMS/HH_MELODY는 "지금 장르 계열의 메뉴"를 담는 배열 — setInstrumentMenus가 제자리에서 바꿔서, 이걸 읽는 기존 코드(칩·추천·검증)는 그대로 계열별 메뉴를 봄
+const MENU_BY_FAMILY={
+  hiphop:{drums:HH_DRUMS_HIPHOP,melody:HH_MELODY_HIPHOP},
+  pop:{
+    drums:['Punchy pop kick','Half-time snare','Finger snaps','Clap & snap layers','Tambourine groove','Shuffle groove','Gated snare','Live pop drum kit','Brushed drums','Stomp & clap','Four-on-the-floor kick','Crisp hi-hats','Rolling triplets','Rimshot snare','Shaker groove','Live jazz drums'],
+    melody:['Emotional piano','Acoustic guitar','Electric guitar','Rhodes keys','Synth lead','Synth bells','Arp pluck synth','Supersaw synth','Ambient pad','Strings','Violin','Cello','Brass stab','Saxophone','Flute','Harp','Music box','Vibraphone','Kalimba','Marimba','Ukulele','Banjo','Pedal steel','Koto','Organ','Vocoder synth','Psychedelic FX','Dark synth','Bass guitar','Synth bass'],
+  },
+  elec:{
+    drums:['909 kick','Four-on-the-floor kick','Offbeat open hats','Rolling 16th hats','Clap on 2 & 4','Breakbeat (amen break)','Two-step garage shuffle','Half-time snare','Snare roll build','Tribal toms','Afro log drum','Shaker groove','Conga accents','Glitchy breaks','Rimshot snare','Crisp hi-hats','Sub-bass punch'],
+    melody:['Synth lead','Supersaw synth','Arp pluck synth','Acid synth (303)','Chord stabs','House piano','Synth bells','Ambient pad','Dark synth','Psychedelic FX','Vocoder synth','Rhodes keys','Emotional piano','Strings','Brass stab','Saxophone','Flute','Harp','Music box','Vibraphone','Kalimba','Marimba','Organ','Sample chop','Reese bass','Wobble bass','Synth bass'],
+  },
+};
+const HH_DRUMS=[],HH_MELODY=[];
+function setInstrumentMenus(family){
+  const fams=MENU_BY_FAMILY[family]?[family]:Object.keys(MENU_BY_FAMILY);   // 장르 미선택이면 전 계열 합집합
+  [['drums',HH_DRUMS],['melody',HH_MELODY]].forEach(([k,a])=>{
+    a.length=0;
+    fams.forEach(f=>MENU_BY_FAMILY[f][k].forEach(x=>{if(!a.includes(x))a.push(x);}));
+  });
+}
+setInstrumentMenus(null);
 const HH_MOODS=[
   {kr:'어둡고 위압적',tag:'dark menacing'},
   {kr:'감각적·관능적',tag:'sensual smooth'},
@@ -309,6 +332,31 @@ const MELODY_REGISTER={
 };
 // 둘 다 넓게 깔리는 지속음 계열이면(Supersaw + Ambient pad 등) 대역이 달라도 서로·808과 마스킹 — 짝 중 하나는 짧은 트랜지언트 악기여야 함
 const MELODY_SUSTAINED=new Set(['Dark synth','Ambient pad','Strings','Cello','Organ','Supersaw synth','Psychedelic FX','Vocoder synth','Sitar']);
+// 새로 추가한 악기의 역할·대역·연주법 — 기존 표(MELODY_ROLE·MELODY_ARTICULATION·INSTR_HUMAN·MELODY_REGISTER·MELODY_SUSTAINED)가 이름으로 조회하므로 빠지면 안 됨
+// art: intro/hook/verse/bridge/outro 연주법, human: 이 악기의 불완전함 키워드, sus: 넓게 깔리는 지속음 여부
+const NEW_MELODY={
+  'Synth bells':{role:'lead',reg:'high',human:'uneven bell velocity',art:{intro:'soft single bell tone',hook:'rhythmic bell melody',verse:'sparse chiming notes',bridge:'rising bell arpeggio',outro:'fading bell tail'}},
+  'Rage synth':{role:'lead',reg:'mid',human:'detune drift and pitch wobble',art:{intro:'filtered detuned stab',hook:'aggressive detuned lead riff',verse:'muted stabs',bridge:'rising pitched sweep',outro:'decaying detuned tail'}},
+  'Whistle synth':{role:'lead',reg:'high',human:'pitch glide drift',art:{intro:'soft high glide',hook:'catchy gliding lead line',verse:'sparse high notes',bridge:'rising pitch glide',outro:'slow fading glide'}},
+  'Trumpet':{role:'lead',reg:'mid',human:'breath and pitch drift',art:{intro:'soft muted held note',hook:'bold melodic lead line',verse:'sparse muted phrase',bridge:'rising melodic run',outro:'slow fading muted note'}},
+  'Bass guitar':{role:'background',reg:'low',human:'slightly late finger-plucked notes',art:{intro:'soft sustained root notes',hook:'groovy syncopated bassline',verse:'sparse root-note pulse',bridge:'rising walking line',outro:'slow fading root note'}},
+  'Acoustic guitar':{role:'lead',reg:'mid',human:'small pick-timing drift',art:{intro:'gentle fingerpicked notes',hook:'bright rhythmic strumming',verse:'soft fingerpicked pattern',bridge:'muted strum build',outro:'fingerpicked fade-out'}},
+  'Electric guitar':{role:'lead',reg:'mid',human:'small pick-timing drift',art:{intro:'clean shimmering chords',hook:'tight rhythmic chord strokes',verse:'sparse clean single notes',bridge:'rising overdriven swell',outro:'ringing clean chord fade'}},
+  'Synth lead':{role:'lead',reg:'mid',human:'slight filter drift',art:{intro:'soft filtered lead tone',hook:'bright catchy lead melody',verse:'sparse lead phrase',bridge:'rising filter sweep',outro:'fading lead tone'}},
+  'Violin':{role:'lead',reg:'mid',human:'slight bow-attack variation',art:{intro:'soft legato held note',hook:'soaring melodic line',verse:'sparse legato phrase',bridge:'rising tremolo swell',outro:'slow fading bow tone'}},
+  'Marimba':{role:'lead',reg:'high',human:'uneven mallet velocity',art:{intro:'soft mallet pattern',hook:'bouncy rhythmic mallet loop',verse:'sparse mallet notes',bridge:'rising mallet roll',outro:'fading mallet ring'}},
+  'Ukulele':{role:'lead',reg:'mid',human:'loose strum timing',art:{intro:'gentle plucked chords',hook:'bright rhythmic strumming',verse:'soft plucked pattern',bridge:'muted strum build',outro:'plucked fade-out'}},
+  'Banjo':{role:'lead',reg:'mid',human:'loose picking timing',art:{intro:'gentle rolling pluck',hook:'bright rolling picking pattern',verse:'sparse plucked notes',bridge:'rising picked run',outro:'slow fading pluck'}},
+  'Pedal steel':{role:'background',reg:'mid',sus:true,human:'slow pitch-bend drift',art:{intro:'soft gliding swell',hook:'wide sustained slides',verse:'quiet sustained bend',bridge:'rising bending swell',outro:'fading sliding tone'}},
+  'Koto':{role:'lead',reg:'high',human:'uneven pluck velocity',art:{intro:'soft plucked glissando',hook:'rhythmic plucked melody',verse:'sparse plucked notes',bridge:'rising plucked run',outro:'slow fading pluck'}},
+  'Synth bass':{role:'background',reg:'low',human:'slight filter drift',art:{intro:'soft sustained low tone',hook:'punchy pulsing bassline',verse:'sparse low pulse',bridge:'rising filtered bass swell',outro:'fading low tone'}},
+  'Acid synth (303)':{role:'lead',reg:'mid',human:'slight cutoff drift',art:{intro:'soft filtered acid line',hook:'squelchy resonant acid line',verse:'sparse muted acid notes',bridge:'rising cutoff sweep',outro:'fading acid line'}},
+  'Chord stabs':{role:'lead',reg:'mid',human:'chord stabs slightly off the grid',art:{intro:'soft filtered chord stab',hook:'punchy rhythmic chord stabs',verse:'sparse chord stabs',bridge:'rising filtered stabs',outro:'fading stab echo'}},
+  'House piano':{role:'lead',reg:'mid',human:'uneven key velocity',art:{intro:'soft chord pattern',hook:'bouncy rhythmic piano chords',verse:'sparse piano stabs',bridge:'rising chord build',outro:'slow fading chord'}},
+  'Reese bass':{role:'background',reg:'low',sus:true,human:'slow detune drift',art:{intro:'soft sustained low growl',hook:'thick rolling detuned bassline',verse:'sparse low drone',bridge:'rising filtered growl',outro:'fading low drone'}},
+  'Wobble bass':{role:'background',reg:'low',sus:true,human:'uneven wobble timing',art:{intro:'soft low pulse',hook:'heavy wobbling bass movement',verse:'restrained low pulse',bridge:'rising wobble sweep',outro:'fading low pulse'}},
+};
+Object.entries(NEW_MELODY).forEach(([n,d])=>{INSTR_HUMAN[n]=d.human;MELODY_REGISTER[n]=d.reg;if(d.sus)MELODY_SUSTAINED.add(n);});
 const DENSITY_TAG={'Minimalist':'minimalist arrangement','Sparse':'sparse arrangement','Balanced':'balanced arrangement','Dense':'dense hook layers with stripped-back verses','Maximalist':'maximalist hook layers with stripped-back verses'};
 const GROOVE_PEAK={'타이트 그리드':'ghost-note syncopation on every off-beat','살짝 스윙':'swing at its most pronounced','헤비 스윙':'MPC swing at full looseness','레이드백 포켓':'snare dragging at its furthest behind the beat','푸시드 포켓':'kick at its most urgent, ahead of the beat'};
 const GENRE_HUMAN=[

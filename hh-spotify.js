@@ -616,7 +616,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
   // 장르
   const genreIdx=detectGenreFromSpotify(genres);
   if(genreIdx!==null){
-    st.genre=genreIdx;renderHhGenres();
+    st.genre=genreIdx;renderHhGenres();syncInstrumentMenus();
     const auto=GENRE_AUTO[genreIdx];
     if(auto){
       st._808=auto.a808;st.drums=[...auto.aDrums];st.transitionFx=[...auto.fx];st.groove=auto.groove;
