@@ -672,3 +672,44 @@ function rubricScore(criteria){
   }
   return wsum>=60?Math.round(100*sum/wsum):null;   // 최소 6개 항목은 있어야 유효
 }
+
+// ============================================================
+// 실제로 Suno에서 잘 나온 프롬프트(사용자 제공 예시 4개)에서 뽑은 패턴 — hh-examples.js 참고
+// 스타일: 장르 융합 라벨 + 상업적 매력 어휘 / 헤더: 장르·에너지를 말해주는 이름 / 무보컬 벌스: 랩·멜로디가 들어올 자리
+// ============================================================
+// 첫 훅 헤더 — GENRES 순서와 1:1
+const GENRE_HOOK_NAME=['Trap Drop','Dark Trap Drop','Melodic Trap Bounce','NY Drill Drop','UK Drill Drop','Phonk Drift Drop','Boom Bap Hook','Cloud Rap Hook','Lo-fi Hook','Jersey Bounce Drop','Rage Drop','Afro Trap Bounce','Conscious Hook','Trap Soul Hook','Hyperpop Bounce','Digicore Bounce','PluggNB Bounce','Westwood Hook','Metal Drop','Sexy Drill Drop'];
+// 스타일의 장르 태그 = "{tag} meets {with} & {label}" — 예: "UK drill meets bronx drill & pop-drill" (GENRES 순서와 1:1)
+const GENRE_FUSION=[['pop rap','radio-ready pop-trap'],['cinematic horror synths','dark pop-trap'],['sung r&b hooks','pop-trap crossover'],['UK drill','pop-drill'],['bronx drill','pop-drill'],['club bounce','mainstream phonk'],['soulful jazz samples','polished modern boom bap'],['dream pop','airy pop-cloud'],['jazzy chillhop','cozy polished beats'],['pop dance','club-pop bounce'],['hyperpop synths','pop-rage'],['afrobeats pop','afro-pop trap'],['neo-soul','warm polished neo-soul rap'],['smooth r&b','radio-ready r&b trap'],['club pop','commercial hyperpop'],['futuristic pop','pop-infused digicore'],['romantic r&b','trendy smooth r&b trap'],['funk-tinged alt-pop','left-field pop-rap'],['industrial metal','heavy crossover'],['pop r&b','glossy drill-pop']];
+// 무드별 헤더 단어(energy=중간 훅 "Full X Energy", climax=마지막 훅, verse="Stripped & X")와 상업적 매력 어휘(lead=훅 리드 수식, style=스타일 태그에 융합) — HH_MOODS 순서와 1:1
+const MOOD_HEADER=[
+  {energy:'Dark',climax:'Maximum Menace',verse:'Cold'},{energy:'Smooth',climax:'Climax & Silky Space',verse:'Intimate'},
+  {energy:'Melodic',climax:'Climax & Lush Space',verse:'Airy'},{energy:'Club',climax:'Maximum Bounce',verse:'Tight'},
+  {energy:'Dreamy',climax:'Climax & Hazy Space',verse:'Hazy'},{energy:'Groovy',climax:'Peak Groove',verse:'Laid-back'},
+  {energy:'Aggressive',climax:'Maximum Impact',verse:'Raw'},{energy:'Reflective',climax:'Climax & Quiet Weight',verse:'Spacious'},
+  {energy:'Festival',climax:'Maximum Party',verse:'Bright'},{energy:'Anthemic',climax:'Triumphant Climax',verse:'Marching'},
+  {energy:'Emotional',climax:'Climax & Heavy Space',verse:'Sparse'},{energy:'Swagger',climax:'Maximum Flex',verse:'Cocky'},
+  {energy:'Romantic',climax:'Climax & Sweet Space',verse:'Tender'},{energy:'Tense',climax:'Maximum Tension',verse:'Coiled'},
+  {energy:'Nostalgic',climax:'Climax & Warm Space',verse:'Wistful'},{energy:'Mystic',climax:'Climax & Hidden Space',verse:'Eerie'},
+];
+const MOOD_APPEAL=[
+  {lead:'menacing hypnotic',style:'hard-hitting & hypnotic hook-driven melody & cinematic polish'},
+  {lead:'smooth seductive',style:'sultry & silky & catchy understated hook'},
+  {lead:'catchy emotional',style:'melodic & hook-driven & lush polished mix'},
+  {lead:'catchy high-energy',style:'hyper-catchy & danceable & punchy polished mix'},
+  {lead:'dreamy hypnotic',style:'dreamy & hypnotic & shimmering high-end'},
+  {lead:'warm catchy',style:'laid-back & groovy & catchy smooth polished mix'},
+  {lead:'aggressive hard-hitting',style:'aggressive & hard-hitting & punchy raw mix'},
+  {lead:'wistful memorable',style:'introspective & melodic & intimate clean mix'},
+  {lead:'bright euphoric catchy',style:'euphoric & danceable & bright polished mix'},
+  {lead:'triumphant anthemic',style:'triumphant & anthemic & big polished mix'},
+  {lead:'mournful memorable',style:'melancholic & melodic & emotional clean mix'},
+  {lead:'confident bouncy catchy',style:'confident swagger & bouncy & glossy punchy mix'},
+  {lead:'sweet catchy',style:'sweet & romantic & glossy smooth mix'},
+  {lead:'tense hypnotic',style:'tense & hypnotic & cold clean mix'},
+  {lead:'nostalgic catchy',style:'nostalgic & warm & soft polished mix'},
+  {lead:'eerie hypnotic',style:'mysterious & hypnotic & atmospheric polished mix'},
+];
+// 무보컬 벌스에 넣는 "랩/멜로디가 들어올 자리" — 'vocal' 단어는 무보컬 규칙(검사기)에 걸리니 쓰지 않음. 0=랩 자리, 1=멜로디 탑라인 자리, 2=리드 멜로디 자리
+const VOCAL_SLOT_KIND=[0,0,1,0,0,0,0,1,2,0,0,1,0,1,1,1,1,0,0,0];
+const VOCAL_SLOT_TEXT=[['wide open pocket for rhythmic rap','leaving maximum space for the artist'],['perfect pocket for melodic rap flows','leaving space for a top-line melody'],['leaving space for a lead melody','open room for a topline']];

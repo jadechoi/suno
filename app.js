@@ -1635,7 +1635,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const mDescFull=melodyRoles?`${melodyRoles.lead} lead, ${melodyRoles.bg} background`:mDesc;
   const bgName=melodyRoles?.bg||null;
   const leadName=leadInstrument||mDesc;
-  const _names=[leadName,melodyRoles?.bg,...drumList];   // tidyBody가 지우지 않을 이름들
+  const _names=[leadName,melodyRoles?.bg,...drumList,(st.vocal&&st.vocal!=='No Vocal')?st.vocal:null];   // 보컬 지시(예: "Heavy hooks")도 tidyBody가 지우지 않게   // tidyBody가 지우지 않을 이름들
   let introUsed=false;
   // section별로 리드 악기를 "어떤 느낌으로" 연주할지 괄호로 덧붙임 — 같은 악기 반복 언급이라도 구간마다 다른 연주법
   // + 리드 악기 자체의 톤(웜·아날로그 등)은 첫 등장(인트로)에서만 무드 뉘앙스까지 얹음 (매번 붙이면 전 섹션에 토씨 그대로 반복)
@@ -1728,6 +1728,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const cue=type=>(GENRE_SECTION_CUE[st.genre]?.[type]||'').replace(/\{e\}/g,eDesc);
   // 곡명/느낌 분석(st.brief)에서 나온 섹션별 소리 특징 — 장르 기본 cue와 별개로, 원하는 곡의 느낌을 직접 반영
   const bc=type=>effectiveBrief()?.cues?.[type]||'';
+  // 상업적 매력 어휘 — "catchy bright synth lead"처럼 훅 리드가 얼마나 귀에 붙는지(예시 프롬프트의 패턴). 질감·디테일 문구와 함께 씀
+  const appealLead=(MOOD_APPEAL[moodIdx]&&leadName)?`${MOOD_APPEAL[moodIdx].lead} ${leadName} hook melody`:'';
   const bcS=type=>bc(type)?`, ${bc(type)}`:'';
   const refSig=refFit(REF_SIG[st.refs[0]]||'',' & ');
   const hookDrums=drumList.slice(0,3).join(' & ')||dDesc;
@@ -1759,7 +1761,9 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       cnt.hook++;
       const isLast=cnt.hook===totalHooks;
       const isEdge=cnt.hook===1||isLast;   // 첫·마지막 훅에만 장르 방향·레퍼런스 특징·"ZERO vocal chops" — 가운데 훅은 변주로 차별화
-      const sub=isLast?(isMellowMood?'Fullest Atmosphere':'Maximum Anthemic Climax'):hookSub;
+      // 헤더는 그 섹션의 성격을 말해주는 이름(실제로 잘 나온 프롬프트의 패턴): 첫 훅=장르 이름, 중간 훅="Full X Energy", 마지막 훅=무드별 클라이맥스
+      const mh=MOOD_HEADER[moodIdx]||{energy:'Full',climax:'Maximum Bounce',verse:'Spacious'};
+      const sub=(isLast&&cnt.hook>1)?mh.climax:(cnt.hook===1?(GENRE_HOOK_NAME[st.genre]||hookSub):`Full ${mh.energy} Energy`);
       // hookEng 자체가 이미 "maximum ..."인 경우(예: 에너제틱·하입 무드) "Maximum maximum ..." 중복 방지
       const energy=isLast
         ?(isMellowMood
@@ -1782,13 +1786,14 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       // 마지막 훅은 첫 훅에 이미 쓴 문구를 반복하지 않고 "무엇이 더 커졌는지"만 쓴다: 드럼 필 밀도, 그루브 최대치, 무드별 정점, 리드 옥타브 더블링
       const lastOfMany=isLast&&cnt.hook>1;
       const hookBodyRaw=lastOfMany
-        ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',cue('peak'),bc('hook'),dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
-        :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),isEdge&&bc('hook'),melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
+        ?[energy,`${hookDrums}, ${dRoll?`${dRoll} accelerating into fills every bar`:'drum fills every bar'}`,GROOVE_PEAK[st.groove]||'',cue('peak'),bc('hook'),appealLead,dyn.peak,melodyRef('hook',cnt.hook,totalHooks),vocalPhrase,spaceArc('climax',cnt.hook,totalHooks)].filter(Boolean).join(', ')
+        :[energy,hookDrums,cnt.hook===1?grooveText(st.groove):(((cnt.hook-2)%2===0?GROOVE_VARY:GROOVE_VARY2)[st.groove]||''),isEdge&&dyn.hook,isEdge&&cue('hook'),isEdge&&bc('hook'),cnt.hook===1&&appealLead,melodyRef('hook',cnt.hook,totalHooks),isEdge&&refSig,isEdge&&texLine('hook'),vocalPhrase,spaceArc(isLast?'climax':'hook',cnt.hook,totalHooks),hookVary].filter(Boolean).join(', ');
       const hookBody=tidyBody(hookBodyRaw,_names);
       lines.push(`(${bH} Bars: ${hookBody}${boostOccursHere('hook',cnt.hook,totalHooks)?arrangeExtra('hook'):''}${aiNote(`hook${cnt.hook}`)}${cnt.hook===1?manualNote('버스/훅'):''}${isLast?manualNote('클라이맥스/드롭'):''})`);
     } else if(type==='verse'){
       cnt.verse++;
-      const sub=cnt.verse===1?(/^Stripped/.test(verseSub)?verseSub:`Stripped & ${verseSub}`):`${['Rhythmic Switch','Half-Time Tension','Last Calm'][Math.min(cnt.verse-2,2)]} & ${verseSub}`;
+      const vw=(MOOD_HEADER[moodIdx]||{}).verse||'Spacious';
+      const sub=cnt.verse===1?`Stripped & ${vw}`:['Rhythmic Switch','Half-Time Tension','Last Calm'][Math.min(cnt.verse-2,2)];
       const bassWord=eightOh==='None'?'bass':'808s';
       const desc=cnt.verse===1
         ?[dyn.verse?`Beat strips back, ${dyn.verse}`:'Beat strips back, spacious and clean arrangement',`sparse ${bassWord}, lighter drum pattern (${dSecond||dDesc} only)`,cue('verse'),bc('verse'),`${melodyRef('verse',1)} softened`,texLine('verse')].filter(Boolean).join(', ')
@@ -1797,7 +1802,8 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
           :(cnt.verse===3
             ?[`${dRoll||dDesc} pattern shifting to a half-time feel`,melodyRef('verse',cnt.verse),isMellowMood?'':'tension tighter than the previous verse'].filter(Boolean).join(', ')
             :[`${dRoll||dDesc} stripped to sparse ticks`,melodyRef('verse',cnt.verse),'the last calm moment before the drop'].join(', ')));
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:'purely instrumental pocket';
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:pick(VOCAL_SLOT_TEXT[VOCAL_SLOT_KIND[st.genre]??0]);   // 랩·멜로디가 들어올 자리(예시 프롬프트의 패턴)
+
       // 다음이 바로 훅이면(브릿지 없는 구조) 벌스 끝 2마디에 전환효과 빌드 — 없으면 클라이맥스가 갑자기 튀어나오고, 고른 전환효과 2번째는 어디에도 안 쓰임(리뷰 반복 지적)
       let preBuild='';
       if(segs[si+1]==='hook'){
@@ -1812,7 +1818,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const isLastB=cnt.bridge===totalBridges;
       // 마지막 브릿지는 이미 내용상(Quick break, chord echoing, fx, maximum tension) 빌드업 역할을 하고 있어서
       // 새 섹션 타입은 안 만들고, 라벨만 "다음 드롭 직전"이라는 걸 더 명확히 드러내는 이름으로 보강
-      const sub=isLastB?'Pre-Drop Build-up':'Tension Build';
+      const sub=isLastB?'Fast Build-up':`${bB}-Bar Tension`;
       // 전환 효과 — 사용자가 고른 게 있으면 그걸로, 없으면 기본값. 브릿지마다 시작 효과를 돌려서(1번은 A→B, 2번은 B→A)
       // 두 브릿지가 같은 효과음 조합·순서로 반복되지 않게 함
       const fxList=fxAll;
@@ -2264,18 +2270,21 @@ function hhGenerate(source,opts){
   const hhHasVocal=st.vocal&&st.vocal!=='No Vocal';
   if(!hhHasVocal){
     tags.push('[Instrumental]');
-    tags.push('no vocals');                                         // 보컬 억제 보완 태그
+    // 금지어는 스타일에 한 번 묶어서(예시 프롬프트 패턴) — 안 쓸 악기도 같이("NO guitars": 트랩 메탈·기타 선택 때는 제외)
+    tags.push(`no vocals & ZERO vocal chops & no vocal samples${st.genre!==18&&!st.melody.includes('Guitar loop')?' & NO guitars':''}`);
   }
   // 색깔 수식어는 장르 단어 바로 앞에 붙임("commercial hyperpop") — 멀리 떨어진 별도 태그보다 장르에 확실히 걸림
   const commMod=st.commercial&&COMMERCIAL_TAG[st.commercial];
   // sig = 이 장르를 다른 장르와 가르는 핵심 사운드(예: 트랩 메탈의 다운튜닝 기타) — 장르 단어에 ' & '로 붙여 태그 개수는 안 늘림
-  if(g)tags.push(`${commMod?commMod+' ':''}${g.tag}${g.sig?' & '+g.sig:''}`);
+  // 장르 융합 라벨("UK drill meets bronx drill & pop-drill") — 언더그라운드 색깔을 골랐으면 융합 없이 순수 장르
+  const fuse=(g&&st.commercial!=='Underground/Experimental')?GENRE_FUSION[st.genre]:null;
+  if(g)tags.push(`${commMod?commMod+' ':''}${g.tag}${fuse?` meets ${fuse[0]} & ${fuse[1]}`:''}${g.sig?' & '+g.sig:''}`);
   // 프로듀서 레퍼런스 — 장르 바로 뒤 (가중치 최대화), 여러 명이어도 한 태그로
   if(st.refs.length){
     const refEns=st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?refFit(p.en,', '):kr;}).filter(Boolean);
     if(refEns.length)tags.push(refEns.map(e=>e.replace(/, /g,' & ')).join(' & '));
   }
-  if(mood)tags.push(mood.tag);
+  if(mood)tags.push(MOOD_APPEAL[moodIdx]?`${mood.tag} & ${MOOD_APPEAL[moodIdx].style}`:mood.tag);   // 무드 태그에 상업적 매력 어휘를 융합(태그 개수는 그대로)
   const _bt=effectiveBrief()?.styleTags;
   if(_bt?.length)tags.push(_bt.slice(0,2).map(t=>t.replace(/, /g,' & ')).join(' & '));   // 곡명/느낌 분석에서 온 소리 특징 (장르 메뉴로 못 담는 부분)
   const usedW=new Set();   // 지금까지 스타일 태그에 쓴 단어 — 뒤에 붙는 무드 뉘앙스가 같은 말을 되풀이하지 않게

@@ -39,8 +39,9 @@ function reportCacheStatus(status,usage){
   else if(status==='active')el.textContent=`🎯 캐싱 작동 중 (생성 ${usage.cache_creation_input_tokens||0} / 재사용 ${usage.cache_read_input_tokens||0} 토큰)`;
   else el.textContent='⚠️ 캐싱 요청이 거부되진 않았지만 실제 사용 흔적이 없음';
 }
-// claude-sonnet-5는 temperature 파라미터를 거부함("deprecated for this model", 실사용 확인) — 채점 안정화는 scoringAnchor로 함
-async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
+// claude-sonnet-5는 temperature 파라미터를 거부함("deprecated for this model", 실사용 확인) — 채점 안정화는 scoringAnchor로 함.
+// 대신 think:false로 숨은 추론을 끄면 리뷰 145초→23초, 작성 61초→17초(출력 토큰 1/4~1/9)로 빨라짐 — 추천·채점·분석처럼 답이 짧게 정해지는 호출용
+async function callAnthropic(key,{maxTokens,staticText,dynamicText,think}){
   const url='https://api.anthropic.com/v1/messages';
   const headers={
     'content-type':'application/json',
@@ -51,6 +52,7 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText}){
   const body=useCache=>JSON.stringify({
     model:'claude-sonnet-5',
     max_tokens:maxTokens,
+    ...(think===false?{thinking:{type:'disabled'}}:{}),
     messages:[{role:'user',content:useCache
       ?[{type:'text',text:staticText,cache_control:{type:'ephemeral'}},{type:'text',text:dynamicText}]
       :staticText+dynamicText
@@ -280,7 +282,7 @@ ${Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없�
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
 
     // 최소 4~6개 제안 + narrDir 같은 다항목 필드를 요구하면서 출력이 꽤 길어짐 — 8000으로는 자주 잘려서 올림
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
@@ -486,7 +488,7 @@ ${(_aiSuggestions||[]).filter(s=>s.applied).map((s,i)=>`${i+1}. (${s.category}) 
 ${feedback}`;
 
     // aiProducerReview와 같은 이유(최소 3~5개 다항목 제안 요구)로 출력이 길어질 수 있어서 같은 한도로 맞춤
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
     if(!list.length)throw new Error('피드백에서 반영할 내용을 찾지 못했습니다');
@@ -538,7 +540,7 @@ ${sectText}
 [최종 스타일 프롬프트]
 ${styleText}`;
 
-    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const checks=parsed.checks||[];
     let matched=0;
@@ -685,7 +687,7 @@ ${HH_DRUMS.join(', ')}
 [현재 선택]
 ${ctx}`;
 
-    const raw=await callAnthropic(key,{maxTokens:1500,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:1500,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead;
     let bg=parsed.melodyBackground;
@@ -795,7 +797,7 @@ ${list}
 
 [현재 선택]
 ${aiSelectionCtx({structure:false})}`;
-    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const idx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
     if(idx<0)throw new Error('AI가 목록에 없는 구조를 반환했습니다');
@@ -844,7 +846,7 @@ ${ctx}
 [이미 적용된 스타일 태그 — 이거랑 상반되는 프로듀서는 제외]
 ${st.extraTags.length?st.extraTags.join(', '):'(없음)'}`;
 
-    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const refs=(parsed.refs||[]).filter(r=>HH_REF.some(p=>p.kr===r)).slice(0,1);
     if(!refs.length)throw new Error('AI가 목록에 없는 프로듀서를 반환했습니다');
@@ -926,7 +928,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const budget=Math.floor(WRITE_LIMITS.section*0.92);
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:Math.floor(budget*(w[s.type]||1)/wsum*1.25)}));
   const styleTags=(draftStyle||'').split(', ');
-  const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',`Key of ${KEYS[st.key]}`,`${st.bpm} BPM`,(g?g.tag:null)].filter(Boolean);
+  const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',`Key of ${KEYS[st.key]}`,`${st.bpm} BPM`,(g?g.tag:null),(g&&st.commercial!=='Underground/Experimental'?GENRE_FUSION[st.genre]?.[1]:null)].filter(Boolean);   // 장르 융합 라벨("pop-drill")도 스타일에 남아야 함
   return {
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:KEYS[st.key],bpm:st.bpm,
     lead:roles?roles.lead:(st.melody[0]||null),background:roles?roles.bg:null,
@@ -993,7 +995,7 @@ function validateWritten(spec,section,style){
   }
   // 보컬 규칙
   if(!spec.vocal){
-    const stripped=(section+' '+style).replace(/no vocals|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
+    const stripped=(section+' '+style).replace(/no vocals|no vocal samples|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
     if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
   }else if(hooks.length&&hooks.some(s=>!s.body.toLowerCase().includes(spec.vocal.toLowerCase().split(' ')[0])))errors.push(`보컬(${spec.vocal})이 모든 훅에 명시돼야 함`);
   // 스타일 박스
@@ -1014,6 +1016,13 @@ function validateWritten(spec,section,style){
   return {ok:!errors.length,errors};
 }
 const WRITE_STATIC=`너는 힙합 프로듀서이자 Suno AI 프롬프트 작가야. 규칙 엔진이 만든 [명세]와 [참고 초안]을 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 직접 써.
+
+[좋은 프롬프트의 패턴 — 실제로 Suno에서 잘 나온 프롬프트에서 뽑은 것. 우리 프로그램의 질감·디테일과 합쳐서 써]
+- 스타일: 장르 융합 라벨("A meets B", "pop-drill" 같은 크로스오버 표현)을 앞쪽에, 상업적 매력 어휘(catchy, bright, punchy, polished, pristine, hook-driven, danceable, memorable)를 촘촘히. 금지어 묶음("no vocals & ZERO vocal chops & no vocal samples", 필요하면 "NO guitars")은 스타일에 한 번, 섹션에는 첫 훅·마지막 훅에만.
+- 헤더: 명세의 헤더는 그대로 두되, 본문이 헤더의 성격(예: "UK Drill Drop", "Full Club Energy", "Maximum Bounce", "Stripped & Spacious")과 정확히 맞게 써.
+- 훅: 에너지 단어 + 리드가 얼마나 캐치한지("catchy bright synth lead") + 핵심 리듬·베이스를 앞에. 그 뒤에 질감·그루브 결·인간적 불완전함을 얹어.
+- 무보컬 벌스: 랩/멜로디가 들어올 자리를 남기는 표현("wide open pocket for rhythmic rap", "leaving space for a top-line melody", "leaving maximum space for the artist") — 단, 'vocal' 단어는 쓰지 마.
+- 스타일과 섹션 모두 "상업적 매력"과 "질감·디테일" 중 하나만 있으면 안 돼 — 둘을 같이.
 
 [brief · 이름 규칙]
 - 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 참고 초안이 brief와 다르게 밋밋하거나 일반적이면 brief 쪽을 따라.
@@ -1060,6 +1069,9 @@ ${JSON.stringify(spec,null,1)}
 ${directives}
 확정 스타일 지시: ${(st.extraTags||[]).join(' & ')||'(없음)'}
 삭제 확정 문구(어떤 형태로도 다시 쓰지 말 것): ${(st.removedPhrases||[]).join(' | ')||'(없음)'}
+
+[모범 예시 — 실제로 잘 나온 프롬프트. 밀도·어휘·헤더 감각만 배우고 문구는 복사하지 마. 예시는 무보컬이라 'vocal' 단어가 들어간 부분은 따라 쓰지 마]
+${pickPromptExamples(st.genre).map((e,i)=>`예시${i+1} (${e.title})\n스타일: ${e.style}\n${e.section}`).join('\n\n')}
 
 [참고 초안 — 규칙 엔진 결과. 사실·힌트 모음일 뿐 반복/모순이 있을 수 있음]
 ${draft.sect}
@@ -1200,7 +1212,7 @@ ${GENRES.map((g,i)=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
 보컬 질감(vocalChar): ${HH_VOCAL_CHAR.join(' | ')}
 프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}
 Key: ${KEYS.join(' | ')}`;
-    const raw=await callAnthropic(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText});
+    const raw=await callAnthropic(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText,think:false});
     const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     _briefProposal=buildBriefProposal(text,p);
     renderBriefResult();
