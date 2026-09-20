@@ -79,7 +79,27 @@ function moodGrid(container,moods,state,key,onChange){
 // HIP-HOP INIT
 // ============================================================
 setInterval(()=>{try{updateGenPending();}catch(_){}},700);
+// 간편/상세 모드 — 간편은 곡의 의도(✨ 박스·장르·무드·보컬·BPM/Key)만 보이고, 악기·드럼·808·질감·전환·그루브·구조 같은 세부 항목은 접어 둠(값과 AI 추천은 그대로 동작, 화면에서만 숨김)
+const HH_DETAIL_NUMS=['03','04','06','08','09','10','11','12','13','14'];
+function uiMode(){try{return localStorage.getItem('hh_ui_mode')==='detail'?'detail':'simple';}catch(_){return 'simple';}}
+function setUiMode(m){try{localStorage.setItem('hh_ui_mode',m);}catch(_){}applyUiMode();}
+function applyUiMode(){
+  const simple=uiMode()==='simple';
+  document.querySelectorAll('[data-tab="hiphop"] .section').forEach(s=>{
+    const num=s.querySelector('.section-num')?.textContent.trim();
+    const isTrend=/^📊/.test(s.querySelector('.section-title')?.textContent.trim()||'');
+    const detail=HH_DETAIL_NUMS.includes(num)||isTrend;
+    s.style.display=(simple&&detail)?'none':'';
+  });
+  const on='background:var(--accent);color:#fff',off='background:var(--surface-2);color:var(--text-2)';
+  const bs=document.getElementById('hh-mode-simple'),bd=document.getElementById('hh-mode-detail');
+  if(bs)bs.style.cssText+=';'+(simple?on:off);
+  if(bd)bd.style.cssText+=';'+(simple?off:on);
+  const hint=document.getElementById('hh-mode-hint');
+  if(hint)hint.textContent=simple?'핵심만 고르면 돼요 — 악기·드럼·808·질감·구조는 곡의 의도에 맞게 AI가 정해요':'악기·드럼·808·질감·전환·그루브·구조까지 직접 조절할 수 있어요';
+}
 function hhInit(){
+  applyUiMode();
   // Genre presets
   const presetRow=document.getElementById('hh-genre-presets');
   GENRE_PRESETS.forEach(p=>{
@@ -2552,7 +2572,7 @@ function hhGenerate(source,opts){
   updateAdvApplyBtn();
   // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
   // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
-  const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:bpmVal,key:keyStr,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
+  const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:st.bpmSet?bpmVal:null,key:st.keySet?keyStr:null,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
   // 작성기 시작 — 캐시 적중이면 생략, 진행 중이면 중복 호출 안 함, 이전 실패가 같은 상태의 재렌더(source===false)면 재호출 안 함(명시적 Generate만 재시도)
   const _fb=_hhWritten&&_hhWritten.fpFull===_fps.fpFull&&!_hhWritten.meta?.ok;
   if(_wc){_writeState='ok';renderWriteBadge();}
@@ -2695,6 +2715,7 @@ function restorePromptHistoryEntry(id){
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});
   showToast('↺ 이 기록으로 복원됨 — AI 프로듀서 리뷰를 다시 받아보세요');
 }
+let _historyShowAll=false;
 function renderPromptHistory(){
   const el=document.getElementById('hh-prompt-history');
   if(!el)return;
@@ -2704,7 +2725,8 @@ function renderPromptHistory(){
     return;
   }
   el.innerHTML='';
-  list.forEach(e=>{
+  const shown=_historyShowAll?list:list.slice(0,5);   // 기본은 최근 5개만
+  shown.forEach(e=>{
     const d=new Date(e.ts);
     const dateStr=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     const row=document.createElement('div');
@@ -2712,7 +2734,7 @@ function renderPromptHistory(){
     row.innerHTML=`
       <div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex-wrap:wrap" class="ph-header">
         <span style="font-size:10px;color:var(--text-3);font-family:'Space Mono',monospace">${dateStr}</span>
-        <span style="font-size:12px;font-weight:600">${e.genre} · ${e.bpm}BPM · ${e.key}</span>
+        <span style="font-size:12px;font-weight:600">${e.genre}${e.bpm?` · ${e.bpm}BPM`:''}${e.key?` · ${e.key}`:''}</span>
         ${e.aiScore!=null?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--border-hi);color:${e.aiScore>=75?'var(--success)':e.aiScore>=50?'#F59E0B':'var(--danger)'}" title="이 프롬프트의 첫 AI 리뷰 점수">🧑‍🎤 ${e.aiScore}/100</span>`:''}
         ${e.source?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(157,78,221,0.12);border:1px solid rgba(157,78,221,0.35);color:var(--accent-text)">🔧 ${escHtml(e.source)}</span>`:''}
         <span style="font-size:11px;color:var(--text-3);margin-left:auto">▼</span>
@@ -2750,6 +2772,13 @@ function renderPromptHistory(){
     row.querySelector('.ph-delete').onclick=()=>deletePromptHistoryEntry(e.id);
     el.appendChild(row);
   });
+  if(list.length>5){
+    const more=document.createElement('button');
+    more.textContent=_historyShowAll?'최근 5개만 보기':`나머지 ${list.length-5}개 더 보기`;
+    more.style.cssText='padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--accent-text);font-size:11px;cursor:pointer';
+    more.onclick=()=>{_historyShowAll=!_historyShowAll;renderPromptHistory();};
+    el.appendChild(more);
+  }
 }
 
 function hhReset(){

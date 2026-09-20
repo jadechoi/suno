@@ -133,6 +133,13 @@
 
   <!-- 01 GENRE (장르 기반 모드에서만 표시) -->
   <div id="hh-genre-section">
+  <div id="hh-mode-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="display:inline-flex;border:1px solid var(--border);border-radius:20px;overflow:hidden">
+      <button id="hh-mode-simple" onclick="setUiMode('simple')" style="padding:7px 16px;border:0;font-size:12px;font-weight:700;cursor:pointer">🙂 간편</button>
+      <button id="hh-mode-detail" onclick="setUiMode('detail')" style="padding:7px 16px;border:0;font-size:12px;font-weight:700;cursor:pointer">🔧 상세</button>
+    </div>
+    <span id="hh-mode-hint" style="font-size:11px;color:var(--text-3)"></span>
+  </div>
   <div class="section" id="hh-brief-section">
     <div class="section-header open" onclick="toggleSection(this)">
       <div class="section-title">✨ 어떤 곡을 만들고 싶으세요? <span style="font-size:10px;color:var(--text-3);margin-left:4px">곡명이나 느낌을 그대로 적으면 AI가 장르·무드·악기까지 추천</span></div>
@@ -483,21 +490,6 @@
   </div>
 
   <!-- 생성 기록 -->
-  <div class="section">
-    <div class="section-header" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">15</span> 📜 생성 기록 <span style="font-size:10px;color:var(--text-3);margin-left:4px">Generate 누를 때마다 자동 저장 · 이 브라우저에만 저장됨</span></div>
-      <span class="caret">▼</span>
-    </div>
-    <div class="section-body">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-        <button onclick="clearPromptHistory()" style="padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text-3);font-size:11px;cursor:pointer">전체 삭제</button>
-      </div>
-      <div id="hh-prompt-history" style="display:flex;flex-direction:column;gap:6px">
-        <span style="font-size:11px;color:var(--text-3)">아직 기록 없음 — Generate 누르면 여기 쌓임</span>
-      </div>
-    </div>
-  </div>
-
   <!-- OUTPUT -->
   <div class="output-section">
     <button class="gen-btn" onclick="hhGenerate()">✨ Generate Prompts</button>
@@ -507,6 +499,22 @@
     </div>
     <div id="hh-out-blocks" style="display:none;flex-direction:column;gap:12px;margin-top:16px"></div>
   </div>
+
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-title">📜 생성 기록 <span style="font-size:10px;color:var(--text-3);margin-left:4px">Generate 누를 때마다 자동 저장 · 이 브라우저에만 저장됨</span></div>
+      <span class="caret">▼</span>
+    </div>
+    <div class="section-body collapsed">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button onclick="clearPromptHistory()" style="padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text-3);font-size:11px;cursor:pointer">전체 삭제</button>
+      </div>
+      <div id="hh-prompt-history" style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:11px;color:var(--text-3)">아직 기록 없음 — Generate 누르면 여기 쌓임</span>
+      </div>
+    </div>
+  </div>
+
 
 </div><!-- /hiphop -->
 
