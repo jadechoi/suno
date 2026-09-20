@@ -446,7 +446,7 @@ async function applySpotifyTrack(trackId,label){
   // recommendMelodyTexture가 808/드럼도 장르+무드 룰로 다시 뽑아서 곡에서 직접 읽은 값을 덮어쓰므로, 곡 값을 그 뒤에 확정
   st._808=level;
   st.drums=drums;
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
   setAutoHint('hh-808-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+level);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
   setAutoHint('hh-drums-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+drums.join(', '));
@@ -608,7 +608,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
   if(Number.isFinite(bpm)&&bpm>0){st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;document.getElementById('hh-bpm').value=st.bpm;}
   // 808
   const level=sp808FromEnergy(af.energy);
-  st._808=level;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+  st._808=level;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
   setAutoHint('hh-808-hint','Spotify: '+level);
   // Mood
   const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
@@ -620,7 +620,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
     const auto=GENRE_AUTO[genreIdx];
     if(auto){
       st._808=auto.a808;st.drums=[...auto.aDrums];st.transitionFx=[...auto.fx];st.groove=auto.groove;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,null);
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);

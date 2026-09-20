@@ -183,6 +183,8 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
 // aiProducerReview·aiParseExternalFeedback가 같은 "현재 프롬프트 상태"를 보게 — 예전엔 리뷰는 드럼/808/그루브/스타일 박스를 못 보고,
 // 외부 피드백 파서는 현재 프롬프트를 아예 못 봐서(스키마가 언급하는 [현재 설정]·[프로듀서 레퍼런스]도 없었음) 이미 있는 걸 또 제안하거나 removeRef/melodyLead를 못 채웠음
 // 지금까지 고른 설정 요약 — 리뷰·외부 피드백·레퍼런스 추천이 같은 걸 봄. refs:false면 현재 레퍼런스는 뺌(레퍼런스를 새로 고를 땐 기존 걸 앵커로 삼으면 안 됨)
+// 808은 힙합·트랩의 저음 — 힙합 밖 장르는 사용자가 직접 골랐을 때만 씀
+function use808(){return !(GENRES[st.genre]&&GENRES[st.genre].family!=='hiphop')||!!st.b808Set;}
 function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const auto=soft&&st._mtAutoManaged!==false;   // soft: 자동 채워진 장르 기본값은 확정 값이 아니라 참고로만 보여줌
   const g=GENRES[st.genre];
@@ -195,10 +197,10 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
     `장르: ${g.kr} (${g.sound})`,
     mood?`무드: ${mood.kr}`:null,
     st.commercial?`색깔: ${st.commercial}`:null,
-    auto?`장르 기본 추천(자동으로 채워진 참고값일 뿐 — 따르지 않아도 되고, 이 곡의 의도에 맞는 악기·드럼·베이스·질감을 직접 설계해): 멜로디 ${st.melody.join(', ')||'-'} / 드럼 ${st.drums.join(', ')||'-'} / 808 ${st._808||'-'} / 그루브 ${st.groove||'-'} / 텍스처 ${st.texture.join(', ')||'-'}`:null,
+    auto?`장르 기본 추천(자동으로 채워진 참고값일 뿐 — 따르지 않아도 되고, 이 곡의 의도에 맞는 악기·드럼·베이스·질감을 직접 설계해): 멜로디 ${st.melody.join(', ')||'-'} / 드럼 ${st.drums.join(', ')||'-'} / 808 ${use808()?(st._808||'-'):'-'} / 그루브 ${st.groove||'-'} / 텍스처 ${st.texture.join(', ')||'-'}`:null,
     auto?null:(st.melody.length?`멜로디 악기: ${st.melody.join(', ')}`:'멜로디 악기 미선택'),
     auto?null:(st.drums.length?`드럼 패턴: ${st.drums.join(', ')}`:null),
-    auto?null:(st._808?`808: ${st._808}`:null),
+    auto?null:((st._808&&use808())?`808: ${st._808}`:null),
     auto?null:(st.groove?`그루브: ${st.groove}`:null),
     auto?null:(st.texture.length?`믹스 텍스처: ${st.texture.join(', ')}`:null),
     auto?null:(st.transitionFx&&st.transitionFx.length?`전환 효과: ${st.transitionFx.join(', ')}`:null),
@@ -773,8 +775,8 @@ ${ctx}`;
       chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
     }
     if(lvl808){
-      st._808=lvl808;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+      st._808=lvl808;st.b808Set=true;
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
       clearAutoHint('hh-808-hint');
     }
     if(drums.length){
@@ -918,7 +920,7 @@ function aiWriteEnabled(){
 // fpBase = 지시(directive)를 뺀 나머지 → 같으면 고쳐쓰기, 다르면 새로 쓰기
 function hhWriteFingerprints(){
   const clean=o=>JSON.stringify(o,(k,v)=>k.startsWith('_')?undefined:v);
-  const extra=[...['hh-bar-hook','hh-bar-verse','hh-bar-bridge','hh-ref-song'].map(id=>document.getElementById(id)?.value||''),antiAI];
+  const extra=[...['hh-bar-hook','hh-bar-verse','hh-bar-bridge','hh-ref-song'].map(id=>document.getElementById(id)?.value||''),antiAI,st._808];   // _808은 '_'로 시작해 변경 감지에서 빠져 있었음
   const {narrAI,narrDirs,extraTags,removedPhrases,...rest}=st;
   return {fpBase:clean([rest,extra]),fpFull:clean([rest,extra,narrAI,extraTags,removedPhrases])};
 }
@@ -987,7 +989,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   return {
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:st.keySet?KEYS[st.key]:null,bpm:st.bpmSet?st.bpm:null,
     lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
-    drums:auto?[]:[...st.drums],bass808:auto?null:st._808,vocal:hasVocal?st.vocal:null,
+    drums:auto?[]:[...st.drums],bass808:(auto||!use808())?null:st._808,vocal:hasVocal?st.vocal:null,
     transitionFx:auto?[]:[...(st.transitionFx||[])],groove:auto?null:st.groove,texture:auto?[]:[...st.texture],
     producerReference:(auto||!producerRefActive())?null:(st.refs[0]||null),
     producerSound:(!auto&&producerRefActive()&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
@@ -1539,7 +1541,7 @@ function applyBrief(){
   if(on('bpm')){st.bpm=v.bpm;st.bpmSet=true;document.getElementById('hh-bpm').value=v.bpm;}
   if(on('key')){st.key=v.key;st.keySet=true;document.getElementById('hh-key').value=v.key;}
   if(on('drums')){st.drums=[...v.drums];chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
-  if(on('808')){st._808=v.bass808;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);clearAutoHint('hh-808-hint');}
+  if(on('808')){st._808=v.bass808;st.b808Set=true;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);clearAutoHint('hh-808-hint');}
   if(on('melody')){
     let bg=v.bg;
     if(bg&&v.lead!==bg)bg=complementBg(v.lead,bg,scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null));

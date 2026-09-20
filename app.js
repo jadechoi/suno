@@ -7,6 +7,7 @@ const st={
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
   narrSt:{},narrAI:{},narrDirs:{},removedPhrases:[],structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
+  b808Set:false, // 808 강도를 사용자가 직접 골랐는지 — 808은 힙합·트랩 저음이라 다른 계열은 직접 고르기 전에는 프롬프트에 안 씀
   lyricTheme:'',lyricLang:'English', // 보컬 곡에서 AI가 쓰는 가사의 방향(비우면 무드에 맞게)과 언어
   bpmSet:false,keySet:false, // BPM·Key는 기본값이 없음 — 사용자가 직접 정했거나 레퍼런스 곡에서 가져왔을 때만 true (false면 프롬프트에 안 씀)
   brief:null, // AI가 곡명/느낌 입력에서 뽑은 소리 특징 {text,kind,understood,styleTags,cues} — 규칙 엔진·작성기·리뷰가 함께 씀
@@ -80,6 +81,7 @@ function moodGrid(container,moods,state,key,onChange){
 // HIP-HOP INIT
 // ============================================================
 // 보컬 칩을 누를 때마다(어느 경로로 그려진 칩이든) 같은 처리 — 가사 칸이 바로 나타나고 사라지게
+function on808Change(){st.b808Set=true;onRhythmManualChange();}
 function onVocalChange(){recommendVocalChar();onStructSignalChange();syncLyricBox();}
 let _lyricLangTouched=false,_lyricLangForced=false;   // 사용자가 직접 언어를 고르면 장르 선택이 언어를 바꾸지 않음
 function syncLyricBox(){
@@ -117,7 +119,8 @@ function applyUiMode(){
     const num=s.querySelector('.section-num')?.textContent.trim();
     const isTrend=/^📊/.test(s.querySelector('.section-title')?.textContent.trim()||'');
     const detail=HH_DETAIL_NUMS.includes(num)||isTrend;
-    s.style.display=(simple&&detail)?'none':'';
+    const hide808=num==='05'&&!(st.genre===null||GENRES[st.genre]?.family==='hiphop');   // 808은 힙합·트랩 저음 — 다른 계열에서는 섹션 자체를 숨김
+    s.style.display=((simple&&detail)||hide808)?'none':'';
   });
   const on='background:var(--accent);color:#fff',off='background:var(--surface-2);color:var(--text-2)';
   const bs=document.getElementById('hh-mode-simple'),bd=document.getElementById('hh-mode-detail');
@@ -166,7 +169,7 @@ function hhInit(){
 function renderHhChips(){
   renderHhGenres();
   renderBriefActive();
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
   chipGrid(document.getElementById('hh-melody'),HH_MELODY,st,'melody',2,onMelodyManualChange);
   renderMelodyRoleUI();
@@ -692,7 +695,7 @@ function recommendRhythm(){
   st._808=base>0?HH_808[Math.min(HH_808.length-1,Math.max(1,base+(MOOD_808_DELTA[st.mood]||0)))]:auto.a808;
   // bonus: 무드의 1순위 그루브에 +1 — 장르 기본값과 동점일 때(예: 하이퍼팝 타이트 vs 에너제틱의 푸시드) 조용히 장르 쪽으로 밀리지 않게
   st.groove=scorePick(HH_GROOVE,GENRE_GROOVE_TIPS,MOOD_GROOVE_FIT,st.genre,st.mood,MOOD_GROOVE_FIT[st.mood]?.slice(0,1))[0];
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
   setAutoHint('hh-808-hint','808: '+st._808);
   setAutoHint('hh-groove-hint',st.groove);
@@ -918,7 +921,7 @@ function selectGenre(i){
       st.drums=[...auto.aDrums];
       st.transitionFx=[...auto.fx];
       st.groove=auto.groove;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
@@ -928,8 +931,9 @@ function selectGenre(i){
       setAutoHint('hh-groove-hint',auto.groove);
     }
     else{
-      st._808='Balanced';st.transitionFx=[];st.groove=null;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+      st._808='Balanced';st.b808Set=false;st.transitionFx=[];st.groove=null;   // 이전 장르에서 골랐던 808도 초기화
+      setAutoHint('hh-808-hint','이 장르는 808을 기본으로 쓰지 않아요 — 직접 고르면 적용돼요');
+      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
     }
@@ -951,6 +955,7 @@ function selectGenre(i){
     st.refs=[];renderProducerRef();
   }
   renderHhGenres();
+  applyUiMode();   // 장르 계열에 따라 808 섹션 표시 여부 갱신
   const trendEl=document.getElementById('hh-genre-trends');
   if(trendEl)trendEl.querySelectorAll('[data-genre-idx]').forEach(b=>{
     b.classList.toggle('selected',+b.dataset.genreIdx===st.genre);
@@ -2119,9 +2124,9 @@ function applyAdvBPM(bpm){
   document.getElementById('hh-bpm').value=bpm;
 }
 function applyAdv808(level){
-  st._808=level;
+  st._808=level;st.b808Set=true;
   st._mtAutoManaged=false;
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);
+  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
   setAutoHint('hh-808-hint','808: '+level);
 }
 function applyAdvKey(){
@@ -2230,7 +2235,7 @@ function updateGenPending(){
 }
 function hhGenerate(source,opts){
   const isRefresh=source===false;
-  const _no808=GENRES[st.genre]&&GENRES[st.genre].family!=='hiphop'&&st._mtAutoManaged;   // 일렉 등: 808은 힙합 기본값이라 직접 고르지 않았으면 규칙 초안에도 안 씀
+  const _no808=!use808();   // 808은 힙합·트랩 저음 — 다른 계열은 직접 고르기 전에는 규칙 초안에도 안 씀
   const eff808=_no808?'None':st._808;
   if(source===undefined&&_pendingLabels.length)source=_pendingLabels.join(' + ');
   const keepSect=isRefresh?document.getElementById('hh-sect-ta')?.value:null;
@@ -2495,7 +2500,7 @@ function hhGenerate(source,opts){
   if(g)noteLines.push(`<strong>${g.en}</strong> 장르 · <em>${g.sound}</em> 사운드 · 에너지 <strong>${g.energy}</strong>`);
   noteLines.push(`조성 <strong>${keyStr}</strong> · 템포 <strong>${bpmVal} BPM</strong>`);
   if(st.melody.length)noteLines.push(`멜로디 악기: <strong>${st.melody.join(', ')}</strong>`);
-  if(st._808&&st._808!=='None')noteLines.push(`808 강도: <strong>${st._808}</strong>`);
+  if(st._808&&st._808!=='None'&&!_no808)noteLines.push(`808 강도: <strong>${st._808}</strong>`);
   if(refSong)noteLines.push(`레퍼런스: <em>${escHtml(refSong)}</em>`);
   if(antiAI)noteLines.push(`<strong>Anti-AI 필터</strong> ON — 유기적이고 인간적인 느낌 부여`);
 
@@ -2829,7 +2834,7 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.brief=null;st.lyricTheme='';st.lyricLang='English';st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
+  st.transitionFx=[];st.groove=null;st.brief=null;st.b808Set=false;st.lyricTheme='';st.lyricLang='English';st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
