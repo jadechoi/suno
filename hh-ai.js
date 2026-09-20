@@ -226,10 +226,10 @@ ${ctx}
 ${styleText||'(아직 생성 안 됨)'}
 
 [현재 생성된 섹션 프롬프트]
-${sectText||'(아직 생성 안 됨)'}${(document.getElementById('hh-lyrics-ta')?.value||'').trim()?`
+${sectText||'(아직 생성 안 됨)'}${(_hhWritten?.lyrics||'').trim()?`
 
 [현재 가사]
-${document.getElementById('hh-lyrics-ta').value.trim()}`:''}`;
+${_hhWritten.lyrics.trim()}`:''}`;
 }
 // 라운드마다 "새로 채점"하면 같은 텍스트도 ±5~10점씩 흔들리고, 피드백을 적용할수록 지적거리가 새로 생겨 점수가 내려가 보임.
 // 같은 설정에서 피드백만 적용한 재채점이면 직전 점수를 앵커로 주고, 실제로 바뀐 섹션만 근거로 올리거나 내리게 함(악화도 그대로 반영)
@@ -950,6 +950,18 @@ function editScopeFor(prev,headers){
   return [...mutable];
 }
 // 가사 칸(Lyrics box)에 쓸 섹션 헤더 — 연출 설명의 헤더에서 파생: Hook→Chorus, Instrumental 구간→[Instrumental], 이름 뒤 부제 제거
+// 가사 텍스트 → [{header,lines}] (+ 헤더 앞에 붙은 줄 수)
+function parseLyricSections(ly){
+  const secs=[];let stray=0;
+  (ly||'').split('\n').forEach(l=>{const t=l.trim();if(!t)return;if(/^\[[^\]]+\]$/.test(t))secs.push({header:t,lines:[]});else if(secs.length)secs[secs.length-1].lines.push(t);else stray++;});
+  return {secs,stray};
+}
+// Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더] → (연출 설명) → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
+function mergeLyricsAndDirection(lyrics,section){
+  const ly=parseLyricSections(lyrics).secs,se=parseSections(section);
+  if(!ly.length||ly.length!==se.length)return '';
+  return ly.map((l,i)=>[l.header,se[i].body,...l.lines].join('\n')).join('\n\n');
+}
 function lyricHeaders(structure){
   return structure.map(s=>{
     const m=s.header.match(/^\[(Instrumental )?(Intro|Hook|Verse|Bridge|Outro)(?: (\d+))?/i);
@@ -967,7 +979,8 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const secs=parseSections(draftSect);
   const w={intro:1,hook:1.3,verse:1.1,bridge:0.9,outro:1};
   const wsum=secs.reduce((s,x)=>s+(w[x.type]||1),0)||1;
-  const budget=Math.floor(WRITE_LIMITS.section*0.92);
+  const secLimit=hasVocal?WRITE_LIMITS.sectionVocal:WRITE_LIMITS.section;   // 보컬 곡은 Lyrics 칸(5000자)을 연출 설명과 가사가 나눠 씀
+  const budget=Math.floor(secLimit*0.92);
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:Math.floor(budget*(w[s.type]||1)/wsum*1.25)}));
   const styleTags=(draftStyle||'').split(', ');
   const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',st.keySet?`Key of ${KEYS[st.key]}`:null,st.bpmSet?`${st.bpm} BPM`:null,(g?g.tag:null)].filter(Boolean);
@@ -982,7 +995,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,styleTagsInDraft:styleTags.length,
-    limits:{sectionTotal:WRITE_LIMITS.section,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
+    limits:{sectionTotal:secLimit,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
     removedPhrases:[...(st.removedPhrases||[])],
     hookRhythm:(()=>{const hs=secs.filter(s=>s.type==='hook');const R=['정박 위주의 안정된 메인 패턴(변주 없이 그루브를 각인)','오프비트 싱코페이션·고스트 노트로 리듬 결이 달라짐','매 마디 필인·롤 가속으로 가장 촘촘하고 꽉 참'];return hs.map((s,i)=>({header:s.header,role:hs.length===1?R[0]:(i===hs.length-1?R[2]:R[Math.min(i,1)])}));})(),
     prevLength:prev?prev.section.length:null,
@@ -1006,7 +1019,7 @@ function validateWritten(spec,section,style,opts){
     if(sp.bars&&!s.body.startsWith(`(${sp.bars} Bars: `))errors.push(`${s.header} 본문은 "(${sp.bars} Bars: "로 시작해야 함`);
     if(s.body.length>sp.maxChars*1.4)errors.push(`${s.header} 너무 김(${s.body.length}자, 권장 ≤${sp.maxChars}자)`);
   });
-  if(section.length>spec.limits.sectionTotal)errors.push(`섹션 프롬프트 총 ${section.length}자 — ${WRITE_LIMITS.section}자 이하여야 함`);
+  if(section.length>spec.limits.sectionTotal)errors.push(`${spec.lyrics?'연출 설명':'섹션 프롬프트'} 총 ${section.length}자 — ${spec.limits.sectionTotal}자 이하여야 함`);
   // 고쳐쓰기에서 조언을 반영할 때 이전보다 길어지면 라운드마다 부풀어서 'Suno 파싱 적합'이 깎임 — 낡은/겹치는 문구를 빼서 총량을 유지
   if(spec.prevLength&&section.length>spec.prevLength*1.08+60)errors.push(`이전 결과(${spec.prevLength}자)보다 8% 넘게 길어짐(${section.length}자) — 지시를 반영하면서 겹치거나 낡은 문구를 삭제해 총량을 유지할 것`);
   if(spec.mutableHeaders&&spec.prevSections&&secs.length===spec.prevSections.length){
@@ -1070,8 +1083,9 @@ function validateWritten(spec,section,style,opts){
     const ly=((opts&&opts.lyrics)||'').trim();
     if(!ly)errors.push('<lyrics> 가사가 비어 있음');
     else{
-      const secsL=[];let stray=0;
-      ly.split('\n').forEach(l=>{const t=l.trim();if(!t)return;if(/^\[[^\]]+\]$/.test(t))secsL.push({header:t,lines:[]});else if(secsL.length)secsL[secsL.length-1].lines.push(t);else stray++;});
+      const {secs:secsL,stray}=parseLyricSections(ly);
+      if(ly.length>1800)errors.push(`가사가 ${ly.length}자 — 1,800자 이하로 (연출 설명과 합쳐 Lyrics 칸 5,000자 안에 들어가야 함)`);
+      {const merged=mergeLyricsAndDirection(ly,section);if(merged&&merged.length>4950)errors.push(`연출 설명과 합친 Lyrics 칸 텍스트가 ${merged.length}자 — 4,950자 이하로 (연출 설명이나 가사를 줄일 것)`);}
       const want=spec.lyrics.headers;
       if(stray||secsL.length!==want.length||secsL.some((s,i)=>s.header!==want[i]))errors.push(`가사 헤더/순서가 명세와 다름(헤더 앞에 다른 줄이 있어도 안 됨). 정확히 이 순서·문구: ${want.join(' | ')}`);
       else secsL.forEach(s=>{
@@ -1185,7 +1199,7 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
 
 [가사 작성 — 명세의 lyrics가 null이 아닐 때(보컬 곡)]
-- 출력 맨 앞에 <lyrics>…</lyrics> 블록을 추가해(그 뒤에 <section>, <style>). 이 블록이 Suno의 Lyrics 칸에 그대로 들어가는 진짜 가사야. <section>은 가사와 별개인 "섹션별 연출 설명(참고용)"이고 지금까지처럼 써.
+- 출력 맨 앞에 <lyrics>…</lyrics> 블록을 추가해(그 뒤에 <section>, <style>). 이 블록이 Suno의 Lyrics 칸에 그대로 들어가는 진짜 가사야. <section>은 각 섹션의 연출 설명이고, 앱이 섹션마다 [가사 헤더] → (연출 설명) → 가사 줄로 합쳐서 Suno의 Lyrics 칸에 넣어. 그래서 보컬 곡의 연출 설명은 전체 3,000자 이하로 더 짧게, 가사는 1,800자 이하로 써(합쳐서 5,000자 안).
 - 언어는 명세 lyrics.lang. 주제·느낌은 lyrics.theme가 있으면 그걸 가장 우선해서 살려 쓰고, 없으면 무드·곡 분석·장르에서 이 곡에 어울리는 구체적인 이야기·장면·감정을 네가 정해. 무드와 어울리는 이미지·어휘로 일관되게 써.
 - 형식: lyrics.headers를 순서·글자 그대로 헤더 줄로 쓰고 그 아래에 가사 줄. [Verse]는 벌스 가사 8~12줄, [Chorus]는 후렴 4~6줄, [Intro]/[Outro]는 없거나 1~2줄, [Instrumental]은 헤더만(가사 없음).
 - 한 줄은 짧게(영어 5~12음절, 한국어 7~15자). 보컬이 랩(Full rap feature)이면 벌스를 12~16줄로 촘촘하고 리듬감 있게, 노래(Sung lead vocal, Heavy hooks)면 멜로디에 얹기 좋게 짧고 반복적으로.
@@ -1327,7 +1341,7 @@ async function hhAiWrite(entryId){
           if(token!==_writeToken)return;
           const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i),lm=txt.match(/<lyrics>([\s\S]*?)(?:<\/lyrics>|$)/i);
           const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta'),la=document.getElementById('hh-lyrics-ta');
-          if(lm&&la)la.value=lm[1].trim();
+          if(lm&&la)la.value=lm[1].trim();   // 스트리밍 중에는 가사만 보이다가, 끝나면 연출 설명과 합친 텍스트로 교체
           if(sm&&ta)ta.value=sm[1].trim();
           if(tm&&sa)sa.value=tm[1].trim().replace(/\s*\n\s*/g,' ');
           updateWriteCounters();
@@ -1348,7 +1362,9 @@ async function hhAiWrite(entryId){
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=result.section;
         if(sa)sa.value=result.style;
-        {const la=document.getElementById('hh-lyrics-ta');if(la&&result.lyrics)la.value=result.lyrics;}
+        {const la=document.getElementById('hh-lyrics-ta'),lo=document.getElementById('hh-lyrics-only-ta');
+          if(la&&result.lyrics)la.value=mergeLyricsAndDirection(result.lyrics,result.section)||result.lyrics;
+          if(lo)lo.value=result.lyrics||'';}
         updateWriteCounters();
         updatePromptHistoryTexts(entryId,result.section,result.style,result.lyrics);
       }else{
