@@ -7,6 +7,7 @@ const st={
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
   narrSt:{},narrAI:{},narrDirs:{},removedPhrases:[],structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
+  bpmSet:false,keySet:false, // BPM·Key는 기본값이 없음 — 사용자가 직접 정했거나 레퍼런스 곡에서 가져왔을 때만 true (false면 프롬프트에 안 씀)
   brief:null, // AI가 곡명/느낌 입력에서 뽑은 소리 특징 {text,kind,understood,styleTags,cues} — 규칙 엔진·작성기·리뷰가 함께 씀
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
@@ -88,7 +89,7 @@ function hhInit(){
     el.style.color=p.color;
     el.onclick=()=>{
       if(st.genre!==p.genre)selectGenre(p.genre);   // 808·드럼·멜로디 등 장르별 자동 추천도 같이 채움 (예전엔 장르/BPM/Key만 바뀌고 나머지는 비어 있었음)
-      st.bpm=p.bpm;st.key=p.key;
+      st.bpm=p.bpm;st.key=p.key;st.bpmSet=true;st.keySet=true;   // 빠른 시작 프리셋은 사용자가 BPM·Key까지 고른 것
       document.getElementById('hh-bpm').value=p.bpm;
       document.getElementById('hh-key').value=p.key;
       renderHhGenres();
@@ -101,11 +102,11 @@ function hhInit(){
   KEYS.forEach((k,i)=>{
     const opt=document.createElement('option');
     opt.value=i;opt.textContent=k;
-    if(i===st.key)opt.selected=true;
+    if(st.keySet&&i===st.key)opt.selected=true;
     keyEl.appendChild(opt);
   });
-  keyEl.onchange=()=>{st.key=parseInt(keyEl.value);};
-  document.getElementById('hh-bpm').oninput=e=>{st.bpm=parseInt(e.target.value)||140;};
+  keyEl.onchange=()=>{st.keySet=keyEl.value!=='';st.key=st.keySet?parseInt(keyEl.value):7;};
+  document.getElementById('hh-bpm').oninput=e=>{const n=parseInt(e.target.value);st.bpmSet=!!n;st.bpm=n||(GENRES[st.genre]?.bpm||140);};
 
   renderHhChips();
   renderArtists('hh-artists-typeBeat',HH_ARTISTS,'hh');
@@ -825,8 +826,8 @@ function selectGenre(i){
   st.genre=deselect?null:i;
   _aiSuggestions=null;
   if(st.genre!==null){
-    st.bpm=GENRES[i].bpm;
-    document.getElementById('hh-bpm').value=st.bpm;
+    if(!st.bpmSet){st.bpm=GENRES[i].bpm;}   // 내부 계산용 값일 뿐 — 프롬프트에는 사용자가 정하기 전까지 안 씀
+    {const be=document.getElementById('hh-bpm');if(be&&!st.bpmSet)be.placeholder=`직접 입력 (이 장르는 보통 ${GENRES[i].bpmR[0]}–${GENRES[i].bpmR[1]})`;}
     renderGenreRefSuggestions(i);
     // 808·드럼·전환효과 자동 추천 적용
     const auto=GENRE_AUTO[i];
@@ -1037,10 +1038,10 @@ function setHHMode(mode){
 function applyArtistSong(tabKey,song,artist){
   if(tabKey==='hh'){
     if(song.genre!==undefined)st.genre=song.genre;
-    if(song.bpm)st.bpm=song.bpm;
-    if(song.key!==undefined)st.key=song.key;
-    document.getElementById('hh-bpm').value=st.bpm;
-    document.getElementById('hh-key').value=st.key;
+    if(song.bpm){st.bpm=song.bpm;st.bpmSet=true;}
+    if(song.key!==undefined){st.key=song.key;st.keySet=true;}
+    if(st.bpmSet)document.getElementById('hh-bpm').value=st.bpm;
+    if(st.keySet)document.getElementById('hh-key').value=st.key;
     // 레퍼런스 곡 자동 입력
     const refEl=document.getElementById('hh-ref-song');
     if(refEl&&artist&&song.title)refEl.value=`${artist.name} - ${song.title}`;
@@ -1577,7 +1578,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   const bH=+(document.getElementById('hh-bar-hook')?.value||8);
   const bV=+(document.getElementById('hh-bar-verse')?.value||12);
   const bB=+(document.getElementById('hh-bar-bridge')?.value||4);
-  const keyName=keyStr||'minor key';
+  const keyIn=keyStr?` in ${keyStr}`:'';   // Key를 정하지 않았으면 아예 안 씀
   // 808을 'None'으로 고르면(예: Conscious Hip Hop — 진짜 808 없는 장르) 스타일 태그엔 808 언급이 안 들어가는데
   // 섹션 텍스트는 무조건 "booming 808 bass"라고 못박혀 있어서 직접 모순이 남 — 실측 확인. 808 없는 장르는
   // g.instr에 실제 저음 악기(live bass 등)가 있으니 그걸 대신 씀
@@ -1749,13 +1750,13 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       const fxOpen=(st.transitionFx&&st.transitionFx.length)?(TRANSITION_FX_TAG[st.transitionFx[0]]||st.transitionFx[0]):'impact crash hit';
       if(hasVocal){
         introVibe='the immediate vocal entrance';
-        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately in ${keyName}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Cold open — ${eDesc} and ${dDesc} hit immediately${keyIn}, ${melodyRef('intro')}, ${st.vocal.toLowerCase()} enter within the first beat, ${vocalDesc}, no build-up, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else if(lowEnergy){
         introVibe='the mood-first, minimal-build opening';
-        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1 in ${keyName}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Immediate mood set — ${melodyRef('intro')} defines the tone from bar 1${keyIn}, ${grooveTag}, minimal build, ${eDesc} enters within the first bar, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
       } else {
         introVibe=`the ${fxOpen} cold open`;
-        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} ${dyn.entry||'slam in immediately'} in ${keyName}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
+        lines.push(`(Cold open — ${fxOpen}, then ${eDesc} and ${dDesc} ${dyn.entry||'slam in immediately'}${keyIn}, ${melodyRef('intro')}, full groove from bar 1, no intro build-up, ${spaceArc('intro')}${bcS('intro')}${aiNote('intro')+manualNote('인트로')})`);
       }
     } else if(type==='hook'){
       cnt.hook++;
@@ -1836,7 +1837,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
       // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
-      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone in ${keyName}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${bcS('outro')}${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
+      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone${keyIn}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${bcS('outro')}${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
@@ -2068,7 +2069,7 @@ function buildProducerAdvice(g,st,mood,bpmVal,keyStr){
 // PRODUCER ADVICE — APPLY ACTIONS
 // ============================================================
 function applyAdvBPM(bpm){
-  st.bpm=bpm;
+  st.bpm=bpm;st.bpmSet=true;
   document.getElementById('hh-bpm').value=bpm;
 }
 function applyAdv808(level){
@@ -2078,7 +2079,7 @@ function applyAdv808(level){
   setAutoHint('hh-808-hint','808: '+level);
 }
 function applyAdvKey(){
-  st.key=7; // A minor
+  st.key=7;st.keySet=true; // A minor
   document.getElementById('hh-key').value=7;
 }
 function applyAdvMelody(melStr){
@@ -2190,10 +2191,10 @@ function hhGenerate(source,opts){
   // ① 선택 내용 요약
   const summaryRows=[];
   if(refSong)summaryRows.push(['🎵 레퍼런스 곡',refSong]);
-  summaryRows.push(['🎹 키',keyStr]);
+  if(st.keySet)summaryRows.push(['🎹 키',keyStr]);
   summaryRows.push(['🛡 AI 티 방지',antiAI?'ON':'OFF']);
   if(g)summaryRows.push(['🎛 서브장르',g.en]);
-  summaryRows.push(['🥁 템포',bpmVal+' BPM']);
+  summaryRows.push(['🥁 템포',st.bpmSet?bpmVal+' BPM':'미지정 (Suno가 정함)']);
   summaryRows.push(['🔊 808',st._808||'Balanced']);
   if(st.drums.length)summaryRows.push(['🥁 드럼 패턴',st.drums.join(', ')]);
   if(st.melody.length)summaryRows.push(['🎵 멜로디',st.melody.join(', ')]);
@@ -2224,7 +2225,7 @@ function hhGenerate(source,opts){
 
   // ② 섹션 프롬프트
   let sectText=buildHHSectionPrompt(
-    g?g.tag:'trap',moodIdx,keyStr,bpmVal,st._808,
+    g?g.tag:'trap',moodIdx,st.keySet?keyStr:'',bpmVal,st._808,
     st.drums.length?st.drums:null,st.melody,st.region
   );
   sectText=applyRemovedPhrases(sectText);
@@ -2320,8 +2321,8 @@ function hhGenerate(source,opts){
     const vocalBits=[VOCAL_CHAR_TAG[st.vocalChar],VOCAL_STYLE_TAG[st.vocalStyle],st.vocal.toLowerCase(),g?.vocalSig].filter(Boolean);
     tags.push(vocalBits.join(' '));
   }
-  tags.push(`Key of ${keyStr}`);
-  tags.push(`${bpmVal} BPM`);
+  if(st.keySet)tags.push(`Key of ${keyStr}`);
+  if(st.bpmSet)tags.push(`${bpmVal} BPM`);
   if(st.texture.length){
     const nuanceTexture=mood&&pickFreshNuance(MOOD_TEXTURE_NUANCE[mood.kr],usedW);
     tags.push(`${st.texture.map(t=>t.toLowerCase()).join(' & ')}${nuanceTexture?' '+nuanceTexture:''}`);
@@ -2378,7 +2379,7 @@ function hhGenerate(source,opts){
   else if(bpmVal<170)tempoDesc='155–169: 레이지 · 하이퍼트랩 템포';
   else tempoDesc='170+: 하이퍼팝 · 익스트림 템포';
   container.appendChild(makeOutBlock('④ BPM & 템포',
-    `<div style="text-align:center;padding:16px 0"><div style="font-size:48px;font-weight:700;font-family:'Space Mono',monospace;color:var(--accent);line-height:1.1">${bpmVal}</div><div style="font-size:11px;color:var(--text-2);margin-top:6px">BPM · ${tempoDesc}</div></div>`,
+    `<div style="text-align:center;padding:16px 0"><div style="font-size:48px;font-weight:700;font-family:'Space Mono',monospace;color:var(--accent);line-height:1.1">${st.bpmSet?bpmVal:'미지정'}</div><div style="font-size:11px;color:var(--text-2);margin-top:6px">${st.bpmSet?`BPM · ${tempoDesc}`:'BPM을 정하지 않았어요 — 프롬프트에 안 넣고 Suno가 정해요'}</div></div>`,
     null,'#F97316'));
 
   // ⑤ 멜로디 악기 구성
@@ -2661,9 +2662,9 @@ function restorePromptHistoryEntry(id){
   Object.keys(st).forEach(k=>delete st[k]);
   Object.assign(st,entry.stSnapshot);
   const bpmEl=document.getElementById('hh-bpm');
-  if(bpmEl)bpmEl.value=st.bpm;
+  if(bpmEl)bpmEl.value=st.bpmSet?st.bpm:'';
   const keyEl=document.getElementById('hh-key');
-  if(keyEl)keyEl.value=st.key;
+  if(keyEl)keyEl.value=st.keySet?st.key:'';
   const refEl=document.getElementById('hh-ref-song');
   if(refEl)refEl.value=entry.refSong||'';
   _aiSuggestions=null;
@@ -2736,7 +2737,7 @@ function renderPromptHistory(){
 
 function hhReset(){
   _aiSuggestions=null;
-  st.genre=null;st.key=7;st.bpm=140;
+  st.genre=null;st.key=7;st.bpm=140;st.bpmSet=false;st.keySet=false;
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
@@ -2745,8 +2746,8 @@ function hhReset(){
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';
   {const b=document.getElementById('hh-brief');if(b)b.value='';_briefProposal=null;const r=document.getElementById('hh-brief-result');if(r)r.hidden=true;}
-  document.getElementById('hh-bpm').value=140;
-  document.getElementById('hh-key').value=7;
+  document.getElementById('hh-bpm').value='';document.getElementById('hh-bpm').placeholder='직접 입력';
+  document.getElementById('hh-key').value='';
   const outBlocks=document.getElementById('hh-out-blocks');
   if(outBlocks){outBlocks.style.display='none';outBlocks.innerHTML='';}
   clearAutoHint('hh-melody-hint');

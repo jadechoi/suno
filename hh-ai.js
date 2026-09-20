@@ -210,7 +210,7 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
     st.extraTags.length?`이미 추가된 스타일 태그: ${st.extraTags.join(', ')}`:null,
     st.length?`목표 길이: ${st.length}`:null,
     structure?`구조: ${st.structSegs.join(' → ')}`:null,
-    `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
+    `BPM ${st.bpmSet?st.bpm:'미지정(프롬프트에 쓰지 않음)'} / Key ${st.keySet?KEYS[st.key]:'미지정(프롬프트에 쓰지 않음)'}`,
     antiAI?'Anti-AI 필터 ON — 사용자가 "AI 티 안 나고 사람이 만든 것 같은" 결과를 원함':null,
   ].filter(Boolean).join('\n');
 }
@@ -675,7 +675,7 @@ async function aiRecommendMelodyTexture(){
       st.commercial?`색깔: ${st.commercial}`:null,
       st.density?`밀도: ${st.density}`:null,
       st.length?`목표 길이: ${st.length}`:null,
-      `BPM ${st.bpm} / Key ${KEYS[st.key]}`,
+      `BPM ${st.bpmSet?st.bpm:'미지정(프롬프트에 쓰지 않음)'} / Key ${st.keySet?KEYS[st.key]:'미지정(프롬프트에 쓰지 않음)'}`,
     ].filter(Boolean).join('\n');
     const staticText=`너는 힙합 비트 프로듀서야. 아래 선택된 요소들을 보고, 이 비트에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 808과 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
@@ -955,9 +955,9 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const budget=Math.floor(WRITE_LIMITS.section*0.92);
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:Math.floor(budget*(w[s.type]||1)/wsum*1.25)}));
   const styleTags=(draftStyle||'').split(', ');
-  const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',`Key of ${KEYS[st.key]}`,`${st.bpm} BPM`,(g?g.tag:null)].filter(Boolean);
+  const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',st.keySet?`Key of ${KEYS[st.key]}`:null,st.bpmSet?`${st.bpm} BPM`:null,(g?g.tag:null)].filter(Boolean);
   return {
-    genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:KEYS[st.key],bpm:st.bpm,
+    genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:st.keySet?KEYS[st.key]:null,bpm:st.bpmSet?st.bpm:null,
     lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
     drums:auto?[]:[...st.drums],bass808:auto?null:st._808,vocal:hasVocal?st.vocal:null,
     transitionFx:auto?[]:[...(st.transitionFx||[])],groove:auto?null:st.groove,texture:auto?[]:[...st.texture],
@@ -1061,6 +1061,9 @@ const WRITE_STATIC=`너는 힙합·클럽 음악 프로듀서이자 Suno AI 프�
 - 훅: 에너지 단어 + 리드가 얼마나 캐치한지("catchy bright synth lead") + 핵심 리듬·베이스를 앞에. 그 뒤에 질감·그루브 결·인간적 불완전함을 얹어.
 - 무보컬 벌스: 랩/멜로디가 들어올 자리를 남기는 표현("wide open pocket for rhythmic rap", "leaving space for a top-line melody", "leaving maximum space for the artist") — 단, 'vocal' 단어는 쓰지 마.
 - 스타일과 섹션 모두 "상업적 매력"과 "질감·디테일" 중 하나만 있으면 안 돼 — 둘을 같이.
+
+[BPM·Key]
+- 명세의 bpm·key가 null이면 사용자가 정하지 않은 거야 — 스타일과 섹션 어디에도 BPM 숫자나 Key("in A minor" 등)를 쓰지 마. 값이 있으면 그대로 정확히 써.
 
 [출력 형식 — 예시 프롬프트의 모양보다 이 규칙이 우선]
 - <section>…</section><style>…</style> 두 블록만. 섹션은 명세 structure의 순서·헤더를 글자 그대로 쓰고, 각 헤더 바로 다음 줄에 본문을 괄호로 감싼 한 줄로: 마디 수(bars)가 있는 섹션은 "(N Bars: 키워드, 키워드, …)", 마디 수가 없는 인트로/아웃트로는 "(키워드, …)".
@@ -1247,6 +1250,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
 - vocalChar: 보컬 녹음 질감 목록 중 하나(속삭임·친밀한 곡은 드라이/클로즈 계열).
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
+- bpm·key: 곡명(kind="song")일 때만 그 곡의 실제 BPM과 Key를 써 (정확히 모르면 bpm은 0, key는 빈 문자열). 느낌 설명(kind="vibe")이면 bpm은 0, key는 빈 문자열 — 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
 {"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","bpm":0,"key":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
 // 분석 프롬프트에 붙는 선택지 목록 (AI 분석·Gemini 요청문 공용)
@@ -1320,8 +1324,11 @@ function buildBriefProposal(text,p){
   const add=(id,label,val,show)=>{if(val)items.push({id,label,text:show,on:true});};
   add('mood','무드',v.mood,v.mood);
   add('genre','장르',v.genre>=0,v.genre>=0?`${GENRES[v.genre].kr} — ${GENRE_FEEL[v.genre]||''}`:'');
-  add('bpm','BPM',v.bpm,`${v.bpm} BPM`);
-  add('key','Key',v.key>=0,v.key>=0?KEYS[v.key]:'');
+  // BPM·Key는 곡명(song)일 때만 그 곡의 실제 값으로 제안 — 느낌 설명(vibe)이면 사용자가 직접 정함
+  if(p.kind==='song'){
+    add('bpm','BPM (곡에서)',v.bpm,`${v.bpm} BPM — 곡의 실제 값과 다르면 체크를 빼고 직접 입력하세요`);
+    add('key','Key (곡에서)',v.key>=0,v.key>=0?`${KEYS[v.key]} — 곡의 실제 값과 다르면 체크를 빼고 직접 고르세요`:'');
+  }
   add('drums','드럼',v.drums.length,v.drums.join(', '));
   add('808','808',v.bass808,v.bass808);
   add('melody','멜로디',v.lead,[v.lead,v.bg].filter(Boolean).join(' + '));
@@ -1358,8 +1365,8 @@ function applyBrief(){
   if(on('mood')){st.mood=v.mood;moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);}
   if(on('genre')&&st.genre!==v.genre)selectGenre(v.genre);
   else if(on('mood'))onMoodChange();
-  if(on('bpm')){st.bpm=v.bpm;document.getElementById('hh-bpm').value=v.bpm;}
-  if(on('key')){st.key=v.key;document.getElementById('hh-key').value=v.key;}
+  if(on('bpm')){st.bpm=v.bpm;st.bpmSet=true;document.getElementById('hh-bpm').value=v.bpm;}
+  if(on('key')){st.key=v.key;st.keySet=true;document.getElementById('hh-key').value=v.key;}
   if(on('drums')){st.drums=[...v.drums];chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
   if(on('808')){st._808=v.bass808;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,onRhythmManualChange);clearAutoHint('hh-808-hint');}
   if(on('melody')){

@@ -424,12 +424,12 @@ async function applySpotifyTrack(trackId,label){
   st.refAf=af; // store for arrange direction generation
   // Key
   const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
-  if(keyIdx!=null){st.key=keyIdx;document.getElementById('hh-key').value=keyIdx;}
+  if(keyIdx!=null){st.key=keyIdx;st.keySet=true;document.getElementById('hh-key').value=keyIdx;}
   // BPM (일부 곡은 실제의 2배로 인식 — 에너지 낮으면 절반)
   let bpm=Math.round(af.tempo);
   if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
   if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  st.bpm=Math.min(220,Math.max(60,bpm));
+  st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;
   document.getElementById('hh-bpm').value=st.bpm;
   // 808
   const level=af._808||sp808FromEnergy(af.energy);
@@ -576,12 +576,12 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
   st.refAf=af; // store for arrange direction generation
   // Key
   const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
-  if(keyIdx!=null){st.key=keyIdx;document.getElementById('hh-key').value=keyIdx;}
+  if(keyIdx!=null){st.key=keyIdx;st.keySet=true;document.getElementById('hh-key').value=keyIdx;}
   // BPM
   let bpm=Math.round(af.tempo);
   if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
   if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  st.bpm=Math.min(220,Math.max(60,bpm));
+  st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;
   document.getElementById('hh-bpm').value=st.bpm;
   // 808
   const level=sp808FromEnergy(af.energy);

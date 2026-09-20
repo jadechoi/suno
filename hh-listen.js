@@ -36,7 +36,7 @@ function listenChecklist(){
   items.push(hasVocal
     ?{id:'vocal',q:'사람 목소리(노래·랩)가 곡에서 또렷하게 들리나요?',expect:'yes',bad:'보컬이 요청대로 또렷하게 나오지 않는다'}
     :{id:'vocal',q:'사람 목소리(노래·랩)가 들리나요? (안 들려야 정상이에요)',expect:'no',bad:'무보컬로 요청했는데 사람 목소리나 보컬 같은 소리가 나왔다'});
-  items.push({id:'tempo',q:`곡이 ${tempo} 느낌인가요? (${bpm} BPM)`,expect:'yes',bad:`템포가 ${bpm} BPM(${tempo}) 느낌과 다르게 들린다`});
+  if(st.bpmSet)items.push({id:'tempo',q:`곡이 ${tempo} 느낌인가요? (${bpm} BPM)`,expect:'yes',bad:`템포가 ${bpm} BPM(${tempo}) 느낌과 다르게 들린다`});
   if(lead)items.push({id:'lead',q:`${INSTR_PLAIN[lead]||lead}${josaIGa(INSTR_PLAIN[lead]||lead)} 곡 초반부터 또렷하게 들리나요?`,expect:'yes',bad:`리드 악기(${lead})가 잘 안 들리거나 다른 소리에 묻힌다`});
   const d0=st.drums[0];
   if(d0)items.push({id:'drum',q:`${DRUM_PLAIN[d0]||d0}${josaIGa(DRUM_PLAIN[d0]||d0)} 들리나요?`,expect:'yes',bad:`메인 드럼(${d0}) 소리가 안 들리거나 약하다`});
