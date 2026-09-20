@@ -2181,6 +2181,12 @@ function hhGenerate(source,opts){
   container.style.display='flex';
   container.innerHTML='';
 
+  if(refSongNeedsDna()){
+    const bn=document.createElement('div');
+    bn.style.cssText='padding:10px 12px;border-radius:var(--r);border:1px solid #F59E0B;background:rgba(245,158,11,.1);font-size:12px;color:var(--text-1);line-height:1.7';
+    bn.innerHTML=`🎵 레퍼런스 곡 <b>${escHtml(refSong)}</b>은 아직 프롬프트에 <b>반영되지 않았어요</b> — 지금은 고른 장르의 기본값으로만 만들어져요.<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="analyzeRefSongFromBanner()" style="padding:5px 12px;border-radius:14px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer">🤖 AI로 분석해서 반영</button><button onclick="openGeminiBrief()" style="padding:5px 12px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">🎧 Gemini로 정확하게 분석</button></div>`;
+    container.appendChild(bn);
+  }
   // ① 선택 내용 요약
   const summaryRows=[];
   if(refSong)summaryRows.push(['🎵 레퍼런스 곡',refSong]);

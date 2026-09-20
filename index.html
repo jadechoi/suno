@@ -144,6 +144,12 @@
         <button id="hh-brief-btn" onclick="aiAnalyzeBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🤖 AI로 분석·추천</button>
         <span style="font-size:11px;color:var(--text-3)">장르를 몰라도 돼요 — 곡명이든 "이런 느낌" 설명이든 OK. 결과를 확인하고 원하는 것만 적용해요.</span>
       </div>
+      <details id="hh-brief-gemini" style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎧 더 정확하게: Gemini가 곡을 듣고 분석하게 하기 (참고 곡이 있을 때 추천)</summary>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-2);line-height:1.8">AI가 곡을 기억만으로 분석하면 매번 결과가 달라질 수 있어요. 오디오를 듣는 AI는 실제 소리로 분석해서 훨씬 정확합니다.<br>① 참고 곡 파일(mp3)을 Gemini에 올리기 → ② 아래 <b>요청문 복사</b>를 눌러 붙여넣기 → ③ Gemini가 준 <b>{ … } JSON</b>을 아래 칸에 붙여넣고 <b>분석 적용</b><div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="copyGeminiBriefRequest(this)" style="padding:5px 12px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">📋 Gemini 요청문 복사</button></div>
+        <textarea id="hh-brief-json" rows="4" style="width:100%;box-sizing:border-box;margin-top:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Mono',monospace;font-size:11px;padding:8px 10px" placeholder='Gemini가 준 { "kind": "song", ... } 를 여기에 붙여넣기'></textarea>
+        <button onclick="applyBriefJson()" style="margin-top:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🔧 분석 적용</button></div>
+      </details>
       <div id="hh-brief-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
       <div id="hh-brief-result" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2)"></div>
       <div id="hh-brief-active" hidden style="margin-top:10px;font-size:11px;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-3);color:var(--text-2)"></div>

@@ -1242,6 +1242,23 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
 {"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","bpm":0,"key":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+// 분석 프롬프트에 붙는 선택지 목록 (AI 분석·Gemini 요청문 공용)
+function briefOptionsText(){
+  return `[선택지]
+장르(en — 느낌):
+${GENRES.map((g,i)=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
+무드: ${HH_MOODS.map(m=>m.kr).join(' | ')}
+드럼: ${HH_DRUMS.join(' | ')}
+808: ${HH_808.join(' | ')}
+멜로디 악기: ${HH_MELODY.join(' | ')}
+텍스처: ${HH_TEXTURE.join(' | ')}
+밀도: ${HH_DENSITY.join(' | ')}
+보컬: ${HH_VOCAL.join(' | ')}
+보컬 스타일: ${HH_VOCAL_STYLE.join(' | ')}
+보컬 질감(vocalChar): ${HH_VOCAL_CHAR.join(' | ')}
+프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}
+Key: ${KEYS.join(' | ')}`;
+}
 async function aiAnalyzeBrief(){
   const key=getAnthropicKey();
   const text=(document.getElementById('hh-brief')?.value||'').trim();
@@ -1258,20 +1275,8 @@ async function aiAnalyzeBrief(){
 [사용자 입력]
 ${text}
 
-[선택지]
-장르(en — 느낌):
-${GENRES.map((g,i)=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
-무드: ${HH_MOODS.map(m=>m.kr).join(' | ')}
-드럼: ${HH_DRUMS.join(' | ')}
-808: ${HH_808.join(' | ')}
-멜로디 악기: ${HH_MELODY.join(' | ')}
-텍스처: ${HH_TEXTURE.join(' | ')}
-밀도: ${HH_DENSITY.join(' | ')}
-보컬: ${HH_VOCAL.join(' | ')}
-보컬 스타일: ${HH_VOCAL_STYLE.join(' | ')}
-보컬 질감(vocalChar): ${HH_VOCAL_CHAR.join(' | ')}
-프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}
-Key: ${KEYS.join(' | ')}`;
+${briefOptionsText()}`;
+
     const raw=await callAnthropic(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText,think:false});
     const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     _briefProposal=buildBriefProposal(text,p);
@@ -1375,7 +1380,7 @@ function applyBrief(){
     onStructSignalChange();
   }
   if(on('producer')){st.refs=v.producer?[v.producer]:[];renderProducerRef();clearAutoHint('hh-ref-hint');}
-  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues}:null;
+  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai'}:null;
   if(P.kind==='song'){const r=document.getElementById('hh-ref-song');if(r)r.value=P.text;}
   _briefProposal=null;
   const box=document.getElementById('hh-brief-result');if(box)box.hidden=true;
@@ -1397,4 +1402,47 @@ function clearBrief(){
   st.brief=null;
   renderBriefActive();
   if(document.getElementById('hh-out-blocks')?.style.display==='flex')hhGenerate('소리 특징 해제');
+}
+
+// ============================================================
+// 곡을 실제로 듣는 AI(예: Gemini)에게 분석시키기 — AI가 곡을 기억으로 분석하면 매번 결과가 달라서(같은 곡이 하이퍼팝 / 저지클럽으로 갈림), 오디오를 듣는 쪽에 맡기고 결과 JSON만 받는다
+// ============================================================
+function geminiBriefRequestText(){
+  return `첨부한 오디오는 내가 Suno AI로 비슷한 느낌의 곡을 만들고 싶어서 고른 참고 곡이야. 곡 제목이나 아티스트를 추측하지 말고, 실제로 들리는 소리만 근거로 분석해줘. kind는 항상 "song"으로 써.
+
+${BRIEF_STATIC}
+
+${briefOptionsText()}`;
+}
+function copyGeminiBriefRequest(btn){
+  navigator.clipboard.writeText(geminiBriefRequestText()).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
+}
+// Gemini가 돌려준 JSON을 붙여넣으면 AI 분석과 같은 추천 카드로
+function applyBriefJson(){
+  const statusEl=document.getElementById('hh-brief-status');
+  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
+  const raw=(document.getElementById('hh-brief-json')?.value||'').trim();
+  if(!raw){fail('Gemini가 준 JSON을 붙여넣어 주세요');return;}
+  try{
+    const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    const label=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim()||'(오디오 분석)';
+    _briefProposal=buildBriefProposal(label,{...p,kind:'song'});_briefProposal.source='audio';
+    if(statusEl)statusEl.hidden=true;
+    renderBriefResult();
+  }catch(e){fail('JSON을 읽지 못했어요 — Gemini 답변에서 { 로 시작해서 } 로 끝나는 부분을 통째로 붙여넣어 주세요');}
+}
+// 레퍼런스 곡 칸에 곡명만 있고 분석이 안 된 상태를 알려줌 (곡이 프롬프트에 전혀 반영되지 않기 때문)
+function refSongNeedsDna(){
+  const s=(document.getElementById('hh-ref-song')?.value||'').trim();
+  return !!s&&!(st.brief&&st.brief.kind==='song'&&(st.brief.text===s||st.brief.source==='audio'));
+}
+function analyzeRefSongFromBanner(){
+  const s=(document.getElementById('hh-ref-song')?.value||'').trim();
+  const b=document.getElementById('hh-brief');if(b)b.value=s;
+  document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
+  if(getAnthropicKey())aiAnalyzeBrief();
+}
+function openGeminiBrief(){
+  const d=document.getElementById('hh-brief-gemini');if(d)d.open=true;
+  document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
