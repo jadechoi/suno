@@ -1,8 +1,19 @@
-// 🎧 들어보고 확인하기 — 곡을 오디오로 듣는 AI(예: Gemini)에게 평가받고, 그 답을 붙여넣어 프롬프트 수정 제안으로 바꾸는 흐름만 남김
+// 🎧 들어보고 확인하기 — 곡을 오디오로 듣는 AI(Gemini)에게 평가받고, 그 답을 수정 제안으로 바꾸는 흐름
+// Gemini 키가 있으면 mp3 하나로 평가→제안까지 자동(hh-gemini.js), 없으면 복사·붙여넣기 방식
 let _extFeedbackDraft='';   // 화면을 다시 그려도 붙여넣은 글이 안 사라지게
 function listenHtml(){
   const hasKey=!!getAnthropicKey();
-  return `<div style="font-size:12px;color:var(--text-2);line-height:1.8">
+  const connected=!!getGeminiKey();
+  const direct=connected
+    ?`<div style="font-size:12px;color:var(--text-2);line-height:1.8;margin-bottom:6px">Suno에서 받은 곡 파일(mp3)을 고르고 버튼을 누르면, Gemini가 듣고 평가한 뒤 <b>수정 제안까지 자동으로</b> 만들어요.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="hh-listen-file" type="file" accept="audio/*" style="font-size:11px;color:var(--text-2);max-width:240px">
+    <button onclick="listenGeminiRun(this)" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🎧 Gemini에게 듣고 평가받기</button></div>
+    <div id="hh-listen-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:6px"></div>
+    <div style="margin-top:6px">${geminiKeyHtml('hh-listen-gem-key')}</div>`
+    :`<div style="margin-bottom:8px">${geminiKeyHtml('hh-listen-gem-key')}</div>`;
+  return `${direct}
+<details ${connected?'':'open'} style="margin-top:10px"><summary style="cursor:pointer;font-size:11px;color:var(--text-3)">${connected?'직접 복사·붙여넣기로 하기':'키 없이 복사·붙여넣기로 하기'}</summary><div style="margin-top:8px">
+<div style="font-size:12px;color:var(--text-2);line-height:1.8">
   ① Suno에서 만든 곡 파일(mp3)을 <b>오디오를 들을 수 있는 AI</b>(예: Gemini)에 올려요.<br>
   ② 아래 <b>평가 요청문 복사</b>를 눌러 그 AI에 붙여넣어요. (지금 프롬프트가 자동으로 들어가요)<br>
   ③ AI가 준 평가를 아래 칸에 붙여넣고 <b>제안으로 바꾸기</b>를 눌러요. 그다음 마음에 드는 제안만 적용하고 Generate를 누르면 돼요.
@@ -12,12 +23,12 @@ function listenHtml(){
 <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
   <button id="hh-ai-external-btn" onclick="aiParseExternalFeedback()" ${hasKey?'':'disabled'} style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;opacity:${hasKey?1:.5}">🤖 제안으로 바꾸기</button>
   ${hasKey?'':'<span style="font-size:11px;color:var(--text-3)">API Key가 필요해요</span>'}
-</div>`;
+</div></div></details>`;
 }
-// 오디오를 듣는 AI에게 줄 평가 요청문 — 답을 위 칸에 붙여 넣으면 됨
-function listenCopyAiRequest(btn){
+// 오디오를 듣는 AI에게 줄 평가 요청문 — 지금 화면의 스타일·가사·섹션 프롬프트가 자동으로 들어감
+function listenRequestText(){
   const sect=document.getElementById('hh-sect-ta')?.value||'',style=document.getElementById('hh-style-ta')?.value||'';
-  const txt=`첨부한 곡은 Suno AI로 아래 프롬프트를 넣어 만든 곡이야. 곡을 실제로 끝까지 듣고, 프롬프트대로 나왔는지 평가해줘. 음악을 잘 모르는 사람도 이해할 수 있게 쉬운 말로 써줘.
+  return `첨부한 곡은 Suno AI로 아래 프롬프트를 넣어 만든 곡이야. 곡을 실제로 끝까지 듣고, 프롬프트대로 나왔는지 평가해줘. 음악을 잘 모르는 사람도 이해할 수 있게 쉬운 말로 써줘.
 
 아래 형식으로 답해줘:
 【프롬프트대로 나온 것】 실제로 들린 것 (악기, 드럼, 베이스, 보컬 유무, 분위기)
@@ -31,5 +42,7 @@ ${style}
 
 ${(_hhWritten?.lyrics||'').trim()?`[가사 프롬프트 (연출 설명 + 가사)]\n${(document.getElementById('hh-lyrics-ta')?.value||'').trim()}\n\n[참고: 연출 설명만]`:'[섹션 프롬프트]'}
 ${sect}`;
-  navigator.clipboard.writeText(txt).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
+}
+function listenCopyAiRequest(btn){
+  navigator.clipboard.writeText(listenRequestText()).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
 }

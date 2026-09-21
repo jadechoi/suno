@@ -536,6 +536,7 @@ ${feedback}`;
     const added=list.map(s=>normalizeAiSuggestion(s,uniqueSegs,occKeys));
     _aiSuggestions=[...(_aiSuggestions||[]),...added];
     if(ta)ta.value='';
+    _extFeedbackDraft='';   // 다시 그려도 방금 처리한 피드백이 칸에 되살아나지 않게
     hhGenerate(false,{noScroll:true});
   }catch(e){
     fail(e.message);
@@ -1623,19 +1624,25 @@ ${briefOptionsText()}`;
 function copyGeminiBriefRequest(btn){
   navigator.clipboard.writeText(geminiBriefRequestText()).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
 }
-// Gemini가 돌려준 JSON을 붙여넣으면 AI 분석과 같은 추천 카드로
+// Gemini가 준 답(JSON 포함 텍스트)을 AI 분석과 같은 추천 카드로 — 붙여넣기·직접 호출 공용. JSON을 못 읽으면 false
+function applyBriefFromRaw(raw){
+  const a=raw.indexOf('{'),b=raw.lastIndexOf('}');
+  if(a<0||b<a)return false;
+  try{
+    const p=JSON.parse(raw.slice(a,b+1));
+    const label=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim()||'(오디오 분석)';
+    _briefProposal=buildBriefProposal(label,{...p,kind:'song'});_briefProposal.source='audio';
+    const statusEl=document.getElementById('hh-brief-status');if(statusEl)statusEl.hidden=true;
+    renderBriefResult();
+    return true;
+  }catch(e){return false;}
+}
 function applyBriefJson(){
   const statusEl=document.getElementById('hh-brief-status');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
   const raw=(document.getElementById('hh-brief-json')?.value||'').trim();
   if(!raw){fail('Gemini가 준 JSON을 붙여넣어 주세요');return;}
-  try{
-    const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
-    const label=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim()||'(오디오 분석)';
-    _briefProposal=buildBriefProposal(label,{...p,kind:'song'});_briefProposal.source='audio';
-    if(statusEl)statusEl.hidden=true;
-    renderBriefResult();
-  }catch(e){fail('JSON을 읽지 못했어요 — Gemini 답변에서 { 로 시작해서 } 로 끝나는 부분을 통째로 붙여넣어 주세요');}
+  if(!applyBriefFromRaw(raw))fail('JSON을 읽지 못했어요 — Gemini 답변에서 { 로 시작해서 } 로 끝나는 부분을 통째로 붙여넣어 주세요');
 }
 // 레퍼런스 곡 칸에 곡명만 있고 분석이 안 된 상태를 알려줌 (곡이 프롬프트에 전혀 반영되지 않기 때문)
 function refSongNeedsDna(){
