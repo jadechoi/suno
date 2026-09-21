@@ -984,8 +984,17 @@ function parseLyricSections(ly){
 // Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더] → (연출 설명) → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
 function mergeLyricsAndDirection(lyrics,section){
   const ly=parseLyricSections(lyrics).secs,se=parseSections(section);
-  if(!ly.length||ly.length!==se.length)return '';
-  return ly.map((l,i)=>[l.header,se[i].body,...l.lines].join('\n')).join('\n\n');
+  if(!ly.length||!se.length)return '';
+  // 섹션 개수가 달라도(예: 가사에서 한 섹션이 빠짐) 통째로 포기하지 않고, 연출 섹션을 가사 헤더로 바꿔 순서대로 같은 헤더끼리 짝지음
+  const dh=lyricHeaders(se);
+  let from=0,hit=0;
+  const out=ly.map(l=>{
+    let k=-1;for(let x=from;x<se.length;x++)if(dh[x]===l.header){k=x;break;}
+    if(k<0)return [l.header,...l.lines].join('\n');
+    from=k+1;hit++;
+    return [l.header,se[k].body,...l.lines].join('\n');
+  });
+  return hit?out.join('\n\n'):'';
 }
 function lyricHeaders(structure){
   return structure.map(s=>{
@@ -1103,6 +1112,8 @@ function validateWritten(spec,section,style,opts){
     const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
     secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
   }
+  // 가사 언어가 한국어·일본어여도 연출 설명(섹션)과 스타일은 영어여야 Suno가 소리 키워드로 알아들음 — 가사 언어에 끌려 통째로 한국어로 쓰는 일이 있었음
+  if(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(section+' '+style))errors.push('연출 설명(<section>)이나 스타일(<style>)에 한글·일본어가 있음 — 가사 언어와 상관없이 이 둘은 영어 소리 키워드로만 쓸 것 (한국어·日本語는 <lyrics> 가사에만)');
   // 가사(보컬 곡) — 헤더 순서, 줄 수, 언어, 후렴 반복, 가사 칸에는 가사만
   if(spec.lyrics){
     const ly=((opts&&opts.lyrics)||'').trim();
@@ -1226,6 +1237,7 @@ const WRITE_STATIC=`너는 장르 전문 음악 프로듀서이자 Suno AI 프�
 - vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
 
 [가사 작성 — 명세의 lyrics가 null이 아닐 때(보컬 곡)]
+- **언어 분리(가장 중요)**: 명세 lyrics.lang이 한국어·日本語여도 그건 <lyrics> 가사에만 해당해. <section>의 연출 설명과 헤더, <style> 태그는 가사 언어와 무관하게 **항상 영어**로 써(Suno는 영어 소리 키워드를 가장 잘 알아들어). 연출 설명에 한글·일본어를 한 글자도 섞지 마 — 검사기가 막아.
 - 출력 맨 앞에 <lyrics>…</lyrics> 블록을 추가해(그 뒤에 <section>, <style>). 이 블록이 Suno의 Lyrics 칸에 그대로 들어가는 진짜 가사야. <section>은 각 섹션의 연출 설명이고, 앱이 섹션마다 [가사 헤더] → (연출 설명) → 가사 줄로 합쳐서 Suno의 Lyrics 칸에 넣어. 그래서 보컬 곡의 연출 설명은 전체 3,000자 이하로 더 짧게, 가사는 1,800자 이하로 써(합쳐서 5,000자 안).
 - 언어는 명세 lyrics.lang. 주제·느낌은 lyrics.theme가 있으면 그걸 가장 우선해서 살려 쓰고, 없으면 무드·곡 분석·장르에서 이 곡에 어울리는 구체적인 이야기·장면·감정을 네가 정해. 무드와 어울리는 이미지·어휘로 일관되게 써.
 - 형식: lyrics.headers를 순서·글자 그대로 헤더 줄로 쓰고 그 아래에 가사 줄. [Verse]는 벌스 가사 8~12줄, [Chorus]는 후렴 4~6줄, [Intro]/[Outro]는 없거나 1~2줄, [Instrumental]은 헤더만(가사 없음).
