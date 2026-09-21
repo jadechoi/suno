@@ -109,17 +109,28 @@ function renderGeminiDirect(){
     <button onclick="geminiAnalyzeBrief(this)" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🎧 Gemini로 바로 분석</button>
   </div>
   <div style="font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.6"><b>곡 제목만</b> 넣어도 돼요(위 참고 곡 칸) — 이때는 소리를 듣는 게 아니라 웹 검색으로 분석해서 덜 정확할 수 있어요. mp3나 유튜브 링크를 주면 실제 소리로 분석해요. 끝나면 아래에 추천 카드가 바로 나와요.</div>
-  <div id="hh-gem-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:6px"></div>`:'');
+`:'');
+}
+// 메인 줄의 "🎧 Gemini로 분석" 버튼 — 키가 없으면 키 입력칸을 열어 안내, 있으면 바로 분석 (진행·오류는 눈에 보이는 hh-brief-status에 표시)
+function geminiFromMain(btn){
+  document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
+  if(!getGeminiKey()){
+    const d=document.getElementById('hh-brief-gemini');if(d)d.open=true;
+    geminiStatus('hh-brief-status','🎧 Gemini API Key를 먼저 저장해주세요 — 아래 칸에서 한 번만 넣으면 돼요','err');
+    document.getElementById('hh-gem-key')?.focus();
+    return;
+  }
+  return geminiAnalyzeBrief(btn);
 }
 async function geminiAnalyzeBrief(btn){
   const file=document.getElementById('hh-gem-file')?.files?.[0]||null;
   const yt=(document.getElementById('hh-gem-yt')?.value||'').trim();
   const title=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim();
-  if(!file&&!yt&&!title){geminiStatus('hh-gem-status','❌ 위 참고 곡 칸에 곡 제목을 넣거나, mp3·유튜브 링크를 넣어주세요','err');return;}
-  await geminiRun(btn,'hh-gem-status',async()=>{
-    const ans=await geminiAsk({text:geminiBriefRequestText(),file,youtube:yt||null,search:true,note:m=>geminiStatus('hh-gem-status',m)});
+  if(!file&&!yt&&!title){geminiStatus('hh-brief-status','❌ 위 참고 곡 칸에 곡 제목을 넣거나, mp3·유튜브 링크를 넣어주세요','err');return;}
+  await geminiRun(btn,'hh-brief-status',async()=>{
+    const ans=await geminiAsk({text:geminiBriefRequestText(),file,youtube:yt||null,search:true,note:m=>geminiStatus('hh-brief-status',m)});
     if(!applyBriefFromRaw(ans))throw new Error('Gemini 답에서 JSON을 못 찾았어요 — 다시 시도하거나 복사·붙여넣기 방식을 써주세요');
-    geminiStatus('hh-gem-status','✅ 분석 완료 — 아래 추천 카드에서 적용할 항목을 확인하세요','ok');
+    geminiStatus('hh-brief-status','✅ 분석 완료 — 아래 추천 카드에서 적용할 항목을 확인하세요','ok');
   });
 }
 
