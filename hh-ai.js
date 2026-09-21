@@ -1109,6 +1109,16 @@ function validateWritten(spec,section,style,opts){
     if(noVoc)errors.push(`보컬이 있는 곡인데 무보컬 신호 "${noVoc[0]}"가 들어감 — 스타일·섹션에서 모두 빼고 보컬을 소리로 묘사할 것`);
     if(hooks.some(s=>!/vocal|voice|sung|sing|rap|whisper|ad-?lib|chant|heavy hooks|full rap/i.test(s.body)))errors.push(`보컬(${spec.vocal})이 모든 훅에 소리로 묘사돼야 함`);
     // "Instrumental"이라고 표시한 섹션(예: 브릿지)에 보컬 묘사가 있으면 헤더와 본문이 모순
+    if(strict){
+      const DELIV=/\b(whisper\w*|breath\w*|intimate|close-?mic\w*|falsetto|head voice|chest voice|belt\w*|soaring|vibrato|melismatic|vocal runs?|rasp\w*|husky|gritt\w*|growl\w*|scream\w*|shout\w*|spoken|rap|flow|chant\w*|harmon\w*|call-and-response|ad-?libs?|gang vocals?|double-?time|triplet|legato|staccato|croon\w*|cracking|mumbl\w*|muttered|sung-rap)\b/gi;
+      const vsecs=secs.filter(s=>!/instrumental/i.test(s.header)&&['verse','hook','outro'].includes(s.type));
+      const bare=vsecs.filter(s=>!(s.body.match(DELIV)||[]).length);
+      if(bare.length)errors.push(`보컬 곡인데 ${bare.map(s=>s.header.replace(/[\[\]]/g,'').split(':')[0]).join(', ')} 연출에 보컬 전달 방식(whispered·belted high notes·falsetto·rapid-fire flow·stacked harmonies 같은 창법 키워드)이 없음 — 섹션마다 어떻게 부르는지 넣을 것`);
+      else{
+        const kinds=new Set(vsecs.flatMap(s=>(s.body.match(DELIV)||[]).map(w=>w.toLowerCase().slice(0,4))));   // 활용형(belt/belted, whisper/whispered)을 같은 창법으로 셈
+        if(kinds.size<(spec.vocal==='Light ad-libs'?2:3))errors.push('보컬 창법이 섹션마다 비슷함 — 벌스는 친밀·절제, 후렴은 벨팅·하모니처럼 곡 전체에서 서로 다른 창법을 써서 극적인 아크를 만들 것');
+      }
+    }
     const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
     secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
   }
@@ -1235,6 +1245,16 @@ const WRITE_STATIC=`너는 장르 전문 음악 프로듀서이자 Suno AI 프�
 [보컬 곡]
 - 예시는 전부 무보컬이라 [Instrumental]·"no vocals & ZERO vocal chops…" 묶음이 있어. **명세의 vocal이 null이 아니면(보컬 곡) 이건 절대 쓰지 마.** 스타일에 [Instrumental]도, 섹션에 "purely/completely instrumental"이나 "vocal chops"도 금지. 보컬은 메뉴 이름(Heavy hooks, Light ad-libs, Full rap feature)을 그대로 쓰지 말고 실제로 들리는 소리(속삭임, 클로즈 마이크, 짧은 후크 라인, 톤, 처리)로 묘사해. 헤더가 "Instrumental"인 섹션(브릿지 등)에는 보컬 묘사를 넣지 마.
 - vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
+
+[보컬 디렉션 — 명세 vocal이 null이 아닐 때(보컬 곡). 연출에서 보컬을 "있다"고만 쓰지 말고, 섹션마다 어떻게 부르는지가 들리게 써]
+- 벌스·후렴(Chorus/Hook)·아웃트로 연출에는 그 섹션의 **보컬 전달 방식**(창법·음역·감정·질감)을 영어 소리 키워드로 반드시 넣어. 인트로도 가사가 있으면 넣고, Instrumental 섹션에는 보컬 묘사를 넣지 마.
+- 섹션마다 달라야 하고 곡 전체가 극적인 아크를 그려야 해: 벌스는 낮고 친밀·절제 → 회차가 오를수록 자신감·긴장 → 후렴은 가장 크고 극적 → 마지막 후렴은 클라이맥스(가장 센 창법) → 아웃트로는 속삭임이나 디케이. 같은 창법을 두 섹션에 복붙하지 마.
+- 어휘(이 곡의 무드·장르·보컬 유형에 맞게 골라 조합해, 목록 복붙 금지): 
+  · 노래: whispered, breathy, intimate close-mic, soft falsetto, head voice, chest voice, belted high notes, powerful sustained belt, soaring, vibrato, melismatic vocal runs, raspy, husky, gritty, cracking emotional break, smooth legato, staccato rhythmic phrasing, crooning, spoken-word intro, final high note
+  · 겹침·호응: stacked harmonies, layered backing vocals, octave doubles, call-and-response, gang vocals, echoing ad-libs
+  · 랩: rapid-fire double-time flow, triplet flow, laid-back half-time flow, punchy staccato flow, melodic sung-rap, chanted hook, shouted ad-libs, whispered menace, pitch-bent melody
+- 보컬 유형을 따라: Full rap feature는 랩 전달(플로우가 섹션마다 바뀜)이 중심이고 후렴은 멜로디컬·챈트, Heavy hooks는 후렴의 극적 창법(벨팅·하모니·런)이 중심, Light ad-libs는 리드 보컬 없이 짧은 애드립·속삭임 조각만(리드 벨팅 금지), Sung lead vocal은 노래 전반(속삭임~벨팅~팔세토). 고른 보컬 스타일·질감(vocalStyle·vocalChar)도 반영해.
+- 가사와 어울리게: 후렴의 핵심 라인(타이틀 라인)이 가장 세게 들리도록 그 섹션 연출에 "on the title line" 같은 지시를 줘도 좋아.
 
 [가사 작성 — 명세의 lyrics가 null이 아닐 때(보컬 곡)]
 - **언어 분리(가장 중요)**: 명세 lyrics.lang이 한국어·日本語여도 그건 <lyrics> 가사에만 해당해. <section>의 연출 설명과 헤더, <style> 태그는 가사 언어와 무관하게 **항상 영어**로 써(Suno는 영어 소리 키워드를 가장 잘 알아들어). 연출 설명에 한글·일본어를 한 글자도 섞지 마 — 검사기가 막아.

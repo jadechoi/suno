@@ -759,6 +759,28 @@ const MOOD_APPEAL=[
   {lead:'eerie hypnotic',style:'mysterious & hypnotic & atmospheric polished mix'},
 ];
 // 무보컬 벌스에 넣는 "랩/멜로디가 들어올 자리" — 'vocal' 단어는 무보컬 규칙(검사기)에 걸리니 쓰지 않음. 0=랩 자리, 1=멜로디 탑라인 자리, 2=리드 멜로디 자리
+// 보컬 곡의 섹션별 "보컬 연출" — 창법·전달 방식을 섹션마다 달리해 곡에 극적인 아크를 줌 (규칙 초안용, AI 작성기는 같은 종류의 어휘를 스스로 고름)
+// 키: 보컬 유형(sung=노래/후크 중심, rap=랩 중심, adlib=애드립 조각). 배열은 회차 순서(마지막 훅은 배열의 마지막 항목)
+const VOCAL_DELIVERY={
+  sung:{
+    intro:['airy breathy first line'],
+    verse:['intimate close-mic breathy delivery, soft restrained tone','more confident conversational phrasing with a slight rasp','tense clipped phrasing building pressure','fragile half-whispered phrasing'],
+    hook:['belted full-voice chorus, soaring high notes, stacked harmonies','bigger layered harmonies with melismatic vocal runs on the title line','climactic powerful belt, final sustained high note and ad-libs'],
+    outro:['whispered final line fading out'],
+  },
+  rap:{
+    intro:['low spoken-word ad-lib tag'],
+    verse:['confident punchy rap flow with tight internal rhymes','switched-up double-time rapid-fire flow','laid-back half-time flow with whispered menacing ad-libs','slow deliberate spoken-word rap'],
+    hook:['catchy chanted melodic hook with gang vocal doubles','pitched sung-rap hook with stacked ad-libs','anthemic shouted hook, crowd-style gang vocals'],
+    outro:['muttered ad-libs fading out'],
+  },
+  adlib:{
+    intro:['single breathy ad-lib'],
+    verse:['sparse breathy ad-libs, minimal vocal presence','short whispered fragments echoing in the gaps'],
+    hook:['short catchy hook fragments with echoing ad-libs','layered ad-lib chants building','call-and-response ad-libs at full intensity'],
+    outro:['faint whispered ad-lib echo'],
+  },
+};
 const VOCAL_SLOT_KIND=[0,0,1,0,0,0,0,1,2,0,0,1,0,1,1,1,1,0,0,0];
 const VOCAL_SLOT_TEXT=[['wide open pocket for rhythmic rap','leaving maximum space for the artist'],['perfect pocket for melodic rap flows','leaving space for a top-line melody'],['leaving space for a lead melody','open room for a topline']];
 

@@ -1642,6 +1642,13 @@ function genArrangeDir(genre,sec,ctx){
   return g[sec]||`${eDesc} ${sec} direction, ${mDesc} featured`;
 }
 
+// 보컬 곡 섹션의 창법 문구 — type: intro|verse|hook|outro, n: 그 타입의 몇 번째, last: 마지막 훅이면 true(가장 극적인 항목)
+function vocalDelivery(type,n,last){
+  const k=st.vocal==='Full rap feature'?'rap':st.vocal==='Light ad-libs'?'adlib':'sung';
+  const arr=VOCAL_DELIVERY[k][type];
+  if(!arr)return '';
+  return arr[type==='hook'&&last&&n>1?arr.length-1:Math.min(n-1,arr.length-1)];
+}
 function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,region){
   const segs=st.structSegs;
   const bH=+(document.getElementById('hh-bar-hook')?.value||8);
@@ -1842,7 +1849,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
         :(cnt.hook===1
           ?`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} ${hookNoun}, ${isMellowMood?'full arrangement':'full energy'}`
           :`${hookEng.charAt(0).toUpperCase()+hookEng.slice(1)} ${hookNoun} ${['returning a step denser than the previous hook','denser again, one layer short of the full peak','nearly at the peak, only the final push held back'][Math.min(cnt.hook-2,2)]}`);
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook${isEdge?`, ${vocalDesc}`:''}`:(isEdge?'completely instrumental, ZERO vocal chops':'instrumental');   // 보컬 질감 문구는 매 섹션 반복하면 길이만 늘어서(확장 구조+보컬은 5000자 한도에 근접) 첫·마지막 훅에만
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} driving the hook, ${vocalDelivery('hook',cnt.hook,isLast)}${isEdge?`, ${vocalDesc}`:''}`:(isEdge?'completely instrumental, ZERO vocal chops':'instrumental');   // 보컬 질감 문구는 매 섹션 반복하면 길이만 늘어서(확장 구조+보컬은 5000자 한도에 근접) 첫·마지막 훅에만
       // 가운데 훅: 훅 1과 리듬 문구가 토씨까지 같으면 Suno가 같은 루프를 복붙함 — 보조 드럼이 있으면 그게 주도하는 변주, 없으면 필인
       const hookVary=(!isLast&&cnt.hook>=2)
         ?(cnt.hook%2===0
@@ -1872,7 +1879,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
           :(cnt.verse===3
             ?[`${dRoll||dDesc} pattern shifting to a half-time feel`,melodyRef('verse',cnt.verse),isMellowMood?'':'tension tighter than the previous verse'].filter(Boolean).join(', ')
             :[`${dRoll||dDesc} stripped to sparse ticks`,melodyRef('verse',cnt.verse),'the last calm moment before the drop'].join(', ')));
-      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present${cnt.verse===1?`, ${vocalDesc}`:''}`:pick(VOCAL_SLOT_TEXT[VOCAL_SLOT_KIND[st.genre]??0]);   // 랩·멜로디가 들어올 자리(예시 프롬프트의 패턴)
+      const vocalPhrase=hasVocal?`${st.vocal.toLowerCase()} present, ${vocalDelivery('verse',cnt.verse)}${cnt.verse===1?`, ${vocalDesc}`:''}`:pick(VOCAL_SLOT_TEXT[VOCAL_SLOT_KIND[st.genre]??0]);   // 랩·멜로디가 들어올 자리(예시 프롬프트의 패턴)
 
       // 다음이 바로 훅이면(브릿지 없는 구조) 벌스 끝 2마디에 전환효과 빌드 — 없으면 클라이맥스가 갑자기 튀어나오고, 고른 전환효과 2번째는 어디에도 안 쓰임(리뷰 반복 지적)
       let preBuild='';
@@ -1906,7 +1913,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
       lines.push('[Outro]');
       // 3단 아웃트로 — 작곡가 가이드가 17곡 중 16곡에서 공통으로 발견한 패턴: 드럼 먼저 빠짐 → 나머지 악기 페이드 → 마지막 악기 단독으로 울림
       // + 인트로를 다시 불러와서("echoing ~") 구조적으로 호응하게, 스테레오 폭도 클라이맥스에서 디케이로 좁아지게
-      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone${keyIn}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${bcS('outro')}${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
+      lines.push(`(${tidyBody(`Drums drop out first, then ${eDesc} and the rest fade out, ${melodyRef('outro')} final note rings out alone${keyIn}, ${spaceArc('outro')}, echoing ${introVibe} one last time before silence${hasVocal?`, ${vocalDelivery('outro',1)}`:''}${bcS('outro')}${dyn.outro?`, ${dyn.outro}`:''}${texLine('outro')?`, ${texLine('outro')}`:''}`,_names)}${aiNote('outro')+manualNote('아웃트로')})`);
     }
     lines.push('');
   });
