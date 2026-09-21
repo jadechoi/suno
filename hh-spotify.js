@@ -475,6 +475,8 @@ let _chartKey='hiphop';
 function setChart(k){
   if(!BILLBOARD_CHARTS[k]||_chartKey===k)return;
   _chartKey=k;
+  renderChartChips();
+  if(renderChartFromCache(k))return;
   const chips=document.getElementById('hh-trending-chips');
   if(chips)chips.innerHTML='<span style="font-size:11px;color:var(--text-3);align-self:center">새로고침을 누르면 이 차트의 핫한 아티스트가 표시됩니다</span>';
   const acc=document.getElementById('hh-artists-typeBeat');if(acc)acc.innerHTML='<span style="font-size:11px;color:var(--text-3)">차트를 새로고침하면 이 차트의 아티스트가 자동으로 구성됩니다</span>';
@@ -647,7 +649,7 @@ async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackNam
 
 const TREND_COLORS=['#FF4D6D','#9D4EDD','#00C6FF','#FF6B35','#4DC886','#C77DFF','#FF9EC8','#F59E0B','#06B6D4','#22C55E'];
 
-async function buildTrendingArtistAccordion(artists,tok){
+async function buildTrendingArtistAccordion(artists,tok,opts={}){
   const container=document.getElementById('hh-artists-typeBeat');
   container.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:6px 0">🎧 Spotify 핫 트랙 로딩 중…</div>';
   setTimeout(()=>{ // DOM paint 먼저
@@ -672,8 +674,9 @@ async function buildTrendingArtistAccordion(artists,tok){
     // 트랙 fetch(그중 일부는 Spotify /search)를 여기도 완전 순차 + 간격을 둬서 429를 덜 유발하게
     pMapLimit(rows,1,async({a,songsDiv})=>{
       // Billboard에서 확인된 "지금 차트인 곡"을 최우선으로 꽂는다
-      let tracks=await fetchArtistTopTracks(a.id,tok,5);
-      if(a.chartSong){
+      if(opts.cacheOnly&&!a.tracks){songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">트랙 없음 — 강제로 다시 받으면 채워져요</div>';return;}
+      let tracks=a.tracks||await fetchArtistTopTracks(a.id,tok,5);
+      if(a.chartSong&&!a.tracks){
         const chartTitle=a.chartSong.name.toLowerCase().trim();
         const already=tracks.find(t=>t.name.toLowerCase().trim()===chartTitle);
         if(already){
@@ -683,6 +686,7 @@ async function buildTrendingArtistAccordion(artists,tok){
           if(resolvedChart)tracks=[resolvedChart,...tracks].slice(0,5);
         }
       }
+      a.tracks=tracks;   // 캐시에 같이 저장됨
       if(!tracks.length){songsDiv.innerHTML='<div style="font-size:11px;color:var(--text-3)">트랙 없음</div>';return;}
       const grid=document.createElement('div');
       grid.className='songs-grid';
@@ -696,7 +700,7 @@ async function buildTrendingArtistAccordion(artists,tok){
         grid.appendChild(card);
       });
       songsDiv.innerHTML='';songsDiv.appendChild(grid);
-    },400);
+    },rows.every(r=>r.a.tracks)?0:400).then(()=>{if(opts.onDone)opts.onDone();});   // 이미 트랙이 있으면(캐시) 요청 간격이 필요 없음
   },0);
 }
 
@@ -755,11 +759,50 @@ async function pMapLimit(items,limit,fn,delayMs=0){
   await Promise.all(Array.from({length:Math.min(limit,items.length)},worker));
   return results;
 }
-async function fetchTrendingArtists(){
+// ── 차트 캐시 — 빌보드 차트는 주 1회(화요일 오후 ET경) 갱신되는데 매번 조회하면 RapidAPI·Spotify 호출만 낭비(특히 Spotify Development 등급 한도).
+// 아티스트·장르·핫 트랙까지 한 번 받은 결과를 통째로 localStorage에 두고, 다음 차트 갱신 시점이 지나기 전까지는 API를 부르지 않음
+function lastChartUpdate(now=Date.now()){
+  const d=new Date(now);
+  const daysSinceTue=(d.getUTCDay()-2+7)%7;
+  let u=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),21)-daysSinceTue*864e5;   // 이번 주 화요일 21:00 UTC
+  if(u>now)u-=7*864e5;
+  return u;
+}
+function chartCacheLoad(key){
+  try{
+    const c=JSON.parse(localStorage.getItem('hh_chart_'+key)||'null');
+    return c&&c.ts>=lastChartUpdate()&&Array.isArray(c.artists)&&c.artists.length?c:null;
+  }catch(_){return null;}
+}
+function chartCacheSave(key,artists){
+  if(artists.filter(a=>a.tracks&&a.tracks.length).length<artists.length/2)return;   // 트랙 조회가 한도에 걸려 절반도 못 받았으면 저장하지 않음 — 다음에 다시 시도
+  try{localStorage.setItem('hh_chart_'+key,JSON.stringify({ts:Date.now(),artists}));}catch(_){}
+}
+// 캐시로 화면(칩·핫 트랙·서브장르)을 그림 — API 호출 없음. 그렸으면 true
+function renderChartFromCache(key){
+  const c=chartCacheLoad(key);
+  if(!c)return false;
+  renderTrendingChips(c.artists);
+  buildTrendingArtistAccordion(c.artists,null,{cacheOnly:true});
+  renderGenreTrends(computeGenreTrends(c.artists));
+  const t=new Date(c.ts),stamp=(t.getMonth()+1)+'/'+t.getDate()+' '+t.getHours()+':'+String(t.getMinutes()).padStart(2,'0');
+  const lastEl=document.getElementById('trending-last-update');
+  if(lastEl)lastEl.textContent='이번 주 차트 (받은 시각 '+stamp+')';
+  const gt=document.getElementById('genre-trend-last-update');
+  if(gt)gt.textContent='이번 주 차트 (받은 시각 '+stamp+')';
+  const statusEl=document.getElementById('trending-status');
+  if(statusEl){
+    statusEl.hidden=false;
+    statusEl.innerHTML='📊 '+BILLBOARD_CHARTS[key].label+' — 이번 주에 이미 받아둔 결과예요 (다음 차트 갱신 후 자동으로 새로 받아요). <a href="#" onclick="fetchTrendingArtists(true);return false" style="color:var(--accent-text)">강제로 다시 받기</a>';
+  }
+  return true;
+}
+async function fetchTrendingArtists(force){
   const btn=document.getElementById('trending-refresh-btn');
   const statusEl=document.getElementById('trending-status');
   const chipsEl=document.getElementById('hh-trending-chips');
   const lastEl=document.getElementById('trending-last-update');
+  if(!force&&renderChartFromCache(_chartKey))return;
   if(btn)btn.textContent='로딩 중...';
   const chartCfg=BILLBOARD_CHARTS[_chartKey];
   if(statusEl){statusEl.textContent=`📊 Billboard ${chartCfg.label} 조회 중…`;statusEl.hidden=false;}
@@ -814,12 +857,9 @@ async function fetchTrendingArtists(){
   const genreMap=await fetchArtistGenresViaRapidAPI(scoredTop.map(a=>a.id));
   scoredTop.forEach(a=>{if(genreMap[a.id]&&genreMap[a.id].length)a.genres=genreMap[a.id];});
 
-  // 세션 캐시
-  try{sessionStorage.setItem('sp_trending_'+_chartKey,JSON.stringify(scoredTop));
-    sessionStorage.setItem('sp_trending_ts_'+_chartKey,Date.now());}catch(e){}
-
+  const cacheKey=_chartKey;   // 트랙을 다 받기 전에 사용자가 차트를 바꿔도 이 차트 것으로 저장
   renderTrendingChips(scoredTop);
-  buildTrendingArtistAccordion(scoredTop,tok);
+  buildTrendingArtistAccordion(scoredTop,tok,{onDone:()=>chartCacheSave(cacheKey,scoredTop)});
   if(lastEl){const now=new Date();lastEl.textContent=`업데이트: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;}
   if(btn)btn.textContent='↻ 새로고침';
 
@@ -898,17 +938,6 @@ function openArtistRow(artistId){
 
 
 renderChartChips();
-// 세션 캐시 복원
-(function restoreTrendingCache(){
-  try{
-    const ts=+(sessionStorage.getItem('sp_trending_ts_'+_chartKey)||0);
-    if(Date.now()-ts>3600000)return; // 1시간 이후 만료
-    const cached=sessionStorage.getItem('sp_trending_'+_chartKey);
-    if(!cached)return;
-    const data=JSON.parse(cached);
-    renderTrendingChips(data);
-    const lastEl=document.getElementById('trending-last-update');
-    if(lastEl){const d=new Date(ts);lastEl.textContent=`캐시: ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;}
-  }catch(e){}
-})();
+// 저장된 이번 주 차트가 있으면 API 호출 없이 복원 (st는 app.js에서 정의되니 로드가 끝난 뒤에)
+window.addEventListener('DOMContentLoaded',()=>renderChartFromCache(_chartKey));
 
