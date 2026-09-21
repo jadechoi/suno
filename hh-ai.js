@@ -158,7 +158,7 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
   // 인스트루멘탈인데 "vocal chop" 같은 보컬 요소가 tag로 들어오면 섹션마다 박힌 "ZERO vocal chops"와 정면충돌 — 프롬프트로만 막지 않고 코드로도 거름
   const vocalWord=/vocal|choir|ad-?lib|\bsung\b|singing|lyric|\bvoice/i;
   const instr=!(st.vocal&&st.vocal!=='No Vocal');
-  const ok=t=>!(instr&&vocalWord.test(t));
+  const ok=t=>!(instr&&vocalWord.test(t))&&!/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(t);   // 프롬프트에 들어가는 tag·boostText·narrDir는 영어만 — 한국어 피드백을 붙여넣어도 한글이 스타일·섹션에 섞이지 않게
   return{
     category:s.category||'💡',
     text:s.text,
