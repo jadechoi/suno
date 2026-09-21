@@ -34,8 +34,21 @@ function audioMime(file){
   const ext=(file.name.split('.').pop()||'').toLowerCase();
   return {mp3:'audio/mp3',wav:'audio/wav',m4a:'audio/m4a',aac:'audio/aac',ogg:'audio/ogg',flac:'audio/flac',webm:'audio/webm'}[ext]||'audio/mp3';
 }
-// Gemini에게 묻기 — file(오디오)·youtube(링크)가 있으면 그걸 듣게 하고, 둘 다 없으면 search가 곡명 웹 검색으로 대신
-async function geminiAsk({text,file,youtube,search}){
+// 혼잡(503)·일시 오류(500)면 잠깐 뒤 한 번 더, 그래도 안 되면 다음 모델로 — 모델마다 처리 용량이 따로라 하나가 붐빌 때 다른 모델은 되는 경우가 많음
+// 사용자가 고른 모델이 맨 앞, 나머지는 대체 후보 (품질이 떨어지는 lite 계열은 뺌)
+const GEMINI_FALLBACKS=['gemini-flash-latest','gemini-2.5-flash','gemini-pro-latest'];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function geminiPost(model,key,body){
+  const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),180000);
+  try{
+    const resp=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body),signal:ctl.signal});
+    return {status:resp.status,ok:resp.ok,data:await resp.json().catch(()=>({}))};
+  }catch(e){throw new Error(e.name==='AbortError'?'Gemini 응답이 너무 오래 걸려 중단했어요 — 다시 시도해주세요':'Gemini에 연결하지 못했어요 (네트워크를 확인해주세요)');}
+  finally{clearTimeout(to);}
+}
+// Gemini에게 묻기 — file(오디오)·youtube(링크)가 있으면 그걸 듣게 하고, 둘 다 없으면 search가 곡명 웹 검색으로 대신. note(msg)는 재시도 안내용
+async function geminiAsk({text,file,youtube,search,note}){
   const key=getGeminiKey();
   if(!key)throw new Error('Gemini API Key를 먼저 저장해주세요');
   if(file&&file.size>GEMINI_MAX_FILE)throw new Error(`파일이 ${(file.size/1048576).toFixed(1)}MB예요 — ${Math.round(GEMINI_MAX_FILE/1048576)}MB 이하로 줄이거나, 복사·붙여넣기 방식을 써주세요`);
@@ -45,24 +58,29 @@ async function geminiAsk({text,file,youtube,search}){
   parts.push({text});
   const body={contents:[{parts}]};
   if(search&&!file&&!youtube)body.tools=[{google_search:{}}];
-  const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),180000);
-  let resp;
-  try{
-    resp=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(getGeminiModel())}:generateContent`,
-      {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body),signal:ctl.signal});
-  }catch(e){throw new Error(e.name==='AbortError'?'Gemini 응답이 너무 오래 걸려 중단했어요 — 다시 시도해주세요':'Gemini에 연결하지 못했어요 (네트워크를 확인해주세요)');}
-  finally{clearTimeout(to);}
-  const data=await resp.json().catch(()=>({}));
-  if(!resp.ok){
-    const msg=data.error?.message||`HTTP ${resp.status}`;
-    if(resp.status===400&&/API key/i.test(msg))throw new Error('Gemini API Key가 올바르지 않아요');
-    if(resp.status===404)throw new Error(`모델 "${getGeminiModel()}"을 찾을 수 없어요 — 키 지우기 후 모델 칸에 다른 이름을 넣어보세요 (${msg})`);
-    if(resp.status===429)throw new Error('Gemini 사용량 한도에 걸렸어요 — 잠시 뒤 다시 시도해주세요');
-    throw new Error('Gemini 오류: '+msg);
+  const models=[getGeminiModel(),...GEMINI_FALLBACKS.filter(m=>m!==getGeminiModel())];
+  let last=null;
+  for(let mi=0;mi<models.length;mi++){
+    for(let attempt=0;attempt<2;attempt++){
+      if(mi>0&&attempt===0)note&&note(`Gemini가 혼잡해서 다른 모델(${models[mi]})로 다시 시도하는 중…`);
+      if(attempt>0){note&&note('Gemini가 혼잡해서 잠깐 뒤 다시 시도하는 중…');await sleep(3000);}
+      const r=await geminiPost(models[mi],key,body);
+      if(r.ok){
+        const out=(r.data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();
+        if(!out)throw new Error(r.data.promptFeedback?.blockReason?`Gemini가 요청을 막았어요 (${r.data.promptFeedback.blockReason})`:'Gemini가 빈 답을 줬어요 — 다시 시도해주세요');
+        return out;
+      }
+      const msg=r.data.error?.message||`HTTP ${r.status}`;
+      if(r.status===400&&/API key/i.test(msg))throw new Error('Gemini API Key가 올바르지 않아요');
+      last={status:r.status,msg};
+      if(r.status===503||r.status===500)continue;   // 혼잡·일시 오류 — 같은 모델로 한 번 더, 그다음 다음 모델
+      break;                                        // 404(없는 모델)·429(한도) 등은 같은 모델 재시도가 의미 없음 — 바로 다음 모델
+    }
   }
-  const out=(data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();
-  if(!out)throw new Error(data.promptFeedback?.blockReason?`Gemini가 요청을 막았어요 (${data.promptFeedback.blockReason})`:'Gemini가 빈 답을 줬어요 — 다시 시도해주세요');
-  return out;
+  if(last.status===404)throw new Error(`쓸 수 있는 모델을 못 찾았어요 — 키 입력줄의 모델 칸에 다른 이름을 넣어보세요 (${last.msg})`);
+  if(last.status===429)throw new Error('Gemini 사용량 한도에 걸렸어요 — 잠시 뒤 다시 시도해주세요');
+  if(last.status===503)throw new Error('Gemini가 계속 혼잡해요(모델 여러 개를 시도했어요) — 몇 분 뒤에 다시 눌러주세요');
+  throw new Error('Gemini 오류: '+last.msg);
 }
 function geminiStatus(id,msg,kind){
   const el=document.getElementById(id);if(!el)return;
@@ -99,7 +117,7 @@ async function geminiAnalyzeBrief(btn){
   const title=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim();
   if(!file&&!yt&&!title){geminiStatus('hh-gem-status','❌ 위 참고 곡 칸에 곡 제목을 넣거나, mp3·유튜브 링크를 넣어주세요','err');return;}
   await geminiRun(btn,'hh-gem-status',async()=>{
-    const ans=await geminiAsk({text:geminiBriefRequestText(),file,youtube:yt||null,search:true});
+    const ans=await geminiAsk({text:geminiBriefRequestText(),file,youtube:yt||null,search:true,note:m=>geminiStatus('hh-gem-status',m)});
     if(!applyBriefFromRaw(ans))throw new Error('Gemini 답에서 JSON을 못 찾았어요 — 다시 시도하거나 복사·붙여넣기 방식을 써주세요');
     geminiStatus('hh-gem-status','✅ 분석 완료 — 아래 추천 카드에서 적용할 항목을 확인하세요','ok');
   });
@@ -110,7 +128,7 @@ async function listenGeminiRun(btn){
   const file=document.getElementById('hh-listen-file')?.files?.[0];
   if(!file){geminiStatus('hh-listen-status','❌ Suno에서 받은 곡 파일(mp3)을 먼저 골라주세요','err');return;}
   await geminiRun(btn,'hh-listen-status',async()=>{
-    const ans=await geminiAsk({text:listenRequestText()+'\n\n(첨부된 오디오를 끝까지 들으면서 위 형식으로 답해줘)',file});
+    const ans=await geminiAsk({text:listenRequestText()+'\n\n(첨부된 오디오를 끝까지 들으면서 위 형식으로 답해줘)',file,note:m=>geminiStatus('hh-listen-status',m)});
     const ta=document.getElementById('hh-external-feedback-ta');
     _extFeedbackDraft=ans;if(ta)ta.value=ans;
     if(getAnthropicKey()){
