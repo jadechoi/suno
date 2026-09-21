@@ -1480,16 +1480,16 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 
 규칙:
 - 곡명이면 kind="song": 그 곡의 실제 사운드(템포, 드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 아는 대로 반영해. 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤, 입력의 다른 단서로만 골라.
-- 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·BPM·악기를 골라.
+- 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
 - genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle/key는 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 장르는 힙합·팝/R&B·일렉트로닉/클럽 계열이 다 있어 — 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해. drums·melodyLead·melodyBackground는 **고른 장르가 속한 계열의 목록에서만** 골라 (계열마다 목록이 달라). bass808은 힙합 계열일 때만 쓰고 나머지 계열이면 null.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). [선택지]에 없는 악기를 새로 주장하지 마.
 - cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
 - vocalChar: 보컬 녹음 질감 목록 중 하나(속삭임·친밀한 곡은 드라이/클로즈 계열).
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
-- bpm·key: 곡명(kind="song")일 때만 그 곡의 실제 BPM과 Key를 써 (정확히 모르면 bpm은 0, key는 빈 문자열). 느낌 설명(kind="vibe")이면 bpm은 0, key는 빈 문자열 — 사용자가 직접 정해.
+- BPM과 Key는 분석하지 마 — 참고 곡을 고르면 프로그램이 Spotify에서 채우고, 아니면 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
-{"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","bpm":0,"key":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+{"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
 // 분석 프롬프트에 붙는 선택지 목록 (AI 분석·Gemini 요청문 공용)
 function briefOptionsText(){
   return `[선택지]
@@ -1542,8 +1542,6 @@ function buildBriefProposal(text,p){
   v.genre=GENRES.findIndex(g=>g.en===p.genre||g.tag===p.genre);
   setInstrumentMenus(GENRES[v.genre]?.family||(st.genre===null?null:GENRES[st.genre].family));   // 아래 검증이 새 장르 계열의 메뉴를 보게 (끝에서 원복)
   v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
-  v.bpm=Math.min(220,Math.max(60,Math.round(Number(p.bpm)||0)))||null;
-  v.key=KEYS.indexOf(p.key);
   v.drums=(p.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
   v.bass808=HH_808.includes(p.bass808)?p.bass808:null;
   v.lead=HH_MELODY.includes(p.melodyLead)?p.melodyLead:null;
@@ -1562,11 +1560,7 @@ function buildBriefProposal(text,p){
   const add=(id,label,val,show)=>{if(val)items.push({id,label,text:show,on:true});};
   add('mood','무드',v.mood,v.mood);
   add('genre','장르',v.genre>=0,v.genre>=0?`${GENRES[v.genre].kr} — ${GENRE_FEEL[v.genre]||''}`:'');
-  // BPM·Key는 곡명(song)일 때만 그 곡의 실제 값으로 제안 — 느낌 설명(vibe)이면 사용자가 직접 정함
-  if(p.kind==='song'){
-    add('bpm','BPM (곡에서)',v.bpm,`${v.bpm} BPM — 곡의 실제 값과 다르면 체크를 빼고 직접 입력하세요`);
-    add('key','Key (곡에서)',v.key>=0,v.key>=0?`${KEYS[v.key]} — 곡의 실제 값과 다르면 체크를 빼고 직접 고르세요`:'');
-  }
+  // BPM·Key는 분석 대상이 아님 — 참고 곡을 Spotify로 고르면 채워지고, 아니면 사용자가 직접 정함
   add('drums','드럼',v.drums.length,v.drums.join(', '));
   add('808','808',v.bass808,v.bass808);
   add('melody','멜로디',v.lead,[v.lead,v.bg].filter(Boolean).join(' + '));
@@ -1603,8 +1597,6 @@ function applyBrief(){
   if(on('mood')){st.mood=v.mood;moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);}
   if(on('genre')&&st.genre!==v.genre)selectGenre(v.genre);
   else if(on('mood'))onMoodChange();
-  if(on('bpm')){st.bpm=v.bpm;st.bpmSet=true;document.getElementById('hh-bpm').value=v.bpm;}
-  if(on('key')){st.key=v.key;st.keySet=true;document.getElementById('hh-key').value=v.key;}
   if(on('drums')){st.drums=v.drums.filter(d=>HH_DRUMS.includes(d));chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
   if(on('808')){st._808=v.bass808;st.b808Set=true;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);clearAutoHint('hh-808-hint');}
   if(on('melody')){
@@ -1664,7 +1656,7 @@ function geminiBriefRequestText(){
   const title=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim();
   return `내가 Suno AI로 비슷한 느낌의 곡을 만들고 싶어서 고른 참고 곡을 분석해줘.${title?`\n참고 곡: ${title}`:''}
 - 오디오 파일이나 유튜브 링크가 함께 있으면 그걸 직접 듣고 실제로 들리는 소리만 근거로 분석해줘.
-- 없으면 곡 제목으로 웹 검색(BPM·키 정보 사이트, 리뷰, 프로덕션 설명)과 네가 아는 정보를 활용해서 분석해줘. 정확히 모르는 값은 지어내지 말고 가장 가까운 선택지를 고르되 understood에 "확실하지 않음"이라고 적어.
+- 없으면 곡 제목으로 웹 검색(리뷰, 프로덕션 설명)과 네가 아는 정보를 활용해서 분석해줘. BPM과 Key는 분석하지 않아도 돼(다른 곳에서 가져와). 정확히 모르는 값은 지어내지 말고 가장 가까운 선택지를 고르되 understood에 "확실하지 않음"이라고 적어.
 kind는 항상 "song"으로 써.
 
 ${BRIEF_STATIC}
