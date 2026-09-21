@@ -8,7 +8,8 @@ const st={
   narrSt:{},narrAI:{},narrDirs:{},removedPhrases:[],structSegs:['intro','hook','verse','hook','outro'],structIdx:null,
   extraTags:[],transitionFx:[],melodyLeadIdx:0,groove:null,
   b808Set:false, // 808 강도를 사용자가 직접 골랐는지 — 808은 힙합·트랩 저음이라 다른 계열은 직접 고르기 전에는 프롬프트에 안 씀
-  lyricTheme:'',lyricLang:'English', // 보컬 곡에서 AI가 쓰는 가사의 방향(비우면 무드에 맞게)과 언어
+  lyricTheme:'',lyricLang:'English',userLyrics:'', // userLyrics: 사용자가 직접 붙여넣은 가사(비면 AI가 씀)
+  // 보컬 곡에서 AI가 쓰는 가사의 방향(비우면 무드에 맞게)과 언어
   bpmSet:false,keySet:false, // BPM·Key는 기본값이 없음 — 사용자가 직접 정했거나 레퍼런스 곡에서 가져왔을 때만 true (false면 프롬프트에 안 씀)
   brief:null, // AI가 곡명/느낌 입력에서 뽑은 소리 특징 {text,kind,understood,styleTags,cues} — 규칙 엔진·작성기·리뷰가 함께 씀
   _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
@@ -2335,8 +2336,10 @@ function hhGenerate(source,opts){
   if(_wc)sectText=_wc.section;
   if(isRefresh&&keepSect)sectText=keepSect;   // 화면만 다시 그릴 땐 보이던 텍스트 유지
   const _vocalOut=!!(st.vocal&&st.vocal!=='No Vocal');
-  const lyricsPure=_vocalOut?(_wc?.lyrics||_hhWritten?.lyrics||''):'';
-  const lyricsText=_vocalOut?((isRefresh&&keepLyrics!==null)?keepLyrics:(_wc?.lyrics?(mergeLyricsAndDirection(_wc.lyrics,_wc.section)||_wc.lyrics):'')):'';
+  const _ul=_vocalOut&&(st.userLyrics||'').trim()?fitUserLyrics(st.userLyrics,lyricHeaders(parseSections(sectText))):null;   // 내가 붙여넣은 가사 — AI 결과를 기다리지 않고 지금 연출과 바로 합쳐 보여줌
+  const _myLy=_ul&&_ul.placed?_ul.text:'';
+  const lyricsPure=_vocalOut?(_myLy||_wc?.lyrics||_hhWritten?.lyrics||''):'';
+  const lyricsText=_vocalOut?((isRefresh&&keepLyrics!==null)?keepLyrics:(_myLy?(mergeLyricsAndDirection(_myLy,_wc?.section||sectText)||_myLy):(_wc?.lyrics?(mergeLyricsAndDirection(_wc.lyrics,_wc.section)||_wc.lyrics):''))):'';
   const lyricsBlock=_vocalOut?makeOutBlock('② 가사 프롬프트 (Suno의 Lyrics 칸 — 연출 설명 + 가사)',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-lyrics-count" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--success)">${lyricsText.length}/5000자</span></div><textarea class="output-ta" id="hh-lyrics-ta" rows="14" placeholder="AI 작성이 켜져 있으면 여기에 섹션마다 [헤더] → (연출 설명) → 가사가 합쳐져서 만들어져요 (API Key 필요). 직접 쓴 가사를 붙여 넣어도 돼요." style="display:block;width:100%">${escHtml(lyricsText)}</textarea>`,
     'hh-lyrics-ta','#F59E0B'):null;
@@ -2465,7 +2468,9 @@ function hhGenerate(source,opts){
       `<textarea class="output-ta" id="hh-exclude-ta" rows="2" readonly style="display:block;width:100%">${escHtml(ex)}</textarea><div style="font-size:11px;color:var(--text-3);margin-top:6px;line-height:1.6">스타일 칸의 "no vocals"만으로는 보컬이 섞일 때가 있어서, Suno의 공식 제외 칸에도 같이 넣으면 더 확실해요.</div>`,'hh-exclude-ta','#EF4444'));}
   if(_vocalOut){
     container.appendChild(sectBlock);
-    container.appendChild(makeOutBlock('⑤ 참고: 가사만',`<textarea class="output-ta" id="hh-lyrics-only-ta" rows="10" readonly style="display:block;width:100%">${escHtml(lyricsPure)}</textarea>`,'hh-lyrics-only-ta','#F59E0B'));
+    container.appendChild(makeOutBlock('⑤ 가사만 · 내 가사 붙여넣기',`<textarea class="output-ta" id="hh-lyrics-only-ta" rows="10" placeholder="직접 쓴 가사를 여기에 붙여넣고 아래 '이 가사 사용'을 누르세요 — [Verse]·[Chorus] 표시가 있으면 그대로, 없으면 빈 줄로 나눈 문단을 순서대로 넣어요" style="display:block;width:100%">${escHtml(lyricsPure)}</textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button onclick="useMyLyrics()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">✅ 이 가사 사용</button><button onclick="clearMyLyrics()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--text-2);font-size:12px;cursor:pointer">↩ AI가 쓰게 되돌리기</button></div>
+      <div id="hh-mylyrics-note" ${st.userLyrics?'':'hidden'} style="font-size:11px;line-height:1.7;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:6px;color:var(--text-2)">${st.userLyrics?'내 가사를 쓰는 중이에요 — 연출은 이 가사에 맞춰 써져요.':''}</div>`,'hh-lyrics-only-ta','#F59E0B'));
   }
 
   // Suno Studio 세팅 팁 — Variety를 0보다 높게 두면 Suno가 위 스타일 태그를 자체적으로 고쳐써버려서
@@ -2863,7 +2868,7 @@ function hhReset(){
   st._808='Balanced';st.drums=[];st.melody=[];st.mood=null;st.vocal='No Vocal';
   st.refs=[];st.texture=[];st.era=null;st.region=null;st.density=null;st.length=null;st.commercial=null;
   st.narrSt={};st.narrAI={};st.narrDirs={};st.removedPhrases=[];st.structSegs=['intro','hook','verse','hook','outro'];st.structIdx=null;
-  st.transitionFx=[];st.groove=null;st.brief=null;st.b808Set=false;st.lyricTheme='';st.lyricLang='English';st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
+  st.transitionFx=[];st.groove=null;st.brief=null;st.b808Set=false;st.lyricTheme='';st.userLyrics='';st.lyricLang='English';st.melodyLeadIdx=0;st._mtAutoManaged=true;st.vocalChar=null;st.vocalStyle=null;st.melodyTone=null;st._structAutoManaged=true;
   st.sectionArrangeExtras={};st.sectionArrangeOccurrence={};
   const refSongEl=document.getElementById('hh-ref-song');
   if(refSongEl)refSongEl.value='';

@@ -996,6 +996,63 @@ function mergeLyricsAndDirection(lyrics,section){
   });
   return hit?out.join('\n\n'):'';
 }
+// ── 내 가사 붙여넣기 — 사용자가 직접 쓴 가사를 곡 구조의 가사 헤더에 배치. 표시([Verse]·[Chorus]·후렴 등)가 있으면 그대로, 없으면 빈 줄로 나눈 문단을 순서대로(같은 문단이 반복되면 후렴)
+function fitUserLyrics(raw,headers){
+  const typeOf=t=>/instrumental|인스트/i.test(t)?'inst':/pre-?chorus|프리\s*코러스|프리/i.test(t)?'pre':/chorus|hook|후렴|코러스|サビ/i.test(t)?'chorus':/verse|벌스|\d\s*절|[AB]メロ/i.test(t)?'verse':/bridge|브릿지|간주|solo|솔로/i.test(t)?'bridge':/intro|인트로/i.test(t)?'intro':/outro|아웃트로|엔딩/i.test(t)?'outro':'other';
+  const blocks=[];let cur=null;
+  (raw||'').split(/\r?\n/).forEach(line=>{
+    const t=line.trim();
+    if(!t){if(cur&&!cur.labeled)cur=null;return;}   // 표시 없는 문단은 빈 줄에서 끝, 표시 있는 블록은 스탠자 사이 빈 줄을 허용
+    const m=t.match(/^[\[\(（【]\s*([^\]\)）】]{1,30}?)\s*[\]\)）】]\s*:?$/)||t.match(/^([A-Za-z가-힣\d ]{1,20})\s*[:：]$/)||t.match(/^(verse|chorus|bridge|intro|outro|pre-?chorus|hook|벌스|후렴|브릿지|인트로|아웃트로)\s*\d*$/i);
+    if(m&&typeOf(m[1])!=='other'){cur={type:typeOf(m[1]),lines:[],labeled:true};blocks.push(cur);return;}
+    if(!cur){cur={type:'other',lines:[],labeled:false};blocks.push(cur);}
+    cur.lines.push(t);
+  });
+  // 표시 없는 문단 중 내용이 똑같이 반복되는 건 후렴으로
+  const un=blocks.filter(b=>!b.labeled),seen={};
+  un.forEach(b=>{const k=b.lines.join('\n');(seen[k]=seen[k]||[]).push(b);});
+  Object.values(seen).forEach(g=>{if(g.length>1)g.forEach(b=>{b.type='chorus';});});
+  const verses=blocks.filter(b=>b.type==='verse'||(b.type==='other'&&!b.labeled)).slice();
+  const choruses=blocks.filter(b=>b.type==='chorus');
+  const intros=blocks.filter(b=>b.type==='intro').slice(),outros=blocks.filter(b=>b.type==='outro').slice();
+  const used=new Set(),out=[],missing=[];let placed=0,ci=0;
+  headers.forEach(h=>{
+    const k=/instrumental/i.test(h)?'inst':/chorus/i.test(h)?'chorus':/verse/i.test(h)?'verse':/intro/i.test(h)?'intro':/outro/i.test(h)?'outro':'inst';
+    let b=null;
+    if(k==='verse')b=verses.shift();
+    else if(k==='chorus'&&choruses.length)b=choruses[Math.min(ci++,choruses.length-1)];   // 후렴이 하나뿐이면 매번 같은 후렴, 여러 개면 순서대로(마지막 후렴만 다르게 쓴 경우)
+    else if(k==='intro')b=intros.shift();
+    else if(k==='outro')b=outros.shift();
+    out.push(h);
+    if(b){used.add(b);placed++;out.push(...b.lines);}
+    else if(k==='verse'||k==='chorus')missing.push(h);
+    out.push('');
+  });
+  const dropped=blocks.filter(b=>!used.has(b)&&b.type!=='inst').map(b=>({verse:'벌스',chorus:'후렴',bridge:'브릿지',pre:'프리코러스',intro:'인트로',outro:'아웃트로',other:'문단',inst:''}[b.type]+' ('+(b.lines[0]||'').slice(0,12)+'…)'));
+  return {text:out.join('\n').replace(/\n+$/,''),placed,missing,dropped};
+}
+function useMyLyrics(){
+  const ta=document.getElementById('hh-lyrics-only-ta'),note=document.getElementById('hh-mylyrics-note');
+  const say=(m,c)=>{if(note){note.hidden=false;note.style.color=c||'var(--text-2)';note.textContent=m;}};
+  const raw=(ta?.value||'').trim();
+  if(!raw){say('가사를 먼저 붙여넣어 주세요','var(--danger)');return;}
+  const sect=document.getElementById('hh-sect-ta')?.value||'';
+  const fit=fitUserLyrics(raw,lyricHeaders(parseSections(sect)));
+  if(!fit.placed){say('❌ 가사를 곡 구조에 배치하지 못했어요 — [Verse]·[Chorus] 같은 표시를 붙이거나, 문단을 빈 줄로 나눠서 다시 붙여넣어 주세요','var(--danger)');return;}
+  st.userLyrics=fit.text;   // 헤더가 붙은 정리본을 저장 — 나중에 구조가 바뀌어도 다시 배치됨
+  if(ta)ta.value=fit.text;
+  const la=document.getElementById('hh-lyrics-ta');
+  if(la){la.value=mergeLyricsAndDirection(fit.text,sect)||fit.text;updateWriteCounters();}
+  markPending('내 가사');
+  say(`✅ 내 가사를 넣었어요 (${fit.placed}개 섹션에 배치). 위 ② Lyrics 칸에 지금 연출과 합쳐서 보여요 — Generate를 누르면 연출이 이 가사에 맞게 다시 쓰여요.${fit.missing.length?' ⚠ 가사가 없는 자리: '+fit.missing.join(', ')+' (문단이 모자라요)':''}${fit.dropped.length?' ⚠ 구조에 자리가 없어 빠진 부분: '+fit.dropped.join(', ')+' (브릿지·프리코러스 가사는 Instrumental 구간이라 안 들어가요)':''}`,fit.missing.length||fit.dropped.length?'#F59E0B':'var(--success)');
+}
+function clearMyLyrics(){
+  st.userLyrics='';
+  const ta=document.getElementById('hh-lyrics-only-ta');if(ta)ta.value=_hhWritten?.lyrics||'';
+  markPending('AI가 가사 작성');
+  const note=document.getElementById('hh-mylyrics-note');
+  if(note){note.hidden=false;note.style.color='var(--text-2)';note.textContent='AI가 가사를 쓰도록 되돌렸어요 — Generate를 누르면 새로 써요.';}
+}
 function lyricHeaders(structure){
   return structure.map(s=>{
     const m=s.header.match(/^\[(Instrumental )?(Intro|Hook|Verse|Bridge|Outro)(?: (\d+))?/i);
@@ -1013,7 +1070,9 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const secs=parseSections(draftSect);
   const w={intro:1,hook:1.3,verse:1.1,bridge:0.9,outro:1};
   const wsum=secs.reduce((s,x)=>s+(w[x.type]||1),0)||1;
-  const secLimit=hasVocal?WRITE_LIMITS.sectionVocal:WRITE_LIMITS.section;   // 보컬 곡은 Lyrics 칸(5000자)을 연출 설명과 가사가 나눠 씀
+  const ul=hasVocal&&(st.userLyrics||'').trim()?fitUserLyrics(st.userLyrics,lyricHeaders(secs)):null;   // 사용자가 붙여넣은 가사(구조에 배치된 것)
+  const userLy=ul&&ul.placed?ul.text:null;
+  const secLimit=hasVocal?(userLy?Math.max(1200,Math.min(WRITE_LIMITS.sectionVocal,4900-userLy.length-400)):WRITE_LIMITS.sectionVocal):WRITE_LIMITS.section;   // 보컬 곡은 Lyrics 칸(5000자)을 연출 설명과 가사가 나눠 씀 — 사용자 가사가 길면 연출 몫을 줄임
   const budget=Math.floor(secLimit*0.92);
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:Math.floor(budget*(w[s.type]||1)/wsum*1.25)}));
   const styleTags=(draftStyle||'').split(', ');
@@ -1035,8 +1094,8 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     prevLength:prev?prev.section.length:null,
     mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
     prevSections:prev?parseSections(prev.section).map(s=>({header:s.header,body:s.body})):null,
-    lyrics:hasVocal?{theme:(st.lyricTheme||'').trim()||null,lang:GENRE_LYRIC_LANG_FIXED[st.genre]||st.lyricLang||'English',headers:lyricHeaders(structure)}:null,
-    prevLyrics:(hasVocal&&prev&&prev.lyrics)?prev.lyrics:null,
+    lyrics:hasVocal?{theme:(st.lyricTheme||'').trim()||null,lang:GENRE_LYRIC_LANG_FIXED[st.genre]||st.lyricLang||'English',headers:lyricHeaders(structure),provided:!!userLy}:null,
+    prevLyrics:userLy||((hasVocal&&prev&&prev.lyrics)?prev.lyrics:null),
   };
 }
 // 검사기 — 규칙 엔진이 만든 명세를 정답으로 AI 결과의 고정 정보를 확인
@@ -1127,14 +1186,15 @@ function validateWritten(spec,section,style,opts){
   // 가사(보컬 곡) — 헤더 순서, 줄 수, 언어, 후렴 반복, 가사 칸에는 가사만
   if(spec.lyrics){
     const ly=((opts&&opts.lyrics)||'').trim();
+    const provided=!!spec.lyrics.provided;   // 사용자가 준 가사 — 줄 수·언어·후렴 반복 같은 작성 품질 검사는 건너뜀
     if(!ly)errors.push('<lyrics> 가사가 비어 있음');
     else{
       const {secs:secsL,stray}=parseLyricSections(ly);
-      if(ly.length>1800)errors.push(`가사가 ${ly.length}자 — 1,800자 이하로 (연출 설명과 합쳐 Lyrics 칸 5,000자 안에 들어가야 함)`);
+      if(!provided&&ly.length>1800)errors.push(`가사가 ${ly.length}자 — 1,800자 이하로 (연출 설명과 합쳐 Lyrics 칸 5,000자 안에 들어가야 함)`);
       {const merged=mergeLyricsAndDirection(ly,section);if(merged&&merged.length>4950)errors.push(`연출 설명과 합친 Lyrics 칸 텍스트가 ${merged.length}자 — 4,950자 이하로 (연출 설명이나 가사를 줄일 것)`);}
       const want=spec.lyrics.headers;
       if(stray||secsL.length!==want.length||secsL.some((s,i)=>s.header!==want[i]))errors.push(`가사 헤더/순서가 명세와 다름(헤더 앞에 다른 줄이 있어도 안 됨). 정확히 이 순서·문구: ${want.join(' | ')}`);
-      else secsL.forEach(s=>{
+      else if(!provided)secsL.forEach(s=>{
         const n=s.lines.length;
         if(/^\[Verse/.test(s.header)&&(n<6||n>20))errors.push(`${s.header} 가사가 ${n}줄 — 6~20줄로`);
         if(/^\[Chorus/.test(s.header)&&(n<3||n>10))errors.push(`${s.header} 가사가 ${n}줄 — 3~10줄로`);
@@ -1143,15 +1203,15 @@ function validateWritten(spec,section,style,opts){
         if(s.lines.some(l=>l.length>110))errors.push(`${s.header}에 너무 긴 줄이 있음 — 한 줄은 짧게`);
       });
       const longParen=(ly.match(/\(([^)]*)\)/g)||[]).find(p=>p.replace(/[()]/g,'').trim().split(/\s+/).length>4);
-      if(longParen)errors.push(`가사에 괄호 설명문(${longParen.slice(0,30)}…)이 있음 — 가사 칸에는 가사만 (짧은 (ooh) 같은 애드립만 허용)`);
+      if(!provided&&longParen)errors.push(`가사에 괄호 설명문(${longParen.slice(0,30)}…)이 있음 — 가사 칸에는 가사만 (짧은 (ooh) 같은 애드립만 허용)`);
       const prod=ly.match(/\b(808|hi-?hats?|sub-?bass|sidechain|reverb|stereo|synths?|snare|bpm)\b/i);
-      if(prod)errors.push(`가사에 연출·악기 설명 단어(${prod[0]})가 있음 — 그런 건 <section>에`);
+      if(!provided&&prod)errors.push(`가사에 연출·악기 설명 단어(${prod[0]})가 있음 — 그런 건 <section>에`);
       const hanN=(ly.match(/[\uAC00-\uD7A3]/g)||[]).length,jpN=(ly.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length,letN=(ly.match(/[A-Za-z\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length||1;
-      if(spec.lyrics.lang==='한국어'&&hanN/letN<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
-      if(spec.lyrics.lang==='日本語'&&jpN/letN<0.4)errors.push('가사 언어가 日本語인데 일본어(가나·한자) 비율이 낮음');
-      if(spec.lyrics.lang==='English'&&(hanN+jpN)/letN>0.05)errors.push('가사 언어가 English인데 한글·일본어가 섞임');
+      if(!provided&&spec.lyrics.lang==='한국어'&&hanN/letN<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
+      if(!provided&&spec.lyrics.lang==='日本語'&&jpN/letN<0.4)errors.push('가사 언어가 日本語인데 일본어(가나·한자) 비율이 낮음');
+      if(!provided&&spec.lyrics.lang==='English'&&(hanN+jpN)/letN>0.05)errors.push('가사 언어가 English인데 한글·일본어가 섞임');
       const ch=secsL.filter(s=>/^\[Chorus/.test(s.header));
-      if(ch.length>=2){const base=new Set(ch[0].lines.map(x=>x.toLowerCase()));if(ch[1].lines.filter(x=>base.has(x.toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
+      if(!provided&&ch.length>=2){const base=new Set(ch[0].lines.map(x=>x.toLowerCase()));if(ch[1].lines.filter(x=>base.has(x.toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
       if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==ly.replace(/\s+/g,' ').trim())errors.push('고쳐쓰기에서는 가사를 이전 결과 글자 그대로 유지해야 함');
     }
   }
@@ -1352,7 +1412,7 @@ ${_writeFix?`\n[개선 요청 — 이 결과가 추가 검사에서 지적받은
 [의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, 그 외에 적힌 값(BPM·Key·보컬, 그리고 확정된 악기·드럼)은 사용자가 정한 것이니 그대로 지켜]
 ${aiSelectionCtx({soft:true})}
 ${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
-${spec.lyrics?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
+${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
   const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
   const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
