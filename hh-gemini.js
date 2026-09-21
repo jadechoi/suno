@@ -47,6 +47,17 @@ async function geminiPost(model,key,body){
   }catch(e){throw new Error(e.name==='AbortError'?'Gemini 응답이 너무 오래 걸려 중단했어요 — 다시 시도해주세요':'Gemini에 연결하지 못했어요 (네트워크를 확인해주세요)');}
   finally{clearTimeout(to);}
 }
+// 429(한도) 응답을 사람이 알아볼 문장으로 — 하루 한도인지 분당 한도인지, 얼마 뒤에 되는지, 어느 모델인지
+function geminiQuotaText(e){
+  const det=e.data?.error?.details||[];
+  const v=det.find(x=>x.violations)?.violations?.[0]||{};
+  const delay=det.find(x=>x.retryDelay)?.retryDelay;
+  const secs=delay?Math.ceil(parseFloat(delay)):0;
+  const who=` (모델 ${v.quotaDimensions?.model||e.model})`;
+  if(/PerDay/i.test(v.quotaId||''))return '오늘 Gemini 무료 사용량을 다 썼어요 — 내일 다시 하거나, Google AI Studio에서 결제를 연결하면 풀려요'+who;
+  if(secs)return `Gemini 요청이 너무 잦아요 — 약 ${secs}초 뒤에 다시 눌러주세요`+who;
+  return 'Gemini 사용량 한도에 걸렸어요 — '+String(e.msg||'').slice(0,90)+who;
+}
 // Gemini에게 묻기 — file(오디오)·youtube(링크)가 있으면 그걸 듣게 하고, 둘 다 없으면 search가 곡명 웹 검색으로 대신. note(msg)는 재시도 안내용
 async function geminiAsk({text,file,youtube,search,note}){
   const key=getGeminiKey();
@@ -59,7 +70,7 @@ async function geminiAsk({text,file,youtube,search,note}){
   const body={contents:[{parts}]};
   if(search&&!file&&!youtube)body.tools=[{google_search:{}}];
   const models=[getGeminiModel(),...GEMINI_FALLBACKS.filter(m=>m!==getGeminiModel())];
-  let last=null;
+  let last=null,first=null;   // first = 사용자가 고른(맨 앞) 모델의 실패 — 대체 모델(Pro는 무료 한도가 없을 수 있음)의 실패 사유로 덮어쓰면 오해를 부름
   for(let mi=0;mi<models.length;mi++){
     for(let attempt=0;attempt<2;attempt++){
       if(mi>0&&attempt===0)note&&note(`Gemini가 혼잡해서 다른 모델(${models[mi]})로 다시 시도하는 중…`);
@@ -72,13 +83,16 @@ async function geminiAsk({text,file,youtube,search,note}){
       }
       const msg=r.data.error?.message||`HTTP ${r.status}`;
       if(r.status===400&&/API key/i.test(msg))throw new Error('Gemini API Key가 올바르지 않아요');
-      last={status:r.status,msg};
+      last={status:r.status,msg,data:r.data,model:models[mi]};if(!first)first=last;
+      // 검색 도구(google_search)는 별도 한도가 있거나 지원이 안 되는 모델이 있어서, 도구 때문에 막힌 거면 검색 없이 같은 모델로 한 번 더
+      if(body.tools&&(r.status===429||r.status===400)){delete body.tools;note&&note('검색 기능 없이 다시 시도하는 중…');attempt--;continue;}
       if(r.status===503||r.status===500)continue;   // 혼잡·일시 오류 — 같은 모델로 한 번 더, 그다음 다음 모델
       break;                                        // 404(없는 모델)·429(한도) 등은 같은 모델 재시도가 의미 없음 — 바로 다음 모델
     }
   }
+  const e=first||last;
+  if(e.status===429)throw new Error(geminiQuotaText(e));
   if(last.status===404)throw new Error(`쓸 수 있는 모델을 못 찾았어요 — 키 입력줄의 모델 칸에 다른 이름을 넣어보세요 (${last.msg})`);
-  if(last.status===429)throw new Error('Gemini 사용량 한도에 걸렸어요 — 잠시 뒤 다시 시도해주세요');
   if(last.status===503)throw new Error('Gemini가 계속 혼잡해요(모델 여러 개를 시도했어요) — 몇 분 뒤에 다시 눌러주세요');
   throw new Error('Gemini 오류: '+last.msg);
 }
