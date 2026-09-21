@@ -1326,6 +1326,19 @@ function renderWriteBadge(){
   };
   const [t,title]=map[_writeState]||map.off;
   b.textContent=t;b.title=title;
+  // 툴팁은 마우스를 올려야만 보이고(터치에선 불가) 4개까지만 잘려서, 사유 전체를 배지 아래에 눈에 보이게 펼침 — 배지를 누르면 접기/펴기
+  const hdr=b.closest('.output-box-header');
+  let d=document.getElementById('hh-write-detail');
+  if(!d&&hdr){d=document.createElement('div');d.id='hh-write-detail';d.style.cssText='font-size:11px;line-height:1.7;padding:8px 10px;margin:6px 0;border-radius:var(--r-sm);background:var(--surface-3);color:var(--text-2)';hdr.after(d);}
+  if(!d)return;
+  const items=_writeState==='ok'&&_writeWarn?_writeWarn:_writeState==='fallback'?(_writeErr?_writeErr.split(' / '):[]):[];
+  const has=items.length>0;
+  b.style.cursor=has?'pointer':'';b.onclick=has?()=>{d.hidden=!d.hidden;}:null;
+  d.hidden=!has;
+  d.innerHTML=has?(_writeState==='ok'
+    ?'<b style="color:var(--text-1)">개선 권장 '+items.length+'개</b> — 핵심 검사(구조·보컬·이름·길이)는 통과했어요. 필수는 아니라서 그대로 써도 되고, 마음에 걸리면 아이디어 칸에 지시를 적고 다시 Generate 하세요.'
+    :'<b style="color:var(--text-1)">AI 작성이 검증을 통과하지 못해 규칙 초안을 보여주고 있어요</b> — 이유:')
+    +'<ul style="margin:6px 0 0;padding-left:18px">'+items.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul>':'';
 }
 function updateWriteCounters(){
   const sect=document.getElementById('hh-sect-ta')?.value||'',style=document.getElementById('hh-style-ta')?.value||'';
