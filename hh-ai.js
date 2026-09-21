@@ -921,6 +921,18 @@ let _writeToken=0;        // 오래된 응답 무시용
 let _writePromise=null;   // 진행 중 작성(리뷰가 초안 대신 최종 텍스트를 보게 대기)
 let _writeState='off';    // off | pending | ok | fallback
 let _writeErr='';
+// "개선 권장" 항목을 반영해서 다시 쓰기 — 지적 목록을 [개선 요청]으로 붙여 고쳐쓰기 모드로 돌림. 더 나아지지 않으면 이전 결과를 그대로 둠
+let _writeFix=null;      // 진행 중인 개선 요청(지적 목록)
+let _writeNote='';       // 개선 결과 안내(예: 이전 결과 유지)
+let _writeEntryId=null;
+function reviseWithWarnings(btn){
+  if(!_writeWarn||!_writeWarn.length||!_hhWritten?.meta?.ok||!_hhDraft||_hhWritten.fpBase!==_hhDraft.fpBase){
+    _writeNote='설정이 바뀌어서 지금 결과와 맞지 않아요 — 먼저 Generate를 눌러 새로 작성한 뒤 시도해주세요';renderWriteBadge();return;
+  }
+  _writeFix=[..._writeWarn];_writeNote='';
+  if(btn)btn.disabled=true;
+  hhAiWrite(_writeEntryId);
+}
 let _writeWarn=null;   // 핵심 검사는 통과했지만 추가 개선 검사 일부를 못 넘은 AI 결과의 사유
 
 function aiWriteEnabled(){
@@ -951,6 +963,7 @@ function splitPhrases(body){return (body||'').replace(/^\(\d+ Bars: /,'').replac
 // 고쳐쓰기에서 바뀌어도 되는 섹션 — 지시가 바뀐 섹션, 새로 삭제 확정된 구가 들어 있던 섹션만. 나머지는 이전 결과를 글자 그대로 유지해야 함
 // (AI가 전체를 다시 쓰면 지시와 무관한 섹션까지 조금씩 흔들려 라운드마다 일관성·파싱 적합이 깎이던 문제 — 수정 범위를 지시가 닿은 곳으로 제한)
 function editScopeFor(prev,headers){
+  if(_writeFix)return headers.slice();   // "개선 권장 반영" 다시 쓰기 — 어느 섹션이 지적됐는지는 AI가 판단하니 전 섹션을 열어 둠(안 걸린 섹션은 그대로 두라고 지시)
   const keys=structOccurrenceKeys();
   const old=prev.dirSnap||{narrAI:{},removedPhrases:[]};
   const mutable=new Set();
@@ -1302,6 +1315,7 @@ ${JSON.stringify(spec,null,1)}
 ${directives}
 확정 스타일 지시: ${(st.extraTags||[]).join(' & ')||'(없음)'}
 삭제 확정 문구(어떤 형태로도 다시 쓰지 말 것): ${(st.removedPhrases||[]).join(' | ')||'(없음)'}
+${_writeFix?`\n[개선 요청 — 이 결과가 추가 검사에서 지적받은 항목이야. 아래를 해소하도록 고쳐 써. 지적과 무관한 섹션·가사는 [이전 결과] 그대로 유지하고, 지적된 부분만 구체적인 소리 표현으로 바꿔. 새 지적을 만들지 않도록 다른 규칙도 그대로 지켜]\n${_writeFix.map((x,i)=>`${i+1}. ${x}`).join('\n')}`:''}
 
 [의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, 그 외에 적힌 값(BPM·Key·보컬, 그리고 확정된 악기·드럼)은 사용자가 정한 것이니 그대로 지켜]
 ${aiSelectionCtx({soft:true})}
@@ -1333,12 +1347,14 @@ function renderWriteBadge(){
   if(!d)return;
   const items=_writeState==='ok'&&_writeWarn?_writeWarn:_writeState==='fallback'?(_writeErr?_writeErr.split(' / '):[]):[];
   const has=items.length>0;
+  const note=_writeNote?'<div style="margin-top:6px;color:var(--accent-text)">'+escHtml(_writeNote)+'</div>':'';
   b.style.cursor=has?'pointer':'';b.onclick=has?()=>{d.hidden=!d.hidden;}:null;
-  d.hidden=!has;
+  d.hidden=!(has||_writeNote);
   d.innerHTML=has?(_writeState==='ok'
-    ?'<b style="color:var(--text-1)">개선 권장 '+items.length+'개</b> — 핵심 검사(구조·보컬·이름·길이)는 통과했어요. 필수는 아니라서 그대로 써도 되고, 마음에 걸리면 아이디어 칸에 지시를 적고 다시 Generate 하세요.'
+    ?'<b style="color:var(--text-1)">개선 권장 '+items.length+'개</b> — 핵심 검사(구조·보컬·이름·길이)는 통과했어요. 필수는 아니라서 그대로 써도 되고, 아래 버튼을 누르면 AI가 이 항목들을 반영해 다시 써요(나아지지 않으면 지금 결과를 그대로 둬요).'
     :'<b style="color:var(--text-1)">AI 작성이 검증을 통과하지 못해 규칙 초안을 보여주고 있어요</b> — 이유:')
-    +'<ul style="margin:6px 0 0;padding-left:18px">'+items.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul>':'';
+    +'<ul style="margin:6px 0 0;padding-left:18px">'+items.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul>'
+    +(_writeState==='ok'?'<button onclick="reviseWithWarnings(this)" style="margin-top:8px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🔧 이 항목 반영해서 다시 쓰기</button>':'')+note:note;
 }
 function updateWriteCounters(){
   const sect=document.getElementById('hh-sect-ta')?.value||'',style=document.getElementById('hh-style-ta')?.value||'';
@@ -1360,6 +1376,9 @@ async function hhAiWrite(entryId){
   if(!aiWriteEnabled()||!_hhDraft)return;
   const token=++_writeToken;
   const draft=_hhDraft;
+  _writeEntryId=entryId;
+  if(!_writeFix)_writeNote='';
+  const fixNotes=_writeFix,prevW=_hhWritten,prevWarn=_writeWarn;   // 개선 다시 쓰기면 실패·무개선 때 이전 결과로 되돌리려고 보관
   _writeState='pending';_writeErr='';_writeWarn=null;renderWriteBadge();
   const run=(async()=>{
     try{
@@ -1386,6 +1405,16 @@ async function hhAiWrite(entryId){
       // 끝까지 완벽하지 못해도 핵심 검사를 통과한 AI 결과가 있으면 규칙 초안(의도 반영이 약함) 대신 그걸 쓰고 경고만 표시
       if(!result&&best){result=best.out;warn=best.errors;}
       if(token!==_writeToken)return;
+      if(fixNotes&&prevW?.meta?.ok&&(!result||(warn&&warn.length>=(prevWarn||[]).length))){   // 개선 다시 쓰기가 실패했거나 나아지지 않음 → 규칙 초안이 아니라 이전 AI 결과를 그대로 둠
+        _hhWritten=prevW;_writeState='ok';_writeWarn=prevWarn;
+        _writeNote=result?'다시 써봤지만 개선 권장이 줄지 않아 이전 결과를 그대로 뒀어요':'다시 쓰기가 검사를 통과하지 못해 이전 결과를 그대로 뒀어요';
+        const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
+        if(ta)ta.value=prevW.section;if(sa)sa.value=prevW.style;
+        {const la=document.getElementById('hh-lyrics-ta');if(la&&prevW.lyrics)la.value=mergeLyricsAndDirection(prevW.lyrics,prevW.section)||prevW.lyrics;}
+        updateWriteCounters();
+        return;
+      }
+      if(fixNotes)_writeNote=warn&&warn.length?('개선 권장 '+(prevWarn||[]).length+'개 → '+warn.length+'개로 줄었어요'):'개선 권장 항목을 모두 반영했어요';
       if(result){
         _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,lyrics:result.lyrics||'',meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
         _writeState='ok';_writeWarn=warn;
@@ -1404,11 +1433,19 @@ async function hhAiWrite(entryId){
       }
     }catch(e){
       if(token!==_writeToken)return;
+      if(fixNotes&&prevW?.meta?.ok){
+        _hhWritten=prevW;_writeState='ok';_writeWarn=prevWarn;_writeNote='다시 쓰기에 실패해서 이전 결과를 그대로 뒀어요 ('+e.message+')';
+        const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
+        if(ta)ta.value=prevW.section;if(sa)sa.value=prevW.style;
+        {const la=document.getElementById('hh-lyrics-ta');if(la&&prevW.lyrics)la.value=mergeLyricsAndDirection(prevW.lyrics,prevW.section)||prevW.lyrics;}
+        updateWriteCounters();
+        return;
+      }
       _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:draft.sect,style:draft.style,meta:{ok:false,errors:[e.message]}};
       _writeState='fallback';_writeErr=e.message;
       restoreDraftText(draft);
     }finally{
-      if(token===_writeToken){renderWriteBadge();_writePromise=null;}
+      if(token===_writeToken){_writeFix=null;renderWriteBadge();_writePromise=null;}
     }
   })();
   _writePromise=run;
