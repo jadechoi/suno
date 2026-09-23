@@ -18,7 +18,7 @@ function listenHtml(){
   ② 아래 <b>평가 요청문 복사</b>를 눌러 그 AI에 붙여넣어요. (지금 프롬프트가 자동으로 들어가요)<br>
   ③ AI가 준 평가를 아래 칸에 붙여넣고 <b>제안으로 바꾸기</b>를 눌러요. 그다음 마음에 드는 제안만 적용하고 Generate를 누르면 돼요.
 </div>
-<div style="margin-top:8px"><button onclick="listenCopyAiRequest(this)" style="padding:6px 14px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:12px;cursor:pointer">📋 AI 평가 요청문 복사</button></div>
+<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="listenCopyAiRequest(this)" style="padding:6px 14px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:12px;cursor:pointer">📋 평가 요청문 복사 + 새 탭 열기</button><button onclick="pasteFromClipboard('hh-external-feedback-ta',this,t=>_extFeedbackDraft=t)" style="padding:6px 14px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--text-2);font-size:12px;cursor:pointer">📥 Gemini 탭에서 복사한 답 채우기</button></div>
 <textarea id="hh-external-feedback-ta" oninput="_extFeedbackDraft=this.value" placeholder="여기에 AI가 준 평가를 붙여넣기 (예: 훅이 반복될 때 변화가 부족해서 두 번째 임팩트가 약하다...)" style="display:block;width:100%;box-sizing:border-box;min-height:90px;margin-top:10px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--border-hi);background:var(--surface-2);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:12px;resize:vertical">${escHtml(_extFeedbackDraft)}</textarea>
 <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
   <button id="hh-ai-external-btn" onclick="aiParseExternalFeedback()" ${hasKey?'':'disabled'} style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;opacity:${hasKey?1:.5}">🤖 제안으로 바꾸기</button>
@@ -44,5 +44,5 @@ ${(_hhWritten?.lyrics||'').trim()?`[가사 프롬프트 (연출 설명 + 가사)
 ${sect}`;
 }
 function listenCopyAiRequest(btn){
-  navigator.clipboard.writeText(listenRequestText()).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
+  copyAndOpenGemini(listenRequestText(),btn);
 }

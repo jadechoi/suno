@@ -1756,7 +1756,7 @@ ${BRIEF_STATIC}
 ${briefOptionsText()}`;
 }
 function copyGeminiBriefRequest(btn){
-  navigator.clipboard.writeText(geminiBriefRequestText()).then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>{btn.textContent=o;},1800);});
+  copyAndOpenGemini(geminiBriefRequestText(),btn);
 }
 // Gemini가 준 답(JSON 포함 텍스트)을 AI 분석과 같은 추천 카드로 — 붙여넣기·직접 호출 공용. JSON을 못 읽으면 false
 function applyBriefFromRaw(raw){

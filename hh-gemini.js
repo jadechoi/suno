@@ -96,6 +96,27 @@ async function geminiAsk({text,file,youtube,search,note}){
   if(last.status===503)throw new Error('Gemini가 계속 혼잡해요(모델 여러 개를 시도했어요) — 몇 분 뒤에 다시 눌러주세요');
   throw new Error('Gemini 오류: '+last.msg);
 }
+// 복사만 하면 사용자가 직접 gemini.google.com을 찾아 열고 붙여넣기까지 해야 해서 손이 많이 감 — 복사와 동시에 새 탭으로 열어서 바로 Cmd+V만 하면 되게
+function copyAndOpenGemini(text,btn){
+  navigator.clipboard.writeText(text).then(()=>{
+    window.open('https://gemini.google.com/app','_blank');
+    const o=btn.textContent;btn.textContent='✅ 복사됨 — 새 탭에 붙여넣으세요';setTimeout(()=>{btn.textContent=o;},2500);
+  });
+}
+// Gemini 탭에서 답을 복사해 온 뒤, 이 칸을 직접 클릭해서 Cmd+V 하는 대신 버튼 한 번으로 클립보드 내용을 바로 채움
+async function pasteFromClipboard(taId,btn,onFilled){
+  try{
+    const text=await navigator.clipboard.readText();
+    if(!text.trim())throw new Error('empty');
+    const ta=document.getElementById(taId);
+    if(ta){ta.value=text;ta.dispatchEvent(new Event('input'));}
+    if(onFilled)onFilled(text);
+    if(btn){const o=btn.textContent;btn.textContent='✅ 붙여넣음';setTimeout(()=>{btn.textContent=o;},1500);}
+  }catch(e){
+    // 브라우저가 클립보드 읽기를 막은 경우(권한 거부 등) — 평소처럼 칸을 눌러 직접 붙여넣게 안내
+    if(btn){const o=btn.textContent;btn.textContent='직접 Cmd+V 해주세요';setTimeout(()=>{btn.textContent=o;},2000);}
+  }
+}
 function geminiStatus(id,msg,kind){
   const el=document.getElementById(id);if(!el)return;
   el.hidden=!msg;el.textContent=msg||'';
