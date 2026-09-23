@@ -1215,7 +1215,7 @@ function validateWritten(spec,section,style,opts){
       if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==ly.replace(/\s+/g,' ').trim())errors.push('고쳐쓰기에서는 가사를 이전 결과 글자 그대로 유지해야 함');
     }
   }
-  // ── 일곱 가지 개선 (프롬프트 리뷰에서 반복된 문제) ──
+  // ── 여섯 가지 개선 (프롬프트 리뷰에서 반복된 문제, "sample chop" 항목은 ZERO vocal chops 핵심 검사와 중복이라 삭제) ──
   const allText=section+' '+style;
   // 1) Key와 장조/단조 일관성 — "minor-tinged ... in G major" 같은 모순, 다른 Key 이름, 정하지 않은 Key
   {
@@ -1229,11 +1229,8 @@ function validateWritten(spec,section,style,opts){
       if(m)errors.push(`Key가 ${spec.key}인데 반대 조성 표현 "${m[0]}"이 있음 — 모순`);
     }else if(names.length)errors.push(`Key를 정하지 않았는데 "${names[0]}"가 들어감`);
   }
-  // 2) 무보컬 곡의 샘플 초핑 악기는 보컬 샘플이 아님을 분명히
-  if(!spec.vocal){
-    const bad=[...allText.matchAll(/(instrumental )?sample[- ]chops?\b/gi)].find(m=>!m[1]);
-    if(bad)errors.push('무보컬 곡인데 "sample chop"이 그냥 나옴 — "instrumental sample chop"으로 써서 보컬 샘플이 아님을 분명히 할 것');
-  }
+  // 2) 무보컬 곡의 "sample chop"이 보컬 샘플과 헷갈릴 걱정 — "instrumental sample chop"을 매번 강제했더니 AI가 자꾸 놓쳐서 폴백으로 떨어짐.
+  // 실제로는 무보컬 곡의 스타일·첫훅·마지막훅에 "ZERO vocal chops"가 이미 핵심 검사로 강제돼 있어서(아래) 별도 접두어 없이도 충분히 분명함 — 검사 삭제.
   // 6a) Key와 BPM은 하나의 태그로 융합 ("Key of G major & 140 BPM")
   if(spec.key&&spec.bpm&&!style.split(', ').some(t=>/Key of/i.test(t)&&/BPM/i.test(t)))errors.push('"Key of … & N BPM"을 하나의 태그로 융합할 것 (태그 개수 절약)');
   if(strict){
@@ -1330,14 +1327,13 @@ const WRITE_STATIC=`너는 장르 전문 음악 프로듀서이자 Suno AI 프�
 - 추가한 소리는 곡 전체의 기준이면 스타일 태그에도 넣고(태그는 12개 이하로 융합), 섹션에서는 역할이 있는 곳에만 써. 리드·배경 악기와 대역이 겹치면 옥타브·하이패스·사이드체인으로 분리하고, 리드 자리를 대신하지는 마. 무보컬 곡에서 보컬 계열 소리는 추가 금지.
 - 추가할 소리를 고를 때는 장르 관습이 아니라 이 곡의 의도에서 골라.
 
-[리뷰에서 반복 감점된 일곱 가지 — 전부 지켜 (검사기가 확인함)]
+[리뷰에서 반복 감점된 여섯 가지 — 전부 지켜 (검사기가 확인함)]
 1) Key 일관성: 명세 key가 장조면 "minor-tinged"·"minor key" 같은 단조 표현을, 단조면 장조 표현을 쓰지 마. 다른 Key 이름도 금지.
-2) 무보컬 곡의 샘플 초핑은 항상 "instrumental sample chop"으로.
-3) 훅마다 귀에 붙는 매력 어휘(catchy·memorable·hypnotic·danceable·hook-driven 등)를 그 곡에 맞게 하나 이상.
-4) 태도 단어(cocky·swagger·flex·confident)는 곡 전체 3번 이하 — 대신 타이밍·강세·톤 같은 실제 소리로 써.
-5) 핵심 타악: 첫 훅에 킥·스네어·클랩 중 최소 하나를 넣어. 고른 드럼에 없으면 장르에 맞게 추가해도 돼(고른 것은 그대로 지키고). 스타일에 쓴 구체적인 소리(클랩·스네어·킥·하이햇·808·악기)는 섹션에도 반드시 나와야 해.
-6) 스타일 태그는 12개 이하. "Key of X & N BPM"은 태그 하나로 융합. 상업적·믹스 태그(catchy·polished·punchy·mainstream·commercial 등)는 앞쪽 8개 안에 2개 이상 — Suno는 뒤쪽 태그를 무시해.
-7) 같은 악기 이름을 모든 섹션에 반복하지 마: 리드는 전체 섹션의 3/4 이하, 배경 악기·pad는 60% 이하. 악기는 그 섹션에서 역할이 있을 때만 이름을 써.
+2) 훅마다 귀에 붙는 매력 어휘(catchy·memorable·hypnotic·danceable·hook-driven 등)를 그 곡에 맞게 하나 이상.
+3) 태도 단어(cocky·swagger·flex·confident)는 곡 전체 3번 이하 — 대신 타이밍·강세·톤 같은 실제 소리로 써.
+4) 핵심 타악: 첫 훅에 킥·스네어·클랩 중 최소 하나를 넣어. 고른 드럼에 없으면 장르에 맞게 추가해도 돼(고른 것은 그대로 지키고). 스타일에 쓴 구체적인 소리(클랩·스네어·킥·하이햇·808·악기)는 섹션에도 반드시 나와야 해.
+5) 스타일 태그는 12개 이하. "Key of X & N BPM"은 태그 하나로 융합. 상업적·믹스 태그(catchy·polished·punchy·mainstream·commercial 등)는 앞쪽 8개 안에 2개 이상 — Suno는 뒤쪽 태그를 무시해.
+6) 같은 악기 이름을 모든 섹션에 반복하지 마: 리드는 전체 섹션의 3/4 이하, 배경 악기·pad는 60% 이하. 악기는 그 섹션에서 역할이 있을 때만 이름을 써.
 
 [BPM·Key]
 - 명세의 bpm·key가 null이면 사용자가 정하지 않은 거야 — 스타일과 섹션 어디에도 BPM 숫자나 Key("in A minor" 등)를 쓰지 마. 값이 있으면 그대로 정확히 써.
