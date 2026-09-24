@@ -547,6 +547,21 @@ const POP_STRUCT_PRESETS=[
   {name:'Extended',segs:['intro','verse','prechorus','chorus','verse','prechorus','chorus','bridge','chorus','chorus','outro']},
 ];
 const POP_SEG_PALETTE=['intro','verse','prechorus','chorus','bridge','outro'];
+const POP_AUTO={
+  'k-pop':{mood:'에너제틱·하입',instruments:['신스','드럼','베이스'],vocalStyle:'K-Pop 보컬',structure:'Extended',narr:{'인트로':'직접 멜로디','벌스':'내러티브 스토리텔링','프리코러스':'에너지 축적','코러스':'후크 멜로디 강조','브릿지':'서프라이즈 전환','아웃트로':'루프 엔딩'}},
+  'indie pop':{mood:'업비트·댄서블',instruments:['어쿠스틱 기타','일렉 기타','드럼'],vocalStyle:'인디 보컬',structure:'Standard',narr:{'인트로':'반복 루프','벌스':'내러티브 스토리텔링','프리코러스':'감정 절정 직전','코러스':'업리프팅 에너지','브릿지':'감정 대비','아웃트로':'감성 마무리'}},
+  'dream pop':{mood:'몽환·에테리얼',instruments:['일렉 기타','패드','신스'],vocalStyle:'드림팝 보컬',structure:'Simple',narr:{'인트로':'감성 빌드업','벌스':'은유적 표현','프리코러스':'긴장감 고조','코러스':'반복 레이어','브릿지':'인트로스펙티브','아웃트로':'페이드 아웃'}},
+  'alt r&b':{mood:'감성·감각',instruments:['신스','베이스','드럼'],vocalStyle:'R&B 보컬',structure:'Simple',narr:{'인트로':'미니멀 피아노','벌스':'감성 고백','프리코러스':'긴장감 고조','코러스':'후크 멜로디 강조','브릿지':'인트로스펙티브','아웃트로':'감성 마무리'}},
+  'neo soul':{mood:'칠·릴렉스',instruments:['피아노','베이스','드럼'],vocalStyle:'R&B 보컬',structure:'Standard',narr:{'인트로':'미니멀 피아노','벌스':'감성 고백','프리코러스':'에너지 축적','코러스':'후크 멜로디 강조','브릿지':'감정 대비','아웃트로':'루프 엔딩'}},
+  'dance pop':{mood:'업비트·댄서블',instruments:['신스','베이스','드럼'],vocalStyle:'팝 보컬',structure:'Extended',narr:{'인트로':'직접 멜로디','벌스':'감성 고백','프리코러스':'에너지 축적','코러스':'감정 폭발','브릿지':'서프라이즈 전환','아웃트로':'갑작스러운 컷'}},
+  'bedroom pop':{mood:'칠·릴렉스',instruments:['일렉 기타','신스','드럼'],vocalStyle:'인디 보컬',structure:'Simple',narr:{'인트로':'미니멀 피아노','벌스':'감성 고백','프리코러스':'미니멀→풀','코러스':'반복 레이어','브릿지':'인트로스펙티브','아웃트로':'페이드 아웃'}},
+  'synthpop':{mood:'노스탤직·향수',instruments:['신스','베이스','드럼'],vocalStyle:'팝 보컬',structure:'Standard',narr:{'인트로':'반복 루프','벌스':'내러티브 스토리텔링','프리코러스':'긴장감 고조','코러스':'후크 멜로디 강조','브릿지':'감정 대비','아웃트로':'루프 엔딩'}},
+  'acoustic pop':{mood:'로맨틱·설렘',instruments:['어쿠스틱 기타','피아노','드럼'],vocalStyle:'팝 보컬',structure:'Standard',narr:{'인트로':'직접 멜로디','벌스':'내러티브 스토리텔링','프리코러스':'감정 절정 직전','코러스':'업리프팅 에너지','브릿지':'감정 대비','아웃트로':'감성 마무리'}},
+  hyperpop:{mood:'에너제틱·하입',instruments:['신스','드럼','보컬 레이어'],vocalStyle:'팝 보컬',structure:'Extended',narr:{'인트로':'직접 멜로디','벌스':'직접적 메시지','프리코러스':'에너지 축적','코러스':'감정 폭발','브릿지':'서프라이즈 전환','아웃트로':'갑작스러운 컷'}},
+};
+const POP_INSTR_SOUND={
+  '피아노':'warm electric piano and clear piano voicings','어쿠스틱 기타':'intimate acoustic guitar strums','일렉 기타':'clean muted guitar accents','신스':'glossy synth chords and a signature synth motif','스트링스':'restrained cinematic string swells','브라스':'short bright brass accents','베이스':'elastic melodic bass','드럼':'tight punchy pop drums','보컬 레이어':'layered backing vocals','패드':'wide atmospheric pads','하프':'delicate harp-like plucks','플루트':'airy flute phrases'
+};
 
 // ---- ELECTRONIC DATA ----
 const ELEC_GENRES=[
@@ -698,17 +713,17 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 
 // ===== AI 작성기 · 리뷰 루브릭 상수 =====
 // 섹션 박스(Suno 가사칸) 한도 5000자, 스타일 박스 1000자 — 여유를 두고 4900/950으로 (AI가 이 안에서 씀)
-const WRITE_LIMITS={section:4900,sectionVocal:3300,style:950,tags:12};   // Suno는 콤마 태그 10개 안팎을 넘으면 뒤쪽부터 무시 — 12개 이하
+const WRITE_LIMITS={section:4900,sectionVocal:3300,style:950};   // 앱 출력 예산. 쉼표 수는 품질 기준이 아니다.
 // 리뷰 채점 루브릭 — 예전엔 "냉정하게, 후하게 주지 말고, 약점 위주"라 첫 리뷰가 55·58·58·58·59로 상수에 가까웠음(바닥 효과). 항목별 0~10점(앵커 제시)을 받고 합계는 코드가 가중합으로 계산
 const REVIEW_RUBRIC=[
-  {key:'arc',label:'구조·전개 아크',w:15,def:'인트로→벌스→훅→클라이맥스→아웃트로가 하나의 서사로 이어지고 에너지가 단계적으로 오르는가'},
-  {key:'variety',label:'반복·변주',w:15,def:'같은 타입 섹션끼리 리듬·필터·공간·악기 역할 표현이 실제로 다른가'},
+  {key:'arc',label:'구조·전개 아크',w:15,def:'곡의 중심 아이디어가 의도에 맞게 제시·변형·비움·회수되는가. 지속 상승을 모든 곡에 강요하지 않음'},
+  {key:'variety',label:'반복·변주',w:15,def:'핵심 패턴의 정체성과 반복을 지키면서 의미 있는 순간에 변화하는가. 같은 악기 이름이나 의도적인 반복은 감점하지 않음'},
   {key:'genre',label:'장르 특이성',w:15,def:'다른 장르에 붙여도 되는 범용 문구가 아니라 이 장르의 기법이 섹션에 드러나는가'},
-  {key:'coherence',label:'믹스·문구 일관성',w:15,def:'서로 모순되는 지시가 없는가(dense 대 stripped, quantized 대 human-feel, restrained 대 maximum, 스타일 태그 대 섹션 문구, 앞서 적용한 지시 대 기본 문구)'},
-  {key:'roles',label:'악기 역할·마스킹',w:10,def:'리드/배경/리듬 악기가 대역이 겹치지 않고 각 섹션에서 역할이 분명한가'},
-  {key:'human',label:'인간미',w:10,def:'범용어가 아니라 실제 악기·드럼의 구체적인 불완전함이 있는가'},
+  {key:'coherence',label:'믹스·문구 일관성',w:15,def:'스타일 개요와 섹션별 상세 지시가 같은 곡을 설명하는가. 지속 편성과 순간 이벤트의 범위가 명확한가. 다른 구간·악기에 배정된 감정이나 밀도의 대비는 모순으로 보지 않음'},
+  {key:'roles',label:'악기 역할·마스킹',w:10,def:'악기·주법·처리·등장 시점이 구체적인가. 순간 이벤트의 악기가 팔레트에 있고 리드나 보컬의 쉼에 응답하는가. 형용사만으로 역할을 대신하지 않는가'},
+  {key:'human',label:'인간미',w:10,def:'시그니처 시작·침묵·응답 관계·선택적인 변화가 개성을 만드는가. 피치·타이밍 흔들림은 필수가 아님'},
   {key:'reference',label:'레퍼런스 부합',w:10,def:'타겟 레퍼런스 곡·프로듀서의 성격과 방향이 맞는가'},
-  {key:'parse',label:'Suno 파싱 적합',w:10,def:'콤마로 끊은 짧은 키워드 구(구당 8단어 이하, 서술 문장 없음)이고, 섹션 하나에 지시가 과밀하지 않으며(약 800자 이하), 총량이 한도(5000자)의 85% 이하, 스타일 태그 12개 이하인가. 라운드를 거치며 길어지고 겹치면 감점'},
+  {key:'parse',label:'Suno 파싱 적합',w:10,def:'악기·행동·시점·유지 조건이 명확하고 불필요한 중복 없이 출력 예산 안에 드는가. 자연어 문장과 키워드 모두 허용하며 쉼표 수·형용사 유무·문장 형식으로 감점하지 않음'},
 ];
 function rubricScore(criteria){
   if(!criteria||typeof criteria!=='object')return null;

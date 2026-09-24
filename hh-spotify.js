@@ -472,6 +472,54 @@ const isKoreanName=name=>/[가-힣]/.test(name);
 // 계열별 차트 — 힙합은 Hip-Hop/R&B 주간 차트, 팝·R&B는 Hot 100. "r-b-hip-hop-songs"는 실측으로 확인된 id이고 "hot-100"도 실측 확인(100곡, 같은 응답 형식). Hot 100은 컨트리 등 전 장르가 섞여 있음
 const BILLBOARD_CHARTS={hiphop:{id:'r-b-hip-hop-songs',label:'Hip-Hop/R&B 주간 차트'},pop:{id:'hot-100',label:'Hot 100 차트'}};
 let _chartKey='hiphop';
+
+// 팝·R&B는 가수 목록이 아니라 이번 주 Hot 100 상위 30곡 자체를 레퍼런스로 보여준다.
+function renderPopHot100(songs){
+  const el=document.getElementById('pop-hot100');if(!el)return;
+  el.innerHTML='';
+  songs.slice(0,30).forEach(song=>{
+    const card=document.createElement('div');
+    card.className='song-card';
+    card.innerHTML=`<div class="song-name"><span style="color:var(--accent-text);font-size:10px;margin-right:5px">#${song.position||''}</span>${escHtml(song.name||'')}</div><div class="song-meta">${escHtml(song.artist||'')} · 이번 주 Hot 100</div>`;
+    card.onclick=()=>applyPopHot100Song(song);
+    el.appendChild(card);
+  });
+}
+function popHot100CacheLoad(){
+  try{const c=JSON.parse(localStorage.getItem('pop_hot100')||'null');return c&&c.ts>=lastChartUpdate()&&Array.isArray(c.songs)&&c.songs.length?c.songs:null;}catch(_){return null;}
+}
+function popHot100CacheSave(songs){try{localStorage.setItem('pop_hot100',JSON.stringify({ts:Date.now(),songs:songs.slice(0,30)}));}catch(_){} }
+async function fetchPopHot100(force=false){
+  const el=document.getElementById('pop-hot100'),status=document.getElementById('pop-hot100-status'),btn=document.getElementById('pop-hot100-refresh');
+  if(!el)return;
+  if(!force){const cached=popHot100CacheLoad();if(cached){renderPopHot100(cached);if(status)status.textContent='이번 주 Hot 100 상위 30곡 · 저장된 차트';return;}}
+  const key=getRapidApiKey();
+  if(!key){el.innerHTML='<span style="font-size:11px;color:var(--text-3)">RapidAPI Key를 저장하면 이번 주 Hot 100 상위 30곡이 표시됩니다.</span>';if(status)status.textContent='RapidAPI Key 필요';return;}
+  if(btn){btn.disabled=true;btn.textContent='로딩 중...';}
+  if(status)status.textContent='Billboard Hot 100 조회 중…';
+  const songs=(await fetchBillboardChart(BILLBOARD_CHARTS.pop.id)).slice(0,30);
+  if(songs.length){popHot100CacheSave(songs);renderPopHot100(songs);if(status)status.textContent='이번 주 Hot 100 상위 30곡 · 곡을 고르면 레퍼런스로 적용';}
+  else{el.innerHTML='<span style="font-size:11px;color:var(--danger)">Hot 100을 가져오지 못했습니다. Billboard Charts API 구독과 RapidAPI Key를 확인하세요.</span>';if(status)status.textContent='차트 조회 실패';}
+  if(btn){btn.disabled=false;btn.textContent='↻ 새로고침';}
+}
+async function applyPopHot100Song(song){
+  const s=VTS.pop,label=`${song.artist} - ${song.name}`,status=document.getElementById('pop-hot100-status');
+  s.refSong=label;
+  if(status)status.textContent=`🎧 ${label} 분석 중…`;
+  const tok=await getSpotifyToken();
+  if(!tok){if(status)status.textContent=`✅ #${song.position} ${label} 선택됨 · Spotify 연결 시 BPM·Key도 가져옵니다`;updateFloatSummary();return;}
+  const track=await resolveTrackByArtistAndTitle(song.artist,song.name,tok);
+  const af=track?await getAudioFeatures(track.id):null;
+  if(af){
+    s.refAf=af;
+    if(Number.isFinite(af.tempo)){s.bpm=Math.min(220,Math.max(60,Math.round(af.tempo)));const bpmEl=document.getElementById('pop-bpm');if(bpmEl)bpmEl.value=s.bpm;}
+    const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
+    if(keyIdx!=null){s.key=keyIdx;const keyEl=document.getElementById('pop-key');if(keyEl)keyEl.value=keyIdx;}
+    s.mood=spMoodFromFeatures(af.energy,af.valence,af.danceability);moodGrid(document.getElementById('pop-mood-grid'),POP_MOODS,s,'mood',null);
+    if(status)status.textContent=`✅ #${song.position} ${label} · ${s.bpm} BPM · ${KEYS[s.key]} · ${s.mood}`;
+  }else if(status)status.textContent=`✅ #${song.position} ${label} 선택됨 · BPM·Key 분석 실패, 직접 입력할 수 있어요`;
+  updateFloatSummary();
+}
 function setChart(k){
   if(!BILLBOARD_CHARTS[k]||_chartKey===k)return;
   _chartKey=k;
@@ -940,4 +988,3 @@ function openArtistRow(artistId){
 renderChartChips();
 // 저장된 이번 주 차트가 있으면 API 호출 없이 복원 (st는 app.js에서 정의되니 로드가 끝난 뒤에)
 window.addEventListener('DOMContentLoaded',()=>renderChartFromCache(_chartKey));
-

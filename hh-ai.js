@@ -137,22 +137,22 @@ const AI_CATEGORY_EMOJI={'총평':'🧑‍🎤','레퍼런스 부합도':'🎯',
 // 변환해야 해서, 그 필드 설명과 JSON 스키마를 공유 — 같은 스키마로 나와야 applyAiSuggestionCore가 출처 구분 없이 그대로 먹음
 const AI_SUGGESTION_ACTION_SPEC=`중요: 조언은 참고용으로 끝나면 안 되고 실제 프롬프트에 바로 반영할 수 있어야 해. 그래서 각 조언마다 아래 필드 중 맞는 걸 정확히 하나 채워서 버튼 한 번으로 적용되게 해줘 (총평·레퍼런스 부합도처럼 평가 자체가 목적인 항목은 액션이 없어도 되고, 그 안에서도 구체적으로 적용 가능한 게 있으면 채워도 됨):
 - melodyLead: 멜로디 악기가 정확히 2개 선택돼 있고, 조언이 "둘 중 어느 게 리드를 맡아야 하는지"(예: 주파수 대역이 겹쳐서 하나를 백킹으로 물려야 함)에 관한 거면 → 리드를 맡아야 할 악기 이름을 [현재 설정]의 멜로디 악기 목록에 있는 문자열 그대로 정확히 넣어. 중요: 아래 [현재 생성된 섹션 프롬프트]를 먼저 확인해서 이미 그 악기가 "lead melody"로, 다른 하나가 "layered softly beneath/background layer"로 명시돼 있으면(원하는 역할 배치가 이미 되어 있으면) 이 조언 자체를 만들지 마 — 이미 된 걸 tag로 또 추가하면 같은 얘기가 두 군데서 중복되고 뭉개짐. 역할을 바꿔야 할 때만 melodyLead를 채워.
-- **먼저 판단**: 조언이 편곡·악기·에너지·믹스·텍스처·리듬 중 뭐든, **"이 곡 전체에 해당하는가" vs "특정 섹션/occurrence 하나에만 해당하는가"**부터 갈라. 특정 섹션 하나 얘기(예: "Hook 2에서 비트크러시", "브릿지에서 스테레오가 넓어짐", "두 번째 훅만 리듬 변주")면 **tag를 쓰지 마 — boostSection+boostOccurrence+boostText(편곡/에너지 톤이면) 또는 narrDir(그 외 전부: 믹스·텍스처·악기 변화도 포함)**를 써. tag는 스타일 박스는 한 번만 존재해서 "이 디테일은 Hook 2에만"이라는 정보 자체가 사라지고, 게다가 스타일 박스는 실측상 10개 안팎 넘으면 Suno가 뒤쪽부터 무시하기 시작해서 자리도 아깝다 — 섹션 전용 디테일을 정확한 섹션 텍스트 옆에 두는 게 Suno가 더 정확히 반영하고, 곡 전체에서도 더 입체적으로 들림.
-- tag: **곡 전체에 걸쳐 항상 적용되는 얘기일 때만** (새 악기 추가, 전체 믹스 톤, 보컬 처리 등) → Suno 스타일 태그에 넣을 영어 소문자 **짧은 구/키워드**들의 배열, 완결된 문장 금지 (조언에서 언급한 요소마다 하나씩 따로 — 예를 들어 "콩가, 샤커, 토킹드럼"이면 하나로 뭉치지 말고 ["conga loop","shaker layer","talking drum accent"]처럼 각각 3단어 이내로 짧게. 하나만 있으면 배열에 1개만). 스타일 박스는 태그 10개 안팎이 한계라 꼭 전역이어야 하는 것만 넣어.
-- boostSection: 위 판단에서 "특정 섹션 하나"이고 편곡/에너지 쪽 조언일 때 → 아래 [적용 가능한 섹션]에 있는 값 중 정확히 하나. boostOccurrence로 그 타입 중 몇 번째를 말하는 건지도 반드시 같이 정해: first(그 타입의 첫 번째) | last(마지막 — 보통 클라이맥스, 기본값). 조언이 "첫 훅"이라고 하면 first, "마지막/클라이맥스 훅"이면 last — 조언 내용이랑 실제로 일치해야 해. boostText에 Suno 섹션 프롬프트에 그대로 이어붙일 **영어 짧은 구/키워드 결합**을 써 (완결된 문장 아님, 콤마로 구분 — 예: "flute-synth call-and-response, density increasing" 처럼). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
+- 먼저 판단: 스타일은 곡의 정체성·핵심 패턴·전체 전개를 요약하고, 섹션은 정확한 구간의 연주를 설명해. 한 구간에만 해당하는 변경은 boostText 또는 narrDir로 보내. 스타일의 개요와 상세 섹션이 같은 변화를 설명하는 것은 모순이 아니야.
+- tag: 곡 전체 정체성·악기 팔레트·그루브에 관한 영어 지시 배열. 간결한 자연어 문장도 허용해. 쉼표 개수를 줄이려고 &로 억지로 합치지 마.
+- boostSection: 특정 구간의 편곡 변경이면 적용 가능한 섹션 이름을 써. boostOccurrence는 first 또는 last. boostText에는 어떤 악기가 언제 어떻게 연주하고 무엇을 유지할지 영어로 써. 자연어 문장과 명령형 모두 가능해. 무보컬 선택이면 보컬 요소는 넣지 마.
 - addSection: 구조가 단조롭다/섹션을 추가하자는 조언일 때 → 추가할 섹션 타입(hook|verse|bridge)과, 그걸 어디 넣을지 addSectionPosition도 같이 정해줘: beforeFirstHook(첫 훅 앞) | afterIntro(인트로 바로 뒤) | beforeLastHook(마지막 훅 직전 — 클라이맥스 텐션 빌드용) | end(아웃트로 직전) 중 조언 내용이랑 실제로 일치하는 위치 하나
 - mood: 지금 고른 무드보다 다른 무드가 더 어울린다는 조언일 때 → 정확한 무드 이름 하나
-- narrDir: 위 판단에서 "특정 섹션 하나"이고 편곡/에너지가 아닌 다른 카테고리(전개·믹스·텍스처·악기 등)이거나, 여러 occurrence에 걸친 점진적 변화일 때 → 아래 [narrDir에 쓸 수 있는 섹션 키]에 있는 키만 사용해서 {"hook1":"...","verse1":"...","hook2":"...",...} 형식 객체를 만들어. 서사가 특정 구간에만 해당하면 그 키만 넣어도 되고, 전체 곡에 걸친 점진적 변화(예: 밀도가 곡 전체에서 계속 증가)라면 관련된 모든 키에 각각 다른 내용을 채워 — 같은 내용을 여러 키에 반복 복사하지 말고, 그 구간이 전체 흐름에서 몇 번째인지에 맞게 서로 다르게 써(예: hook1은 "sparse, restrained", hook2는 "denser layering, energy builds", hook3은 "full density, all elements in"). 각 값은 Suno 섹션 프롬프트에 그대로 이어붙일 **영어 짧은 구/키워드 결합**(완결된 문장 아님, 콤마 구분 — 예: "energy ramps up gradually" 대신 "gradual energy ramp, no sudden hit"). 아래 [보컬 여부]가 인스트루멘탈이면 보컬·가사·노래 관련 묘사는 절대 넣지 마.
+- narrDir: 구간별 지시는 제공된 키만 사용한 {"hook1":"...","verse1":"..."} 객체로 써. 각각 간결한 영어 자연어 디렉팅으로 대상·행동·시점·유지 조건을 전달해. 같은 모티프를 계속 유지해도 되고, 모든 훅의 리듬을 바꿀 필요는 없어. 무보컬이면 악기로만 설계해.
 - removeRef: tag를 추가할 때마다 아래 [프로듀서 레퍼런스]에 있는 설명을 한 번씩 대조해봐 — 장르/서브장르 자체가 달라지는 수준으로 상반되면(예: tag는 "log drum bassline"인데 레퍼런스 설명엔 "chiptune-esque synth leads"나 "disco samples, house-inflected bounce"처럼 완전히 다른 서브장르 색채가 이미 박혀있으면) 반드시 그 프로듀서의 정확한 이름을 넣어. 특히 "레퍼런스 부합도" 카테고리는 지금 레퍼런스가 타겟 곡이랑 안 맞는다는 게 핵심 지적이니, 그 안 맞는 레퍼런스를 tag만 추가하고 그대로 두면 안 돼 — 반드시 확인해서 빼
 - removePhrase: [현재 생성된 섹션/스타일 프롬프트]에 **실제로 있는 구를 글자 그대로** 인용한 배열(최대 3개, 각 60자 이하). tag/narrDir/boostText를 추가하면서 그것과 모순되거나 같은 말을 되풀이하는 기존 문구(예: 새로 "restrained until bar 5"를 넣는데 기존에 "full energy"가 있음, 새 "human micro-timing"과 기존 "tight quantized grid")가 있으면 반드시 같이 지정해 삭제해 — 추가만 하고 모순을 남기면 프롬프트 일관성이 떨어지고 길이만 늘어. 2라운드부터는 새 요소를 넣기 전에 겹치는 기존 문구를 빼는 게 우선이야
 - removeTag: 조언이 "지금 있는 X를 줄이자/빼자"는 뜻도 담고 있으면(예: "sidechain pump가 강하면 무드가 죽으니 줄이자") X를 가리키는 핵심 단어(예: "sidechain")를 넣어 — 그 단어를 포함하는 기존 텍스처/스타일 태그를 전부 제거해. tag(추가)랑 같이 써도 됨 — "줄이고 대신 이걸 넣자"는 조언이면 둘 다 채워
 - BPM은 사용자가 직접 설정한 값이니 바꾸자는 조언이어도 액션으로 만들지 마 — 총평/레퍼런스 부합도 텍스트에 언급만 하고 그대로 둬
 
-결과 중심 표현(중요): text 조언은 한국어로 쉽게 쓰되, tag·boostText·narrDir처럼 **프롬프트에 들어가는 영어 문구는 작업 지시가 아니라 "들려야 할 소리"**로 써. Suno는 "improve the mix"·"increase reverb"·"make it better" 같은 지시를 못 알아들어 — 결과를 키워드로: 어떤 소리가 나는지("punchy kick cutting through the mix", "tight dry snare"), 어느 부분에서 무엇이 줄거나 빠지는지("hi-hats thin out during the verse", "bass drops out for 2 bars before the drop", "low end stays clean, no muddy low-mids"), 어떻게 변하는지("filter opens gradually into the hook"). nice·great·professional 같은 추상어 대신 bright·dry·wide·saturated 같은 소리 특성으로.
+구체적인 디렉팅: Add an octave double in the final hook while preserving the motif's rhythm처럼 동사와 시점·유지 조건을 명확히 써. warm/wide/punchy 같은 형용사는 선택사항이고 주법·처리·편성으로 뒷받침해. 무드의 대비는 모순이 아니야: 반주는 밝게, 멜로디는 그리움을 담게 할 수 있어. 의도적인 반복과 침묵을 결함으로 보지 마.
 관점: 이 곡의 장르([현재 설정]의 장르) 전문가로서 그 장르 청자가 기대하는 소리 기준으로 판단해 — 다른 장르의 관습(예: 팝 곡에 트랩 하이햇 롤, 클럽 곡에 붐뱁 샘플)을 요구하지 마.
 
 설명·인사말 없이, 응답의 첫 글자는 반드시 '{'여야 해. 아래 JSON 형식으로만 답해:
-{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(외부 피드백 총평일 때만, 1~100 정수)","criteria":"(프로듀서 리뷰 총평일 때만, {arc,variety,genre,coherence,roles,human,reference,parse} 각 0~10 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 영어 짧은 구/키워드 결합)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 영어 짧은 구/키워드 결합)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)","removePhrase":"(추가하는 지시와 모순·중복되는 기존 문구를 글자 그대로 인용한 배열, 최대 3개)"}]}`;
+{"suggestions":[{"category":"총평|레퍼런스 부합도|악기|편곡|구조|믹스|보컬|무드|전개","text":"한국어 조언 (총평·레퍼런스 부합도는 2~3문장 가능)","score":"(외부 피드백 총평일 때만, 1~100 정수)","criteria":"(프로듀서 리뷰 총평일 때만, {arc,variety,genre,coherence,roles,human,reference,parse} 각 0~10 정수)","melodyLead":"(멜로디 리드/백킹 역할을 바꿔야 할 때만, 리드를 맡을 악기 이름)","tag":"(해당시, [\\"...\\",\\"...\\"] 배열)","boostSection":"(해당시)","boostOccurrence":"(boostSection일 때 필수, first|last)","boostText":"(boostSection이고 구체적 아이디어 있을 때만, 간결한 영어 연주 지시)","addSection":"(해당시)","addSectionPosition":"(addSection일 때만, beforeFirstHook|afterIntro|beforeLastHook|end 중 하나)","mood":"(해당시)","narrDir":"(특정 섹션 한정 조언일 때, 위 형식 객체, 값은 간결한 영어 연주 지시)","removeRef":"(tag가 기존 프로듀서 레퍼런스와 모순될 때만, 그 프로듀서 이름)","removeTag":"(기존 걸 줄이자/빼자는 조언일 때만, 그 핵심 단어)","removePhrase":"(추가하는 지시와 모순·중복되는 기존 문구를 글자 그대로 인용한 배열, 최대 3개)"}]}`;
 // aiProducerReview·aiParseExternalFeedback 둘 다 이 형태로 모델 응답을 정리 — 출처가 달라도 applyAiSuggestionCore 입장에선 동일한 객체
 function normalizeAiSuggestion(s,uniqueSegs,occKeys){
   // 인스트루멘탈인데 "vocal chop" 같은 보컬 요소가 tag로 들어오면 섹션마다 박힌 "ZERO vocal chops"와 정면충돌 — 프롬프트로만 막지 않고 코드로도 거름
@@ -174,13 +174,13 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
     })(),
     boostSection:(s.boostSection&&uniqueSegs.includes(s.boostSection))?s.boostSection:null,
     boostOccurrence:(s.boostOccurrence==='first')?'first':'last',
-    boostText:(typeof s.boostText==='string'&&s.boostText.trim()&&ok(s.boostText))?s.boostText.trim().slice(0,150):null,
+    boostText:(typeof s.boostText==='string'&&s.boostText.trim()&&ok(s.boostText))?s.boostText.trim():null,
     addSection:(['hook','verse','bridge'].includes(s.addSection))?s.addSection:null,
     addSectionPosition:(['beforeFirstHook','afterIntro','beforeLastHook','end'].includes(s.addSectionPosition))?s.addSectionPosition:'beforeLastHook',
     mood:(s.mood&&HH_MOODS.some(m=>m.kr===s.mood))?s.mood:null,
     narrDir:(()=>{
       if(!s.narrDir||typeof s.narrDir!=='object')return null;
-      const cleaned=Object.fromEntries(occKeys.filter(k=>typeof s.narrDir[k]==='string'&&s.narrDir[k].trim()&&ok(s.narrDir[k])).map(k=>[k,s.narrDir[k].trim().slice(0,150)]));
+      const cleaned=Object.fromEntries(occKeys.filter(k=>typeof s.narrDir[k]==='string'&&s.narrDir[k].trim()&&ok(s.narrDir[k])).map(k=>[k,s.narrDir[k].trim()]));
       return Object.keys(cleaned).length?cleaned:null;
     })(),
     removeRef:(s.removeRef&&st.refs.includes(s.removeRef))?s.removeRef:null,
@@ -229,11 +229,10 @@ function aiPromptSnapshot(){
   const styleText=(document.getElementById('hh-style-ta')?.value||'').trim();
   const ctx=aiSelectionCtx();
   const sectText=(document.getElementById('hh-sect-ta')?.value||'').trim();
-  const nTags=styleText?styleText.split(', ').length:0;
   return `[현재 설정]
 ${ctx}
 
-[현재 생성된 스타일 프롬프트 — 콤마로 구분된 태그 ${nTags}개, ${styleText.length}/1000자 (Suno는 태그 10개 안팎을 넘으면 뒤쪽부터 무시하니 이미 넉넉하지 않음 — tag는 꼭 필요할 때만)]
+[현재 생성된 스타일 프롬프트 — ${styleText.length}/1000자 — 자연어 디렉팅의 명확성과 일관성을 평가]
 ${styleText||'(아직 생성 안 됨)'}
 
 [현재 생성된 섹션 프롬프트]
@@ -259,7 +258,7 @@ function scoringAnchor(){
 [직전 채점 — 같은 설정에서 피드백만 적용한 결과를 다시 채점하는 중]
 ${REVIEW_RUBRIC.map(r=>`${r.key} ${p.criteria[r.key]??'-'}`).join(', ')} (총 ${p.score})
 직전 채점 이후 바뀐 곳: 섹션 ${changed.join(' | ')||'없음'} / 스타일 ${sty!==p.style?'바뀜':'그대로'}
-채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 최대 3점까지 올리거나 내려 (직전 지적이 실제로 해결됐으면 크게 올려도 되고, 새 모순·중복·태그 증가·서술문 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
+채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 최대 3점까지 올리거나 내려 (직전 지적이 실제로 해결됐으면 크게 올려도 되고, 새 모순·중복·중복·모순·불필요한 분량 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
 }
 async function aiProducerReview(){
   const key=getAnthropicKey();
@@ -281,18 +280,20 @@ async function aiProducerReview(){
     // 지시문/규칙은 호출마다 안 바뀌니 static — 상태에 따라 달라지는 건 전부 dynamic 쪽으로 몰아서 static이 매번 완전히 동일하게(캐싱 적중)
     const staticText=`너는 ${producerRole()}야. 아래 [현재 생성된 섹션 프롬프트](실제 텍스트)와 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘. 설정값만 보고 짐작하지 말고, 반드시 실제 텍스트를 읽고 거기 적힌 구체적인 단어·구절 기준으로 판단해.
 
-"총평" 카테고리는 반드시 정확히 1개 포함해: 전문 프로듀서로서 지금 설정에서 부족한 점, 이대로 곡이 나오면 아쉬울 부분, 개선하면 확실히 더 좋아질 부분을 솔직하게 총평해줘. 잘 된 부분은 한 줄로만 짚고 실질적인 문제 위주로.
+"총평" 카테고리는 반드시 정확히 1개 포함해: 현재 설계의 핵심 의도가 전달되는지 짧게 판단해. 중요한 문제가 없으면 그대로 생성해볼 것을 권해. 오디오를 듣지 않고 결과가 확실히 좋아진다고 단정하거나 억지로 약점을 찾지 마.
 ${RUBRIC_TEXT()}
-나머지는 악기/편곡/구조/믹스/보컬/무드/전개 중 지금 조합에 실제로 도움될 관점으로 **첫 리뷰는 4~6개, [라운드]가 2라운드 이후면 가장 낮은 항목 위주로 최대 4개**만 채워줘 (이미 8점 이상인 항목은 지적하지 말고, 이미 적용된 주제를 반복하지 마) (뻔한 일반론 금지 — 개수를 채우려고 억지로 늘리지 말고, 진짜 다른 관점마다 실질적인 지적이 나와야 함). 사용자는 오디오를 직접 듣고 받는 외부 피드백은 Suno에서 곡을 만들어야 해서 자주 못 받고, 이 리뷰가 프롬프트 퀄리티를 끌어올릴 수 있는 사실상 유일한 반복 가능한 수단이야 — 그러니 한 번의 리뷰에서 최대한 실질적인 개선이 나오도록 꼼꼼하게 봐. 모든 카테고리에서 "전문 음악 프로듀서가 실제로 트랙을 검토하듯" 다양한 각도로 봐 — 표면적인 칭찬이나 뻔한 조언 말고, 실제 텍스트에 근거한 구체적 지적이어야 해.
+총평 외에 실행할 개선은 중요도 순으로 0~5개만 제안해. 최소 개수는 없어. 한 가지 문제면 한 가지만, 충분히 잘 설계됐다면 총평에 "추가 수정 없이 생성·청취해볼 단계"라고 말하고 액션을 만들지 마. 낮은 점수를 채우기 위해 지적을 만들거나 모든 카테고리를 하나씩 다루지 마.
+선정 기준은 사용자의 의도 위반, 실제 지시 충돌, 핵심 훅·그루브를 흐리는 과밀함, 곡의 정체성이나 필요한 대비가 없는 경우야. 취향 차이·단어 다듬기·추측성 믹싱 문제는 필수 개선으로 제시하지 마. 각 조언은 현재 텍스트의 근거와 바꿀 대상, 기대하는 효과를 짧게 연결하고 가장 작은 수정 하나로 해결해. 한 조언에 여러 악기·효과·구조 변경을 묶지 마. 추가보다 삭제·단순화·현 상태 유지가 더 나으면 그쪽을 택해.
+적용 후에도 연결된 자연어 디렉팅과 기존 중심 패턴을 유지해. 모든 박자·악기·공간감을 세세하게 통제하려 하지 말고, 수정 대상 밖의 좋은 부분과 여백을 보존해.
 
-중요: 이 리뷰는 악기 한두 가지만 보는 게 아니라 **곡 전체(구조, 편곡, 믹스/공간감, 보컬, 무드, 전개, 악기 전부)를 다 훑어야 해**. 아래 다섯 가지는 그중에서도 절대 빠뜨리면 안 되는 최소한의 체크리스트일 뿐이지, 이것만 보라는 뜻이 아니야 — 이 다섯 개 밖에서도 실제로 곡 퀄리티를 끌어올릴 구체적인 발견이 있으면(구조가 단조롭다, 특정 무드 뉘앙스가 안 산다, 보컬 처리가 장르랑 안 맞는다 등) 절대 빠뜨리지 말고 반드시 포함시켜 — "이 다섯 개 안에 안 들어가니까 스킵"은 안 돼. 아래는 반드시 실제 텍스트에서 확인해서, 문제가 있으면 해당 카테고리에 포함시켜:
-- (악기) 지금 고른 악기 조합이 서로 주파수 대역·역할(리드/백킹/리듬)이 겹치지 않고 조화롭게 배치돼 있는지, 곡에 어울리는데 빠진 악기 요소는 없는지, 과잉되거나 서로 마스킹할 수 있는 조합은 없는지 — 악기 "구성"뿐 아니라 "배치"(어느 섹션에서 어떤 역할로 등장하는지)까지 봐. 멜로디 악기가 2개라 [현재 생성된 섹션 프롬프트]에 이미 "A lead melody, B layered softly beneath"처럼 리드/백킹이 명시돼 있으면 그 역할 배정 자체가 적절한지만 판단하고(적절하면 지적하지 말고 넘어가), 바꿔야 한다고 판단되면 melodyLead로 — tag로 "B를 백킹으로 물려라"를 또 넣으면 이미 있는 역할 문구랑 중복돼서 뭉개짐
-- (리듬) [현재 설정]의 드럼 패턴·808·그루브가 장르·BPM·무드에 맞는 밀도와 추진력을 갖고 있는지(BPM에 비해 리듬이 밋밋하거나 정형화돼 있지 않은지), 훅/벌스/브릿지에서 리듬이 실제로 다른 단어로 달라지는지 — 스타일 프롬프트의 리듬 태그와 섹션 텍스트를 같이 보고, 밋밋하면 "편곡"이나 "믹스"가 아니라 리듬 관점으로 구체적으로 지적
-- (믹스) 공간감·스테레오 폭·리버브 묘사가 섹션마다 다르게 진행되는지 — 인트로는 넓고, 벌스는 좁고 드라이하고, 훅은 타이트하고, 클라이맥스 훅은 가장 넓고, 아웃트로는 디케이되는 식의 아크가 실제 텍스트에 있는지. 이미 있으면 칭찬하지 말고 넘어가고, 없거나 약하면 "믹스"에서 지적
-- (전개) 인트로와 아웃트로가 서로 호응하는지(같은 이미지·질감을 다시 불러오는지) — 이미 있으면 넘어가고, 그냥 일반적인 페이드아웃이면 "전개"에서 지적
-- (편곡) 반복되는 섹션(훅끼리, 벌스끼리)이 리듬 패턴·필터·다이나믹 표현에서 실제로 다른 단어를 쓰는지, 아니면 같은 문구가 토씨만 바뀐 채 반복되는지 — 반복이면 "편곡"에서 구체적으로 지적
-- (Anti-AI 필터 ON일 때만) 지금 텍스트가 AI가 만든 전형적인 음악처럼 뻔하고 기계적으로 들릴 위험이 있는지 확인해 — [현재 생성된 스타일 프롬프트]에 이미 장르와 리드 악기에 맞춘 불완전함 태그(예: "uneven pluck velocity")가 하나 붙어있는데, 이것만으로는 부족할 수 있어. 이 트랙 고유의 구체적인 "의도적 불완전함"(예: 타이밍이 살짝 밀림, 벨로시티 불균일, 필터 비대칭)을 짧은 구/키워드로 더 채워 — 특정 섹션 하나에만 해당하면 narrDir로 그 섹션에, 곡 전체에 걸친 톤이면 tag로. 뻔한 "organic" 반복 말고 이 곡만의 구체적인 인간적 디테일이어야 해
-"전개"는 인트로→벌스·훅→클라이맥스(마지막 드롭)→아웃트로가 하나의 서사로 이어지는지, 밋밋한 구간은 없는지 보는 관점이야. 아래 [레퍼런스 곡]이 주어지면 "레퍼런스 부합도" 카테고리도 반드시 정확히 1개 포함해서, 그 곡의 타입비트(type beat)라고 부를 수 있을지 냉정하게 평가해 (부합 정도, 구체적 근거, 더 가깝게 만들 방법까지).
+곡 전체를 읽고 실제 문제가 있는 부분만 제안해. 정해진 지적 개수를 채우려고 변화를 만들지 마.
+- 중심 모티프·베이스·리듬의 정체성이 선명하고 반복과 변주가 연결되는가? 다른 악기로 모티프를 넘기거나, 같은 리듬을 유지하며 음역·강세만 바꾸는 것도 유효해.
+- 악기의 연주 순서·응답 관계·쉼·등장 시점이 구체적인가? 밝은 반주와 쓸쓸한 멜로디처럼 역할이 나뉜 감정은 모순이 아니야.
+- 스타일의 전체 전개와 섹션의 상세 전개가 양립하는가? 스타일의 악기 팔레트가 모든 구간의 상시 연주를 뜻하지는 않아. only/avoid 같은 단어를 일괄 금지하지 마.
+- 작은 벌스와 훅의 대비, 필요한 곳의 변화가 있는가? 모든 구간에 새로운 필인·공간 변화·최대 밀도를 요구하지 마. 반복적인 클럽 그루브는 그대로 유지할 수 있어.
+- 선택한 무보컬 조건·악기·BPM·Key·구조가 지켜졌는가? 실제 충돌이나 선택 위반을 우선 지적해.
+- Anti-AI가 켜져도 피치·타이밍 흔들림을 강요하지 마. 시그니처 시작·침묵·특정 순간의 변형으로 개성을 평가해.
+레퍼런스는 제공된 분석 근거로 비교하고 제목만으로 들은 것처럼 말하지 마. 음악을 듣지 않은 평가는 텍스트 설계 평가야.
 
 ${AI_SUGGESTION_ACTION_SPEC}`;
     const dynamicText=`
@@ -311,20 +312,22 @@ ${refSong?`"${refSong}"`:(st.brief?`(곡명 없음) 사용자가 원하는 느�
 
 ${aiPromptSnapshot()}
 
-[라운드] ${appliedSoFar.length?'2라운드 이후 — 이미 적용된 주제는 반복 금지, 8점 이상 항목은 지적 금지, 최대 4개':'첫 리뷰'}
+[라운드] ${appliedSoFar.length?'2라운드 이후 — 이미 적용된 주제는 반복 금지, 8점 이상 항목은 지적 금지, 개선 최대 5개':'첫 리뷰 — 개선 최대 5개'}
 
 [현재 적용돼 있는 섹션별 지시 — 이 안에서 모순되거나 과한 건 지적해도 됨]
 ${Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)'}
 
 [글자 예산] 섹션 프롬프트 ${(document.getElementById('hh-sect-ta')?.value||'').length}/5000자, 스타일 ${(document.getElementById('hh-style-ta')?.value||'').length}/1000자${scoringAnchor()}
 
-[이전 라운드에서 이미 적용된 조언 — 이건 이미 반영됐으니 절대 똑같이 다시 제안하지 마, 그 위에 새로 찾은 걸 더해]
+[이전 라운드에서 이미 적용된 조언 — 이건 이미 반영됐으니 다시 제안하지 마. 새로 해결할 중요한 문제가 없으면 여기서 멈춰]
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
 
-    // 최소 4~6개 제안 + narrDir 같은 다항목 필드를 요구하면서 출력이 꽤 길어짐 — 8000으로는 자주 잘려서 올림
+    // 총평과 필요한 핵심 개선만 반환한다. 기존 응답 형식은 유지한다.
     const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
-    const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
+    const rawList=(parsed.suggestions||[]).filter(s=>s&&s.text);
+    const total=rawList.find(s=>s.category==='총평');
+    const list=total?[total,...rawList.filter(s=>s!==total).slice(0,5)]:rawList.slice(0,5); // 총평 1개 + 개선 최대 5개
     if(!list.length)throw new Error('AI가 제안을 반환하지 못했습니다');
     // "다시" 눌러서 재리뷰할 때 이전에 적용한 조언까지 통째로 갈아치우면 🔍 적용 검증이 추적할 이력이 사라짐 —
     // 이미 적용된 건 남기고 새로 받은 라운드만 그 뒤에 이어붙임
@@ -336,35 +339,19 @@ ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}
     if(btn){btn.disabled=false;btn.textContent='🤖 AI 프로듀서 리뷰 받기';}
   }
 }
-// 섹션별 AI 지시는 (occurrence, 카테고리) 키로 교체 저장 — 같은 카테고리의 새 조언은 앞의 것을 대체(AI가 앞선 내용을 보고 다시 쓴 것), 다른 카테고리는 공존.
-// 합친 문구는 구 단위로 중복을 없애고 occurrence당 200자로 자름(예전 addNarr는 이어붙이기만 해서 hook3 노트가 2라운드에 308자, 서로 모순)
-function capPhrases(text,max){
-  const seen=new Set(),out=[];let len=0;
-  for(const p of (text||'').split(/, (?![^()]*\))/).map(s=>s.trim()).filter(Boolean)){
-    const k=p.toLowerCase();
-    if(seen.has(k))continue;
-    if(len+p.length+(out.length?2:0)>max)break;
-    seen.add(k);out.push(p);len+=p.length+(out.length>1?2:0);
-  }
-  return out.join(', ');
-}
-// 지시를 Suno가 읽기 좋은 키워드 구로 정리 — 서술 문장·명령형·긴 구 제거 ("Suno 파싱 적합" 감점 요인)
-function sanitizeDirective(text){
-  return (text||'').replace(/\.\s+/g,', ').replace(/\.\s*$/,'').split(/, (?![^()]*\))/).map(p=>p.replace(/^(?:please |should |must |ensure |make sure |add |use |include |try to )/i,'').replace(/\.$/,'').trim())
-    .filter(p=>p&&p.replace(/\([^)]*\)/g,'').split(/\s+/).length<=9).join(', ');
-}
-const DIRECTIVE_CAP=k=>/^hook/.test(k)?200:/^(verse|bridge)/.test(k)?130:100;
+// 조언의 대상·시점·유지 조건을 보존한다. 같은 구간·카테고리의 새 조언만 교체한다.
+function sanitizeDirective(text){return (text||'').replace(/\s+/g,' ').trim();}
 function setDirective(occKey,category,text){
   st.narrDirs=st.narrDirs||{};
   const clean=sanitizeDirective(text);
   if(!clean)return;
   (st.narrDirs[occKey]=st.narrDirs[occKey]||{})[category||'기타']=clean;
-  const joined=capPhrases(Object.values(st.narrDirs[occKey]).join(', '),DIRECTIVE_CAP(occKey));
-  if(joined)st.narrAI[occKey]=joined;else delete st.narrAI[occKey];
+  st.narrAI=st.narrAI||{};
+  st.narrAI[occKey]=[...new Set(Object.values(st.narrDirs[occKey]))].join(' ');
 }
 const RUBRIC_TEXT=()=>`채점은 아래 8개 항목을 각각 0~10 정수로 매겨 criteria에 넣어 (합계는 내가 계산하니 네가 합산하지 마). 앵커: 5=어떤 장르에도 붙는 범용 템플릿 수준 / 7=탄탄하지만 다듬을 곳이 분명히 있음 / 9=지금 바로 Suno에 넣어 곡을 만들어도 되는 수준. 실제로 결함이 없는 항목엔 8~10을 줘도 돼 — 억지로 깎지 마.
 ${REVIEW_RUBRIC.map(r=>`- ${r.key}(${r.label}, 가중 ${r.w}): ${r.def}`).join('\n')}
-(레퍼런스 곡이 없으면 reference는 생략)\n참고: 스타일 태그 안의 ' & '는 Suno가 세는 콤마 태그 개수를 줄이려는 의도된 결합이야 — '& 때문에 파싱이 비효율적'이라는 지적은 하지 마. 태그가 콤마 기준 12개를 넘거나 서술 문장이 섞였을 때만 parse를 깎아.`;
+(레퍼런스 곡이 없으면 reference는 생략)\n자연어 문장·명령형·쉼표 수·같은 악기의 반복 자체로 감점하지 마. 중심 패턴의 유지와 의미 있는 변화, 명확한 연주 관계를 평가해. 형용사 유무를 점수 조건으로 삼지 마. &로 합쳐도 정보량이 줄지는 않아. 실제 오디오 없이 음악 품질을 보장한다고 말하지 마.`;
 const aiSuggestionActionable=s=>!!(s.melodyLead||s.tag||s.boostSection||s.addSection||s.mood||s.narrDir||s.removeRef||s.removeTag||s.removePhrase);
 // 조언마다 버튼을 눌러 그때그때 hhGenerate하면 클릭 수만큼 화면이 프롬프트로 튀고 히스토리도 그만큼 쌓였음 —
 // 체크박스로 고른 것들을 한 번에 적용하고 재생성·히스토리 기록은 1번만
@@ -504,9 +491,9 @@ async function aiParseExternalFeedback(){
   if(statusEl)statusEl.hidden=true;
   try{
     const hasVocal=st.vocal&&st.vocal!=='No Vocal';
-    const staticText=`너는 ${producerRole()}야. 사용자가 이 프롬프트로 실제 생성된 곡(오디오)을 듣고 받은 외부 피드백을 아래에 붙여넣었어. 텍스트 프롬프트만 보고 짐작하는 것보다 실제로 들어본 평가가 훨씬 신뢰도 높은 정보니까, 이 피드백을 곡의 진단서로 삼아서 프롬프트를 여러 방면(악기/편곡/구조/믹스/보컬/무드/전개)으로 더 디테일하고 발전시켜줘. 목표는 피드백 문장을 그대로 옮기는 게 아니라, 그 진단이 가리키는 약점을 실제로 해결하려면 프로듀서로서 구체적으로 뭘 더해야 하는지 여러 각도에서 제안하는 거야 — 완성도를 좌우하는 편곡·구조·훅 전개(반복·변화·텐션-릴리즈)를 표면적인 텍스처 추가보다 우선하되, 거기서 그치지 말고 그 문제를 뒷받침할 수 있는 다른 방면의 디테일(믹스 공간감, 악기 텍스처, 무드 뉘앙스 등)도 같이 채워줘.
-
-최소 3~5개의 구체적 제안을 만들어줘 (뻔한 일반론 금지, 카테고리가 겹쳐도 됨). 피드백에 문자 그대로 안 적혀 있어도 그 진단을 해결하는 데 실제로 필요한 조치면 프로듀서 판단으로 제안해도 되지만, 피드백의 핵심 방향과 모순되는 얘기는 하지 마. 피드백이 이미 점수를 언급했으면(예: "26점") "총평" 카테고리 하나에 그 점수를 score에 그대로 넣고, 피드백의 핵심(강점·약점·다음에 뭘 바꿔야 하는지)을 한국어 2~3문장으로 요약해서 text에 적어.
+    const staticText=`너는 ${producerRole()}야. 아래 외부 청취 피드백과 현재 프롬프트를 대조해, 지적된 핵심 문제를 해결하는 데 꼭 필요한 수정만 제안해. 관련 없는 믹스·악기·무드 디테일까지 확장하지 마.
+총평은 한 개, 실행할 개선은 중요도 순으로 0~5개만. 최소 개수는 없어. 반영할 중요한 문제가 없거나 이미 해결됐으면 총평만 반환하고 액션을 만들지 마. 같은 원인의 지적은 합치되 한 조언에 여러 독립적인 변경을 묶지 마. 각 제안은 근거·대상·기대 효과를 짧게 설명하고 가장 작은 수정으로 해결해. 추가보다 삭제·단순화가 적절하면 그쪽을 택해. 피드백에 점수가 있으면 총평의 score로 보존하고 없으면 만들어내지 마.
+적용해도 자연어 디렉팅 스타일·핵심 패턴·기존 가사와 수정 대상 밖의 구간은 유지해. 모든 소리를 통제하려 하지 말고 연주와 여백을 남겨. 텍스트만 보고 소리의 문제를 확정하지 마.
 
 ${AI_SUGGESTION_ACTION_SPEC}`;
     const dynamicText=`
@@ -528,10 +515,12 @@ ${(_aiSuggestions||[]).filter(s=>s.applied).map((s,i)=>`${i+1}. (${s.category}) 
 [외부 피드백]
 ${feedback}`;
 
-    // aiProducerReview와 같은 이유(최소 3~5개 다항목 제안 요구)로 출력이 길어질 수 있어서 같은 한도로 맞춤
+    // 외부 피드백도 추가할 내용이 없으면 액션 없는 총평만 허용한다.
     const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
-    const list=(parsed.suggestions||[]).filter(s=>s&&s.text);
+    const rawList=(parsed.suggestions||[]).filter(s=>s&&s.text);
+    const total=rawList.find(s=>s.category==='총평');
+    const list=total?[total,...rawList.filter(s=>s!==total).slice(0,5)]:rawList.slice(0,5); // 총평 1개 + 개선 최대 5개
     if(!list.length)throw new Error('피드백에서 반영할 내용을 찾지 못했습니다');
     const added=list.map(s=>normalizeAiSuggestion(s,uniqueSegs,occKeys));
     _aiSuggestions=[...(_aiSuggestions||[]),...added];
@@ -634,19 +623,14 @@ async function aiPolishSectionPrompt(){
   try{
     const staticText=`너는 Suno AI(텍스트를 실제 음악으로 변환하는 모델)에 넣을 섹션별 편곡 프롬프트를 다듬는 ${producerRole()}야. 주어지는 텍스트는 규칙 기반으로 조합돼서 어휘와 문장 구조가 반복적이고 표현이 납작해.
 
-Suno는 추상적이거나 문학적인 표현("슬픔이 밀려오는 느낌")보다, 실제로 들리는 소리를 구체적인 프로덕션/오디오 엔지니어링 용어로 지시할 때 훨씬 더 잘 알아듣고 반영해. **그리고 서술형 완결 문장보다 짧은 구/키워드를 콤마로 나열하는 형식을 훨씬 정확하게 읽어** — 실측 확인된 사실이야. 예를 들어 "distorted gritty matching tonal palette chord echoing with delay throws" 같은 늘어진 서술 대신 "Gritty synth arpeggio, Delay throw, Filter sweep"처럼 짧은 구 나열로 다듬어줘. 원본이 이미 이 스타일로 압축돼 있는 부분은 다시 늘어진 문장으로 되돌리지 마 — 다듬는다고 문장을 길게 만드는 게 아니라, 여전히 짧은 구 형태를 유지한 채로 표현만 다양화하는 거야.
-
-반복에는 두 종류가 있으니 구분해서 다뤄:
-(1) 다양화할 것 — 드롭/에너지 묘사, 전환·다이나믹 표현처럼 섹션마다 다른 순간을 그리는 구절. 이런 게 여러 섹션에서 토씨까지 똑같으면 Suno가 "이 구간들은 같은 걸 반복하라는 뜻"으로 읽어서 오디오도 비슷하게 나올 수 있어 — 매번 다른 짧은 구로 바꿔줘 (완결된 문장으로 늘리지 말고).
-(2) 그대로 둘 것 — ZERO vocal chops/completely instrumental/no vocals 같은 보컬 억제 지시(반복 자체가 확실성을 위한 의도적 장치), 리드 악기를 가리키는 톤/음색 묘사(예: soft mellow, warm), 808 강도 라벨(예: Dominant 808 bass) 같이 곡 전체에서 안 변하는 고정 설정값. 전부 곡 내내 동일해야 하는 실제 값이라 다르게 바꾸면 다양성이 아니라 모순이 됨. 이런 건 동의어로도 바꾸지 말고 원문 그대로 둬.
-그 위에서 악기·이펙트·다이나믹·공간감처럼 실제로 소리로 구현되는 구체적 프로덕션 용어로 디테일을 더해줘 — Suno가 못 알아들을 모호하거나 시적인 비유로 흐르면 안 돼.
+간결한 영어 자연어로 악기·주법·처리·시점·유지 조건을 명확히 해. 완결 문장과 명령형을 허용하고 단어 목록으로 강제 변환하지 마. 중심 패턴과 의도적인 반복·침묵을 보존해. 같은 악기가 다시 나온다는 이유로 바꾸지 마. 형용사만 있는 곳은 구체적인 소리 원인으로 뒷받침하되 새 효과나 레이어를 억지로 더하지 마. 원문의 무보컬 조건과 사용자가 정한 값은 지켜.
 
 [반드시 지킬 것]
 - [Intro], [Instrumental Hook 1: ...] 같은 대괄호 헤더는 절대 수정하지 마 (줄 순서도 그대로)
 - 괄호 안 "8 Bars:" 같은 마디 수 숫자는 절대 바꾸지 마
 - BPM, Key, 악기 이름, ZERO/instrumental 같은 보컬 관련 지시는 단어 그대로 유지 (동의어 교체도 금지)
 - 줄 개수와 대략적인 문장 길이는 비슷하게 유지 — 다듬으면서 문장을 더 길게 늘리지 마, 오히려 짧아지는 방향
-- "Cold open — X, then Y" / "drops out first, then... before silence"처럼 순서·인과를 나타내는 연결어(then, before, first)는 실제 정보라 유지해도 되지만, 그 외 묘사는 접속사로 문장을 잇지 말고 콤마로 구분된 구 단위 유지
+- then, before, while preserving 같은 순서·대비·유지 조건과 연주 동사는 보존해. 더 짧다는 이유로 실제 지시를 빼지 마.
 
 다른 설명 없이 다듬어진 전체 텍스트만 답해.`;
     const dynamicText=`
@@ -981,6 +965,39 @@ function parseLyricSections(ly){
   (ly||'').split('\n').forEach(l=>{const t=l.trim();if(!t)return;if(/^\[[^\]]+\]$/.test(t))secs.push({header:t,lines:[]});else if(secs.length)secs[secs.length-1].lines.push(t);else stray++;});
   return {secs,stray};
 }
+// 짧은 순간 이벤트만 허용한다. 지속 편성·믹스 지시는 섹션 연출에 남긴다.
+const LYRIC_EVENTS={
+  'guitar riff':/\bguitars?\b/i,
+  'brass stabs':/\bbrass\b/i,
+  'drum fill':/\b(drums?|percussion)\b/i,
+  'bass slide':/\b(bass|808)\b/i,
+  'strings enter':/\bstrings?\b/i,
+  'piano fill':/\b(piano|rhodes|keys)\b/i,
+  'synth stab':/\bsynths?\b/i,
+  'cymbal crash':/\b(cymbals?|drums?)\b/i,
+};
+function lyricWords(line){return line.replace(/\s*\[[^\[\]]+\]\s*$/,'').trimEnd();}
+function validateLyricEvents(sections,style){
+  const errors=[];
+  // 제외 지시를 악기 팔레트로 착각하지 않는다. 애매하면 태그 대신 섹션 연출로 쓴다.
+  const palette=style.replace(/\b(?:avoid|exclude|without|no|never)\b[^.!?;]*/gi,'');
+  sections.forEach(s=>{
+    let count=0,previous=-2;
+    s.lines.forEach((line,i)=>{
+      if(!/[\[\]]/.test(line))return;
+      const m=line.match(/^([^\[\]]+?)\s+\[([^\[\]]+)\]$/);
+      if(!m){errors.push(`${s.header}: 악기 태그는 가사 줄 끝에 하나만 붙일 것`);return;}
+      count++;
+      const instrument=LYRIC_EVENTS[m[2].toLowerCase()];
+      if(!instrument)errors.push(`${s.header}: [${m[2]}]는 허용된 순간 이벤트가 아님 — 구간 상태는 섹션 연출에`);
+      else if(!instrument.test(palette))errors.push(`${s.header}: [${m[2]}] 악기가 스타일의 긍정 팔레트에 없음`);
+      if(i===previous+1)errors.push(`${s.header}: 연속된 가사 줄에 이벤트를 넣지 말 것`);
+      previous=i;
+    });
+    if(count>Math.min(2,Math.floor(s.lines.length/2)))errors.push(`${s.header}: 이벤트는 두 줄당 하나 이하, 구간당 최대 두 개`);
+  });
+  return errors;
+}
 // Suno의 Lyrics 칸에 그대로 넣는 텍스트: 섹션마다 [헤더] → (연출 설명) → 가사 줄. 가사와 연출 설명의 섹션 수가 다르면 빈 문자열
 function mergeLyricsAndDirection(lyrics,section){
   const ly=parseLyricSections(lyrics).secs,se=parseSections(section);
@@ -1068,14 +1085,11 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   const auto=st._mtAutoManaged!==false;   // 장르를 고르면 808·드럼·멜로디·텍스처·프로듀서가 장르 기본값으로 자동 채워짐 — 사용자가 고른 게 아니므로 확정 값이 아니라 참고
   const secs=parseSections(draftSect);
-  const w={intro:1,hook:1.3,verse:1.1,bridge:0.9,outro:1};
-  const wsum=secs.reduce((s,x)=>s+(w[x.type]||1),0)||1;
   const ul=hasVocal&&(st.userLyrics||'').trim()?fitUserLyrics(st.userLyrics,lyricHeaders(secs)):null;   // 사용자가 붙여넣은 가사(구조에 배치된 것)
   const userLy=ul&&ul.placed?ul.text:null;
   const secLimit=hasVocal?(userLy?Math.max(1200,Math.min(WRITE_LIMITS.sectionVocal,4900-userLy.length-400)):WRITE_LIMITS.sectionVocal):WRITE_LIMITS.section;   // 보컬 곡은 Lyrics 칸(5000자)을 연출 설명과 가사가 나눠 씀 — 사용자 가사가 길면 연출 몫을 줄임
-  const budget=Math.floor(secLimit*0.92);
-  const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:Math.floor(budget*(w[s.type]||1)/wsum*1.25)}));
-  const styleTags=(draftStyle||'').split(', ');
+  const sectionCaps={intro:180,hook:280,verse:220,bridge:220,outro:160};
+  const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:sectionCaps[s.type]||220}));
   const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',st.keySet?`Key of ${KEYS[st.key]}`:null,st.bpmSet?`${st.bpm} BPM`:null,(g?g.tag:null)].filter(Boolean);
   return {
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:st.keySet?KEYS[st.key]:null,bpm:st.bpmSet?st.bpm:null,
@@ -1087,10 +1101,9 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
     brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
-    structure,fixedStyleTags:fixedStyle,styleTagsInDraft:styleTags.length,
-    limits:{sectionTotal:secLimit,style:WRITE_LIMITS.style,styleTags:WRITE_LIMITS.tags},
+    structure,fixedStyleTags:fixedStyle,
+    limits:{sectionTotal:Math.min(secLimit,hasVocal?2000:2400),style:WRITE_LIMITS.style},
     removedPhrases:[...(st.removedPhrases||[])],
-    hookRhythm:(()=>{const hs=secs.filter(s=>s.type==='hook');const R=['정박 위주의 안정된 메인 패턴(변주 없이 그루브를 각인)','오프비트 싱코페이션·고스트 노트로 리듬 결이 달라짐','매 마디 필인·롤 가속으로 가장 촘촘하고 꽉 참'];return hs.map((s,i)=>({header:s.header,role:hs.length===1?R[0]:(i===hs.length-1?R[2]:R[Math.min(i,1)])}));})(),
     prevLength:prev?prev.section.length:null,
     mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
     prevSections:prev?parseSections(prev.section).map(s=>({header:s.header,body:s.body})):null,
@@ -1126,14 +1139,9 @@ function validateWritten(spec,section,style,opts){
   (spec.removedPhrases||[]).forEach(p=>{if((section+' '+style).toLowerCase().includes(p.toLowerCase()))errors.push(`삭제하기로 확정한 문구 "${p}"가 다시 들어감`);});
   const low=section.toLowerCase();
   const hooks=secs.filter(s=>s.type==='hook');
-  if(spec.lead){
-    const l=spec.lead.toLowerCase();
-    const leadSecs=[secs.find(s=>s.type==='intro'),hooks[0],hooks[hooks.length-1]].filter(Boolean);
-    if(!leadSecs.every(s=>s.body.toLowerCase().includes(l)))errors.push(`리드 악기 "${spec.lead}"가 인트로와 첫·마지막 훅에 이름으로 들어가야 함`);
-  }
-  if(spec.background&&hooks.length&&!hooks.some(s=>s.body.toLowerCase().includes(spec.background.toLowerCase())))errors.push(`배경 악기 "${spec.background}"가 훅에 최소 한 번은 등장해야 함`);
+  if(spec.lead&&!low.includes(spec.lead.toLowerCase()))errors.push(`리드 악기 "${spec.lead}"가 섹션 어디에도 없음`);
+  if(spec.background&&!low.includes(spec.background.toLowerCase()))errors.push(`배경 악기 "${spec.background}"가 섹션 어디에도 없음`);
   spec.drums.forEach(d=>{if(!low.includes(d.toLowerCase()))errors.push(`고른 드럼 "${d}"가 섹션 어디에도 없음`);});
-  if(spec.drums[0]&&hooks[0]&&!hooks[0].body.toLowerCase().includes(spec.drums[0].toLowerCase()))errors.push(`메인 드럼 "${spec.drums[0]}"가 첫 훅에 들어가야 함`);
   // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
   {
     const names=[...HH_REF.map(r=>r.kr),...(spec.referenceSong||'').split(' - ')[0].split(/\s+(?:feat\.?|featuring|ft\.?|x|&)\s+|,\s*/i)].map(n=>n.trim().toLowerCase()).filter(n=>n.length>=4);
@@ -1156,7 +1164,7 @@ function validateWritten(spec,section,style,opts){
   // 보컬 규칙
   if(!spec.vocal){
     const stripped=(section+' '+style).replace(/vocal-?less|without (?:any )?vocals?|non-vocal|no vocals|no vocal samples|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
-    if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir/humming/chant/ad-lib)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
+    if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b|\bwhisper\w*\b|\bhumm?ing\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir/humming/chant/ad-lib)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
     // 보컬 없음을 고르면 "보컬찹 없음"이 무엇보다 우선 — 스타일과 첫·마지막 훅에 반드시 명시
     if(!/zero vocal chops/i.test(style))errors.push('무보컬 곡의 스타일에 "ZERO vocal chops"가 반드시 있어야 함');
     [hooks[0],hooks[hooks.length-1]].filter(Boolean).forEach(s=>{if(!/zero vocal chops/i.test(s.body))errors.push(`${s.header}에 "ZERO vocal chops"가 반드시 있어야 함`);});
@@ -1173,10 +1181,7 @@ function validateWritten(spec,section,style,opts){
       const vsecs=secs.filter(s=>!/instrumental/i.test(s.header)&&['verse','hook','outro'].includes(s.type));
       const bare=vsecs.filter(s=>!(s.body.match(DELIV)||[]).length);
       if(bare.length)errors.push(`보컬 곡인데 ${bare.map(s=>s.header.replace(/[\[\]]/g,'').split(':')[0]).join(', ')} 연출에 보컬 전달 방식(whispered·belted high notes·falsetto·rapid-fire flow·stacked harmonies 같은 창법 키워드)이 없음 — 섹션마다 어떻게 부르는지 넣을 것`);
-      else{
-        const kinds=new Set(vsecs.flatMap(s=>(s.body.match(DELIV)||[]).map(w=>w.toLowerCase().slice(0,4))));   // 활용형(belt/belted, whisper/whispered)을 같은 창법으로 셈
-        if(kinds.size<(spec.vocal==='Light ad-libs'?2:3))errors.push('보컬 창법이 섹션마다 비슷함 — 벌스는 친밀·절제, 후렴은 벨팅·하모니처럼 곡 전체에서 서로 다른 창법을 써서 극적인 아크를 만들 것');
-      }
+
     }
     const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
     secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
@@ -1190,6 +1195,8 @@ function validateWritten(spec,section,style,opts){
     if(!ly)errors.push('<lyrics> 가사가 비어 있음');
     else{
       const {secs:secsL,stray}=parseLyricSections(ly);
+      if(!provided)errors.push(...validateLyricEvents(secsL,style));
+      const sungText=secsL.map(s=>s.lines.map(lyricWords).join('\n')).join('\n');
       if(!provided&&ly.length>1800)errors.push(`가사가 ${ly.length}자 — 1,800자 이하로 (연출 설명과 합쳐 Lyrics 칸 5,000자 안에 들어가야 함)`);
       {const merged=mergeLyricsAndDirection(ly,section);if(merged&&merged.length>4950)errors.push(`연출 설명과 합친 Lyrics 칸 텍스트가 ${merged.length}자 — 4,950자 이하로 (연출 설명이나 가사를 줄일 것)`);}
       const want=spec.lyrics.headers;
@@ -1200,18 +1207,18 @@ function validateWritten(spec,section,style,opts){
         if(/^\[Chorus/.test(s.header)&&(n<3||n>10))errors.push(`${s.header} 가사가 ${n}줄 — 3~10줄로`);
         if(/^\[Instrumental/.test(s.header)&&n>0)errors.push(`${s.header}는 헤더만 두고 가사를 쓰지 말 것`);
         if(/^\[(Intro|Outro)/.test(s.header)&&n>4)errors.push(`${s.header} 가사는 4줄 이하로`);
-        if(s.lines.some(l=>l.length>110))errors.push(`${s.header}에 너무 긴 줄이 있음 — 한 줄은 짧게`);
+        if(s.lines.some(l=>lyricWords(l).length>110))errors.push(`${s.header}에 너무 긴 줄이 있음 — 한 줄은 짧게`);
       });
       const longParen=(ly.match(/\(([^)]*)\)/g)||[]).find(p=>p.replace(/[()]/g,'').trim().split(/\s+/).length>4);
       if(!provided&&longParen)errors.push(`가사에 괄호 설명문(${longParen.slice(0,30)}…)이 있음 — 가사 칸에는 가사만 (짧은 (ooh) 같은 애드립만 허용)`);
-      const prod=ly.match(/\b(808|hi-?hats?|sub-?bass|sidechain|reverb|stereo|synths?|snare|bpm)\b/i);
+      const prod=sungText.match(/\b(808|hi-?hats?|sub-?bass|sidechain|reverb|stereo|synths?|snare|bpm)\b/i);
       if(!provided&&prod)errors.push(`가사에 연출·악기 설명 단어(${prod[0]})가 있음 — 그런 건 <section>에`);
-      const hanN=(ly.match(/[\uAC00-\uD7A3]/g)||[]).length,jpN=(ly.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length,letN=(ly.match(/[A-Za-z\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length||1;
+      const hanN=(sungText.match(/[\uAC00-\uD7A3]/g)||[]).length,jpN=(sungText.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length,letN=(sungText.match(/[A-Za-z\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length||1;
       if(!provided&&spec.lyrics.lang==='한국어'&&hanN/letN<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
       if(!provided&&spec.lyrics.lang==='日本語'&&jpN/letN<0.4)errors.push('가사 언어가 日本語인데 일본어(가나·한자) 비율이 낮음');
       if(!provided&&spec.lyrics.lang==='English'&&(hanN+jpN)/letN>0.05)errors.push('가사 언어가 English인데 한글·일본어가 섞임');
       const ch=secsL.filter(s=>/^\[Chorus/.test(s.header));
-      if(!provided&&ch.length>=2){const base=new Set(ch[0].lines.map(x=>x.toLowerCase()));if(ch[1].lines.filter(x=>base.has(x.toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
+      if(!provided&&ch.length>=2){const base=new Set(ch[0].lines.map(x=>lyricWords(x).toLowerCase()));if(ch[1].lines.filter(x=>base.has(lyricWords(x).toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
       if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==ly.replace(/\s+/g,' ').trim())errors.push('고쳐쓰기에서는 가사를 이전 결과 글자 그대로 유지해야 함');
     }
   }
@@ -1231,164 +1238,69 @@ function validateWritten(spec,section,style,opts){
   }
   // 2) 무보컬 곡의 "sample chop"이 보컬 샘플과 헷갈릴 걱정 — "instrumental sample chop"을 매번 강제했더니 AI가 자꾸 놓쳐서 폴백으로 떨어짐.
   // 실제로는 무보컬 곡의 스타일·첫훅·마지막훅에 "ZERO vocal chops"가 이미 핵심 검사로 강제돼 있어서(아래) 별도 접두어 없이도 충분히 분명함 — 검사 삭제.
-  // 6a) Key와 BPM은 하나의 태그로 융합 ("Key of G major & 140 BPM")
-  if(spec.key&&spec.bpm&&!style.split(', ').some(t=>/Key of/i.test(t)&&/BPM/i.test(t)))errors.push('"Key of … & N BPM"을 하나의 태그로 융합할 것 (태그 개수 절약)');
-  if(strict){
-    const hooksS=secs.filter(s=>s.type==='hook');
-    // 3) 훅마다 귀에 붙는 매력 어휘
-    const APPEAL=/\b(catchy|memorable|hypnotic|danceable|hook-driven|infectious|addictive|anthemic|euphoric|bouncy|bounce)\b/i;
-    hooksS.filter(s=>!APPEAL.test(s.body)).forEach(s=>errors.push(`${s.header}에 귀에 붙는 매력 어휘(catchy/memorable/hypnotic/danceable/hook-driven 등)가 없음`));
-    // 4) 태도 단어(소리가 아님) 상한 — 헤더 제외
-    const ATT=/\b(cocky|swagger(?:ing)?|flex(?:ing)?|braggadocio|arrogant|confident(?:ly)?)\b/gi;
-    const attN=((secs.map(s=>s.body).join(' ')+' '+style).match(ATT)||[]).length;
-    if(attN>3)errors.push(`태도 단어(cocky/swagger/flex/confident)가 ${attN}번 — 3번 이하로, 나머지는 실제 들리는 소리(타이밍·강세·톤)로 바꿀 것`);
-    // 5) 스타일에 쓴 구체적 소리는 섹션에도 — 그리고 첫 훅에는 킥·스네어·클랩 같은 핵심 타악
-    const styleNoNeg=style.replace(/\bno\s+\w+(?:\s+\w+)?/gi,' ').replace(/zero vocal chops/gi,' ');
-    [['clap',/\bclaps?\b/i],['snare',/\bsnares?\b/i],['kick',/\bkicks?\b/i],['rimshot',/\brimshots?\b/i],['cowbell',/\bcowbells?\b/i],['conga',/\bcongas?\b/i],['shaker',/\bshakers?\b/i],['hi-hat',/\bhi-?hats?\b/i],['808',/\b808s?\b/],['piano',/\bpiano\b/i],['guitar',/\bguitars?\b/i],['brass',/\bbrass\b/i],['strings',/\bstrings?\b/i],['flute',/\bflute\b/i],['sax',/\bsax(?:ophone)?\b/i],['bell',/\bbells?\b/i],['pad',/\bpads?\b/i],['arp',/\barp(?:eggio)?s?\b/i],['pluck',/\bpluck(?:s|ed)?\b/i],['rhodes',/\brhodes\b/i],['organ',/\borgan\b/i],['harp',/\bharp\b/i]]
-      .forEach(([n,re])=>{if(re.test(styleNoNeg)&&!re.test(section))errors.push(`스타일에 쓴 "${n}"가 섹션에는 한 번도 안 나옴 — 스타일과 섹션이 어긋남`);});
-    if(hooksS[0]&&!/\b(kick|snare|clap|rimshot)\b/i.test(hooksS[0].body))errors.push('첫 훅에 킥·스네어·클랩 같은 핵심 타악 묘사가 없음 (고른 드럼에 없으면 장르에 맞게 추가해도 됨)');
-    // 6b) 상업적·믹스 태그는 앞쪽 8개 안에 최소 2개 (Suno는 뒤쪽 태그를 무시)
-    const tags=style.split(', ');
-    const SAPPEAL=/\b(catchy|memorable|hook-driven|danceable|polished|punchy|glossy|mainstream|commercial|infectious|hypnotic|euphoric|bouncy|bounce|radio-ready|anthemic|pristine)\b/i;
-    if(tags.slice(0,8).filter(t=>SAPPEAL.test(t)).length<2)errors.push('상업적·믹스 태그(catchy/polished/punchy/mainstream/commercial 등)가 앞쪽 8개 태그 안에 2개 이상 있어야 함 — 뒤쪽 태그는 Suno가 무시함');
-    // 7) 같은 악기 이름을 모든 섹션에 반복하지 않기
-    const N=secs.length,cnt=w=>secs.filter(s=>s.body.toLowerCase().includes(w.toLowerCase())).length;
-    if(spec.lead&&cnt(spec.lead)>Math.ceil(N*0.75))errors.push(`리드 악기 "${spec.lead}"가 ${cnt(spec.lead)}/${N}개 섹션에 나옴 — ${Math.ceil(N*0.75)}개 이하로 (역할이 있는 섹션에만)`);
-    if(spec.background&&cnt(spec.background)>Math.ceil(N*0.6))errors.push(`배경 악기 "${spec.background}"가 ${cnt(spec.background)}/${N}개 섹션에 나옴 — ${Math.ceil(N*0.6)}개 이하로`);
-    const padN=secs.filter(s=>/\bpad\b/i.test(s.body)).length;
-    if(padN>Math.ceil(N*0.6))errors.push(`"pad"가 ${padN}/${N}개 섹션에 반복됨 — ${Math.ceil(N*0.6)}개 이하로`);
-  }
+  // 스타일의 악기 언급이 긍정인지 제외 지시인지 문자열 검색만으로 판단하지 않는다.
+  // 확정 선택의 존재 여부는 위에서 검사하고 팔레트·전개 일관성은 리뷰에서 확인한다.
   // 스타일 박스
   spec.fixedStyleTags.forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase()))errors.push(`스타일 프롬프트에 고정 태그 "${t}"가 없음`);});
   if(style.length>spec.limits.style)errors.push(`스타일 프롬프트 ${style.length}자 — ${WRITE_LIMITS.style}자 이하여야 함`);
-  if(style.split(', ').length>spec.limits.styleTags)errors.push(`스타일 태그가 ${style.split(', ').length}개 — ${WRITE_LIMITS.tags}개 이하여야 함(관련 요소는 " & "로 융합)`);
   (st.extraTags||[]).forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase().split(' ')[0]))errors.push(`확정된 스타일 지시 "${t}"가 스타일 프롬프트에 빠짐`);});
-  // 스타일은 기준 톤만 — 섹션마다 달라지는 절대 표현이 있으면 섹션과 모순이 됨
-  {const abs=(style.match(/\b(always|only|never|widest|maximum|silent|absent)\b/gi)||[])[0];if(abs)errors.push(`스타일 프롬프트에 섹션마다 달라지는 절대 표현 "${abs}"가 있음 — 곡 전체의 기준 톤만 쓸 것`);}
-  // 형식: 서술형 문장 도배 금지
-  const sentences=(section.match(/[a-z]{3,}\. [A-Z]/g)||[]).length;
-  if(sentences>2)errors.push('완결된 서술형 문장이 많음 — 콤마로 구분한 짧은 키워드 구로만 쓸 것');
-  // 같은 타입 섹션끼리 문구 반복
-  ['hook','verse','bridge'].forEach(type=>{
-    const sets=secs.filter(s=>s.type===type).map(s=>new Set(splitPhrases(s.body)));
-    let sum=0,c=0;
-    for(let i=0;i<sets.length;i++)for(let j=i+1;j<sets.length;j++){const inter=[...sets[i]].filter(x=>sets[j].has(x)).length;sum+=inter/Math.max(1,Math.min(sets[i].size,sets[j].size));c++;}
-    if(c&&sum/c>0.5)errors.push(`${type} 섹션들이 서로 문구를 ${Math.round(100*sum/c)}% 반복 — 회차마다 다른 표현으로`);
-  });
+  // 모티프 반복·문장 형식·only/avoid는 오류가 아니다. 실제 음악적 충돌은 맥락 리뷰로 판단한다.
   return {ok:!errors.length,errors};
 }
-const WRITE_STATIC=`너는 장르 전문 음악 프로듀서이자 Suno AI 프롬프트 작가야(곡의 장르는 [명세]에 있으니 그 장르의 전문가로 써). 사용자의 [의도]와 [명세]를 받아서, Suno에 그대로 붙여 넣을 **섹션 프롬프트**와 **스타일 프롬프트**를 처음부터 직접 써. 템플릿이나 장르의 평균적인 기본 문구로 채우지 말고, 이 곡의 의도(원하는 분위기·장르·레퍼런스 곡의 소리)에 맞는 구체적인 소리와 전개를 네가 직접 설계해.
+// PDF PART 2·3 및 사용자가 제공한 자연어 스타일 프롬프트 5개의 원리를 적용한다.
+const WRITE_STATIC=`너는 장르 전문 프로듀서이자 Suno 프롬프트 작가야. [의도]와 [명세]를 읽고, 하나의 음악적 정체성이 들리는 스타일 프롬프트와 그에 일치하는 섹션 디렉팅을 영어로 써.
 
-[좋은 프롬프트의 패턴 — 실제로 Suno에서 잘 나온 프롬프트에서 뽑은 것. 우리 프로그램의 질감·디테일과 합쳐서 써]
-- 스타일: 이 곡이 어떤 장르들의 만남인지 잘 드러나게(필요하면 "A meets B" 같은 크로스오버 표현), 귀에 붙는 매력 어휘는 의도에 맞는 것으로(밝고 신나는 곡은 catchy·bright·danceable, 어둡거나 몽환적인 곡은 hypnotic·menacing·shimmering처럼 — 항상 같은 단어를 쓰지 마). 금지어 묶음("no vocals & ZERO vocal chops & no vocal samples", 필요하면 "NO guitars")은 스타일에 한 번, 섹션에는 첫 훅·마지막 훅에만.
-- 헤더: 명세의 헤더는 그대로 두되, 본문이 헤더의 성격(예: "UK Drill Drop", "Full Club Energy", "Maximum Bounce", "Stripped & Spacious")과 정확히 맞게 써.
-- 훅: 에너지 단어 + 리드가 얼마나 캐치한지("catchy bright synth lead") + 핵심 리듬·베이스를 앞에. 그 뒤에 질감·그루브 결·인간적 불완전함을 얹어.
-- 무보컬 벌스: 랩/멜로디가 들어올 자리를 남기는 표현("wide open pocket for rhythmic rap", "leaving space for a top-line melody", "leaving maximum space for the artist") — 단, 'vocal' 단어는 쓰지 마.
-- 스타일과 섹션 모두 "상업적 매력"과 "질감·디테일" 중 하나만 있으면 안 돼 — 둘을 같이.
+[스타일 작성 방법 — 태그 목록이 아닌 연결된 자연어 한 문단]
+- 장르·템포(정해진 경우)·보컬 유무·중심 감정으로 시작해. 감정은 두세 개로 중심을 잡되 bright with a bittersweet undertone처럼 대비해도 돼. 그 경우 밝은 리듬과 쓸쓸한 선율처럼 각 요소의 역할을 설명해.
+- 곡의 특징이 될 아이디어를 하나 정해. 멜로디 모티프, 베이스 제스처, 리듬 셀, 악기와 보컬의 주고받기 등 곡에 맞는 것을 택해. 모든 곡에 같은 2마디 패턴을 강요하지 마.
+- 아이디어의 길이·리듬·쉼·강세·음역 중 필요한 특징을 구체화해. 악기가 무엇을 먼저 연주하고 다른 악기가 언제 응답하는지, 무엇을 반복해 유지하는지 자연어 문장으로 연결해. 침묵도 그루브의 일부가 될 수 있어.
+- 핵심 악기·베이스·드럼의 역할과 주법·처리를 쓰고, 시작 방식과 중요한 편곡 변화 한두 곳을 포함해. 형용사(warm, wide, polished 등)는 분위기를 보조해도 되지만 소리 원인을 대체하지는 않아.
+- 훅을 반드시 복잡하게 만들지 마. 같은 리듬을 유지하면서 베이스 무게·타악 한 겹·음역·강세·스테레오 처리만 바꿔도 돼. 리드 악기의 역할이나 음색을 바꾸며 같은 모티프를 넘겨주는 것도 가능해.
+- 유지할 것·바꿀 것·피할 것을 명확히 해. Avoid busy melodies 같은 필요한 제외 지시와 instrumental only 같은 명확한 조건도 허용해. 장황한 부정어 목록은 피하고 사용자의 제외 설정과 일치시켜.
+- 한 문단 안에 정체성, 연주 관계, 핵심 전개를 담아. 콤마 개수·형용사 개수·단어 수를 맞추려고 &로 억지로 묶지 마. 스타일 글자 예산이 부족하면 주변 수식어와 부차적 디테일부터 줄이고 중심 패턴·쉼·응답·보컬 조건을 남겨.
 
-[편곡·디테일 원칙 — 장르 관습이나 템플릿 문구가 아니라, 이 곡의 의도(무드·레퍼런스·고른 악기)에서 구체적으로 뽑아 써. 초안이 없으니 이 디테일은 전부 네가 설계해야 해]
-- 결과 중심: 작업 지시("improve the mix", "add more reverb")가 아니라 **들려야 할 소리**를 키워드로 — 어떤 소리가 나는지("punchy kick cutting through"), 어느 부분에서 무엇이 줄거나 빠지는지("hats thin out in the verse", "bass drops out before the drop"), 어떻게 변하는지("filter opens into the hook"). nice·great 같은 추상어 금지.
-- 분량: 섹션마다 소리 요소를 6~10개 안팎으로 풍부하게, 섹션 프롬프트 전체는 2,800~3,800자 안팎(5,000자 한도 안). 뻔한 일반어로 채우지 말고 그 섹션에서 실제로 달라지는 소리를 써.
-- 공간·믹스 흐름(섹션 텍스트에만, 스타일 태그엔 쓰지 마): 인트로→벌스→훅→클라이맥스→아웃트로에서 스테레오 폭·리버브·드라이함이 어떻게 달라지는지 섹션마다 다르게. 클라이맥스 훅이 가장 넓고 꽉 차고, 아웃트로는 디케이/수축.
-- 편곡 변화: 벌스는 드럼·베이스·멜로디 중 무엇을 덜어내는지, 브릿지는 어떤 필터·리듬·효과로 긴장을 만드는지, 훅은 회차마다 무엇이 더해지는지를 구체적으로. 같은 타입 섹션끼리 문구를 반복하지 마.
-- 전환: 브릿지·훅 직전 마지막 마디의 전환 장치(라이저, 스네어 롤, 리버스, 필터 스윕, 순간 정적, 테이프 스탑 등)를 의도에 맞게 골라 매번 다르게. 사용자가 전환 효과를 확정했으면 그것을 써.
-- 회수: 아웃트로는 인트로의 소리·이미지를 다시 불러와 끝맺고(콜백) 마지막에 남는 소리를 명시.
-- 인간미(antiAI가 true일 때): 이 곡의 실제 악기·드럼마다 구체적인 불완전함(타이밍 밀림, 벨로시티 불균일, 피치 흔들림, 필터 비대칭 등)을 섹션에 나눠서 몇 군데.
-- 믹스 분리: 리드·배경·베이스가 겹칠 수 있는 구간에서는 분리 방법(하이패스, 사이드체인, 옥타브 분리)을 훅에 한두 번 명시.
+[사용자가 준 예시에서 배울 설계 — 복붙 템플릿 아님]
+1. 야간 신스팝: 특정 리듬의 모티프 일부를 인트로에서 암시하고 완전히 공개. 베이스가 응답하고 브레이크다운에서 비운 뒤, 원래 리듬을 유지하며 음역을 바꿔 회수.
+2. 여름 팝 듀엣: 기타가 훅을 먼저 연주하고 여성 보컬이 리듬을 따라받고 남성 보컬이 응답한 뒤 함께 끝맺음. 밝은 편곡 속 그리운 선율. 듀엣을 선택한 곡에서만 참고.
+3. 미니멀 라틴 팝: 낮은 플럭 두 번, 높은 스탭, 쉼, 하강하는 벤드와 짧은 응답으로 정체성. tiny end-note variations처럼 작은 변화만 주고 훅에서 저역과 타악 무게를 더함.
+4. 나이트 팝: 뮤트 기타와 신스 플럭의 응답이 시작부터 등장. 동일 모티프를 기타·신스·일렉트릭 키로 음역을 바꿔 넘기되 베이스와 드럼은 같은 싱코페이션을 받침.
+5. 미니멀 클럽: 정박 킥 위에 약간 늦는 베이스와 긴 쉼. 4마디마다 작은 변형, 훅에서도 그루브 유지. 위스퍼 찹은 보컬을 명시적으로 허용한 경우에만 참고하며 무보컬 곡에서는 금지.
+이 예시의 장르·BPM·음형·악기·보컬을 다른 곡에 그대로 복사하지 마. 의도에 맞는 중심 아이디어와 상호작용을 새로 설계해. 같은 패턴의 반복 자체를 결함으로 보지 마.
 
-[무보컬 곡 — 다른 어떤 디테일보다 우선]
-- 명세의 vocal이 null이면 보컬찹·보컬 샘플·허밍·애드립·챈트·합창은 **절대 금지**야. 장르 관습이더라도(저지 클럽·하이퍼팝의 보컬찹 등) 넣지 마. 스타일에 "no vocals & ZERO vocal chops & no vocal samples" 묶음을 넣고, 첫 훅과 마지막 훅 본문에도 "ZERO vocal chops"를 넣어. 샘플 초핑 악기를 쓰면 "instrumental sample chops"처럼 보컬 샘플이 아님을 분명히 해.
+[섹션 디렉팅]
+- <section>은 Suno 가사 칸에 들어갈 최종 연출이야. 각 구간에서 결과에 실제로 필요한 디테일만 간결한 영어 자연어로 써. 디테일 개수를 미리 정하지 말고, 하나로 충분하면 하나만 쓰고 서로 연결된 여러 지시가 꼭 필요할 때만 함께 써.
+- 스타일에 이미 적은 장르·BPM·무드·전체 악기 목록·모티프의 세부 음형을 반복하지 마. 이 구간에서 이전 구간과 달라지는 것, 반드시 유지할 패턴, 의도적으로 비울 요소처럼 구간을 구별하는 정보만 남겨.
+- 무엇이 언제 어떻게 움직이는지가 분명해야 해. 구간 전체 상태와 순간 이벤트를 throughout, after, before 같은 말로 구분하고, 순간 이벤트는 모티프나 보컬이 쉬는 자리에 배치해. 사용자가 정한 마디 수 밖의 시점을 만들지 마.
+- 스타일에 없는 악기를 한 번의 이벤트를 위해 추가하지 마. 같은 훅이나 미니멀 그루브를 유지해야 하면 억지로 필인·레이어·공간 변화를 만들지 말고 짧게 유지 지시만 써.
+- 훅의 대비가 필요하면 훅에 계속 쌓기 전에 앞 구간에서 무엇을 덜어낼지 검토해. 다만 모든 곡에 큰 대비·마지막 최대 밀도·2마디 빌드업을 강제하지 마.
+- 믹스·공간·인간미·전환효과를 모든 구간에 빠짐없이 적지 마. 그 구간의 음악적 역할을 바꾸는 디테일만 선택하고, 이미 충분하면 더 채우지 마. maxChars는 목표가 아니라 절대 상한이야.
 
-[보컬 곡]
-- 예시는 전부 무보컬이라 [Instrumental]·"no vocals & ZERO vocal chops…" 묶음이 있어. **명세의 vocal이 null이 아니면(보컬 곡) 이건 절대 쓰지 마.** 스타일에 [Instrumental]도, 섹션에 "purely/completely instrumental"이나 "vocal chops"도 금지. 보컬은 메뉴 이름(Heavy hooks, Light ad-libs, Full rap feature)을 그대로 쓰지 말고 실제로 들리는 소리(속삭임, 클로즈 마이크, 짧은 후크 라인, 톤, 처리)로 묘사해. 헤더가 "Instrumental"인 섹션(브릿지 등)에는 보컬 묘사를 넣지 마.
-- vocal이 "Light ad-libs"면 리드 보컬 없이 짧은 애드립·후크 조각만 가끔 들어가는 곡이야. 이때도 "no vocals"라고 쓰면 Suno가 보컬을 통째로 끄니 절대 쓰지 말고, "sparse short ad-lib fragments, minimal vocal presence"처럼 있는 그대로 묘사해. "Full rap feature"는 랩 벌스가 곡의 중심인 곡, "Heavy hooks"는 노래하는 후크가 중심인 곡이야.
+[선택값과 레퍼런스]
+- 명세의 lead/background/drums가 있으면 이름 그대로 곡 안에 등장시켜. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
+- bpm·key가 있으면 그대로 쓰고, null이면 특정 BPM·Key를 만들지 마. producerSound가 있으면 소리 특징을 스타일에 반영해. 실존 아티스트·프로듀서·곡 이름이나 OO-inspired는 출력하지 마.
+- brief가 있으면 소리 특징·styleTags·cues를 반영해. 제목만 아는 곡을 실제로 들었다고 주장하지 마. 스타일에 명시한 악기는 섹션에서 실제 역할을 갖게 해.
+- 형용사 단어가 아니라 대상과 적용 구간을 보고 모순을 판단해. 같은 리듬을 지키면서 음색을 바꾸는 것은 모순이 아니야.
 
-[보컬 디렉션 — 명세 vocal이 null이 아닐 때(보컬 곡). 연출에서 보컬을 "있다"고만 쓰지 말고, 섹션마다 어떻게 부르는지가 들리게 써]
-- 벌스·후렴(Chorus/Hook)·아웃트로 연출에는 그 섹션의 **보컬 전달 방식**(창법·음역·감정·질감)을 영어 소리 키워드로 반드시 넣어. 인트로도 가사가 있으면 넣고, Instrumental 섹션에는 보컬 묘사를 넣지 마.
-- 섹션마다 달라야 하고 곡 전체가 극적인 아크를 그려야 해: 벌스는 낮고 친밀·절제 → 회차가 오를수록 자신감·긴장 → 후렴은 가장 크고 극적 → 마지막 후렴은 클라이맥스(가장 센 창법) → 아웃트로는 속삭임이나 디케이. 같은 창법을 두 섹션에 복붙하지 마.
-- 어휘(이 곡의 무드·장르·보컬 유형에 맞게 골라 조합해, 목록 복붙 금지): 
-  · 노래: whispered, breathy, intimate close-mic, soft falsetto, head voice, chest voice, belted high notes, powerful sustained belt, soaring, vibrato, melismatic vocal runs, raspy, husky, gritty, cracking emotional break, smooth legato, staccato rhythmic phrasing, crooning, spoken-word intro, final high note
-  · 겹침·호응: stacked harmonies, layered backing vocals, octave doubles, call-and-response, gang vocals, echoing ad-libs
-  · 랩: rapid-fire double-time flow, triplet flow, laid-back half-time flow, punchy staccato flow, melodic sung-rap, chanted hook, shouted ad-libs, whispered menace, pitch-bent melody
-- 보컬 유형을 따라: Full rap feature는 랩 전달(플로우가 섹션마다 바뀜)이 중심이고 후렴은 멜로디컬·챈트, Heavy hooks는 후렴의 극적 창법(벨팅·하모니·런)이 중심, Light ad-libs는 리드 보컬 없이 짧은 애드립·속삭임 조각만(리드 벨팅 금지), Sung lead vocal은 노래 전반(속삭임~벨팅~팔세토). 고른 보컬 스타일·질감(vocalStyle·vocalChar)도 반영해.
-- 가사와 어울리게: 후렴의 핵심 라인(타이틀 라인)이 가장 세게 들리도록 그 섹션 연출에 "on the title line" 같은 지시를 줘도 좋아.
+[무보컬과 보컬 — 사용자 선택 최우선]
+- vocal이 null이면 보컬·보컬 샘플·보컬찹·위스퍼·허밍·합창·애드립을 넣지 마. 예시보다 이 선택이 우선이야. 스타일에 [Instrumental], no vocals, ZERO vocal chops, no vocal samples를 넣고 첫·마지막 훅에도 ZERO vocal chops를 넣어 기존 무보컬 조건을 지켜. 샘플은 instrumental sample chops로 분명히 해.
+- vocal이 있으면 [Instrumental]·no vocals·ZERO vocal chops·no vocal samples와 전체 purely/completely instrumental 선언은 넣지 마. 메뉴 이름 대신 실제 전달 방식·음역·처리를 써. Instrumental 헤더가 있는 구간에는 보컬을 넣지 마.
+- 보컬 벌스·후렴·아웃트로는 어떻게 부르는지 설명하되 매번 다른 창법이나 마지막 벨팅은 필수가 아니야. Light ad-libs는 리드 없이 드문 조각만, Full rap feature는 랩 중심, Heavy hooks는 후렴 중심, Sung lead vocal은 노래 중심이야. 요청하지 않은 듀엣을 예시 때문에 만들지 마.
 
-[가사 작성 — 명세의 lyrics가 null이 아닐 때(보컬 곡)]
-- **언어 분리(가장 중요)**: 명세 lyrics.lang이 한국어·日本語여도 그건 <lyrics> 가사에만 해당해. <section>의 연출 설명과 헤더, <style> 태그는 가사 언어와 무관하게 **항상 영어**로 써(Suno는 영어 소리 키워드를 가장 잘 알아들어). 연출 설명에 한글·일본어를 한 글자도 섞지 마 — 검사기가 막아.
-- 출력 맨 앞에 <lyrics>…</lyrics> 블록을 추가해(그 뒤에 <section>, <style>). 이 블록이 Suno의 Lyrics 칸에 그대로 들어가는 진짜 가사야. <section>은 각 섹션의 연출 설명이고, 앱이 섹션마다 [가사 헤더] → (연출 설명) → 가사 줄로 합쳐서 Suno의 Lyrics 칸에 넣어. 그래서 보컬 곡의 연출 설명은 전체 3,300자 이하로 더 짧게, 가사는 1,800자 이하로 써(합쳐서 5,000자 안).
-- 언어는 명세 lyrics.lang. 주제·느낌은 lyrics.theme가 있으면 그걸 가장 우선해서 살려 쓰고, 없으면 무드·곡 분석·장르에서 이 곡에 어울리는 구체적인 이야기·장면·감정을 네가 정해. 무드와 어울리는 이미지·어휘로 일관되게 써.
-- 형식: lyrics.headers를 순서·글자 그대로 헤더 줄로 쓰고 그 아래에 가사 줄. [Verse]는 벌스 가사 8~12줄, [Chorus]는 후렴 4~6줄, [Intro]/[Outro]는 없거나 1~2줄, [Instrumental]은 헤더만(가사 없음).
-- 한 줄은 짧게(영어 5~12음절, 한국어 7~15자, 日本語 8~16자). J-Pop은 가사를 반드시 日本語로 쓰고, 스타일에는 장르 태그 "j-pop"을 그대로 써("Japanese vocals" 같은 언어 태그는 따로 넣지 마 — 장르 태그와 가사 언어로 충분해). K-Pop도 "k-pop" 태그만 써. 보컬이 랩(Full rap feature)이면 벌스를 12~16줄로 촘촘하고 리듬감 있게, 노래(Sung lead vocal, Heavy hooks)면 멜로디에 얹기 좋게 짧고 반복적으로.
-- 후렴의 핵심 한 줄(타이틀 라인)을 정해서 후렴마다 그대로 반복해(마지막 후렴에서만 살짝 변주 가능). 라임과 이미지를 곡 전체에서 일관되게.
-- 가사 칸에는 가사만: 악기·믹스·연출 설명, 괄호 설명문, 아티스트·곡 이름, 기존 노래 가사 인용은 금지. 아주 짧은 보컬 지시([Whispered], (ooh) 등)만 허용. 고쳐쓰기 모드에서는 가사를 [이전 결과]와 글자 그대로 유지.
+[가사 — lyrics가 있을 때만]
+- <lyrics>는 지정 언어와 주제로, <section>과 <style>은 영어로 써. 제공된 가사나 수정 모드의 이전 가사는 헤더·줄바꿈까지 보존해.
+- 앱이 각 구간의 [헤더] → (자연어 연출) → 실제 가사 순서로 합쳐. 개선할 편곡·연주·보컬 전달은 <section>에 쓰고, 설명문을 실제 노랫말에 섞지 마. 사용자 가사에 없는 줄이나 단어를 인용해 특정 위치를 지시하지 마.
+- 새 가사: 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 벌스는 직접적인 감정 선언을 줄이고 시간·장소·사물·행동으로 장면을 보여줘. 후렴은 짧고 발음하기 쉬운 핵심 라인을 만들고 정확히 반복해. 프리코러스는 기대감을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 다음 핵심 구간으로 돌아갈 공간을 남겨. 각 줄을 소리 내어 읽는다고 생각하고 음절·호흡·모음 흐름을 고려해 설명적인 긴 문장을 줄여.
+- lyrics.headers 순서 그대로. 벌스는 6~20줄, 후렴 3~10줄 안에서 마디·보컬 속도에 맞게 써. 반복 후렴은 최소 두 줄 유지. Intro/Outro는 4줄 이하, Instrumental은 헤더만.
+- 새 AI 가사를 쓸 때는 필요한 순간에만 줄 끝 악기 태그를 넣어. 예: Stay with me tonight [guitar riff]. 가사 중간·태그만 있는 별도 줄·한 줄에 여러 태그는 금지. 두 줄당 하나 이하, 구간당 최대 두 개이며 모든 구간에 넣을 필요는 없어. 보컬 프레이즈가 짧게 끝나는 쉼에 배치해.
+- 허용 이벤트: ${Object.keys(LYRIC_EVENTS).map(t=>'['+t+']').join(', ')}. 스타일에 긍정적으로 포함된 악기만 써. 원하지 않는 악기를 태그 때문에 추가하지 마. 지속 편성·페이드·믹스 처리는 <section>에 쓰고 실제 가사로 부를 문장에는 악기 설명을 넣지 마.
+- 사용자 제공 가사와 고쳐쓰기의 이전 가사는 태그까지 그대로 유지해. 새 이벤트 추가는 새 AI 가사 작성에만 적용해. 무보컬에는 가사나 줄 끝 태그를 생성하지 마. 짧은 (ooh)는 가능하나 기존 노래 가사를 인용하지 마.
+- 새 가사는 1800자 이하. 연출과 합친 Lyrics는 4950자 이하이며 명세 limits가 더 작으면 그 값을 따라.
 
-[악기·소리 추가 허용]
-- 사용자가 확정한 악기·드럼은 그대로 지키되, 이 곡의 의도(무드·레퍼런스·장르)에 비추어 소리가 부족하거나 밋밋하다고 판단하면 네가 악기·타악·베이스·효과음 레이어를 추가해도 돼 (예: 카운터 멜로디, 아르페지오, 스네어·클랩, 리스 베이스, 텍스처 레이어, 전환용 효과음).
-- 추가한 소리는 곡 전체의 기준이면 스타일 태그에도 넣고(태그는 12개 이하로 융합), 섹션에서는 역할이 있는 곳에만 써. 리드·배경 악기와 대역이 겹치면 옥타브·하이패스·사이드체인으로 분리하고, 리드 자리를 대신하지는 마. 무보컬 곡에서 보컬 계열 소리는 추가 금지.
-- 추가할 소리를 고를 때는 장르 관습이 아니라 이 곡의 의도에서 골라.
-
-[리뷰에서 반복 감점된 여섯 가지 — 전부 지켜 (검사기가 확인함)]
-1) Key 일관성: 명세 key가 장조면 "minor-tinged"·"minor key" 같은 단조 표현을, 단조면 장조 표현을 쓰지 마. 다른 Key 이름도 금지.
-2) 훅마다 귀에 붙는 매력 어휘(catchy·memorable·hypnotic·danceable·hook-driven 등)를 그 곡에 맞게 하나 이상.
-3) 태도 단어(cocky·swagger·flex·confident)는 곡 전체 3번 이하 — 대신 타이밍·강세·톤 같은 실제 소리로 써.
-4) 핵심 타악: 첫 훅에 킥·스네어·클랩 중 최소 하나를 넣어. 고른 드럼에 없으면 장르에 맞게 추가해도 돼(고른 것은 그대로 지키고). 스타일에 쓴 구체적인 소리(클랩·스네어·킥·하이햇·808·악기)는 섹션에도 반드시 나와야 해.
-5) 스타일 태그는 12개 이하. "Key of X & N BPM"은 태그 하나로 융합. 상업적·믹스 태그(catchy·polished·punchy·mainstream·commercial 등)는 앞쪽 8개 안에 2개 이상 — Suno는 뒤쪽 태그를 무시해.
-6) 같은 악기 이름을 모든 섹션에 반복하지 마: 리드는 전체 섹션의 3/4 이하, 배경 악기·pad는 60% 이하. 악기는 그 섹션에서 역할이 있을 때만 이름을 써.
-
-[BPM·Key]
-- 명세의 bpm·key가 null이면 사용자가 정하지 않은 거야 — 스타일과 섹션 어디에도 BPM 숫자나 Key("in A minor" 등)를 쓰지 마. 값이 있으면 그대로 정확히 써.
-
-[출력 형식 — 예시 프롬프트의 모양보다 이 규칙이 우선]
-- 무보컬 곡은 <section>…</section><style>…</style> 두 블록만, 보컬 곡(명세 lyrics가 null이 아님)은 <lyrics>…</lyrics>를 맨 앞에 더한 세 블록만. 섹션은 명세 structure의 순서·헤더를 글자 그대로 쓰고, 각 헤더 바로 다음 줄에 본문을 괄호로 감싼 한 줄로: 마디 수(bars)가 있는 섹션은 "(N Bars: 키워드, 키워드, …)", 마디 수가 없는 인트로/아웃트로는 "(키워드, …)".
-- 리드 악기 이름은 인트로와 첫·마지막 훅에, 메인 드럼(drums[0]) 이름은 첫 훅에, 고른 드럼은 곡 전체에 걸쳐 전부, 배경 악기는 훅에 한 번 이상 — 이름 그대로.
-- 스타일은 콤마 태그 12개 이하(관련 요소는 " & "로 융합), fixedStyleTags 전부 포함, 프로듀서가 있으면 producerSound 키워드 포함.
-
-[모범 예시 — 실제로 Suno에서 잘 나온 프롬프트 4개. 장르가 달라도 상관없어: Suno가 잘 읽는 형식(짧은 키워드 구, 콤마 구분, 한 줄 본문)과 밀도만 참고하고, 표현과 소리는 이 곡의 의도에서 새로 만들어. 예시의 문구를 다른 곡에 그대로 쓸 수 있다면 그건 템플릿이니 쓰지 마. 예시는 무보컬이라 'vocal' 단어가 들어간 부분은 따라 쓰지 마]
-${PROMPT_EXAMPLES.map((e,i)=>`예시${i+1}\n스타일: ${e.style}\n${e.section}`).join('\n\n')}
-
-[일관성 규칙 — 리뷰에서 반복해서 감점된 부분]
-- 스타일 태그는 곡 전체의 "기준 톤"만 써. 섹션에 따라 달라지는 절대 표현(always, only, never, widest, maximum, silent, absent)과 dry/tight/wide 같은 공간 절대값을 스타일에 넣지 마 — 섹션이 그 값에서 벗어나는 순간 모순이 돼(예: 스타일 "dry intimate" vs 훅3 "widest stereo"). 스타일과 섹션이 충돌하면 스타일을 기준 톤으로 낮춰.
-- 훅 리듬은 명세의 hookRhythm 역할대로 서로 다르게: 각 훅이 그 역할의 리듬 단어를 반드시 가져야 하고, 같은 드럼 조합 문구를 세 훅에 복붙하지 마.
-- 같은 악기는 곡 전체에서 같은 역할을 유지해(예: 브라스는 계속 카운터 액센트). 섹션마다 바뀌는 건 볼륨·밀도·등장 여부뿐이고, 안 나오는 섹션에서 "silent/absent"라고 쓰면 스타일의 "항상 나온다"는 뜻과 모순되니 그냥 언급하지 마.
-- 인트로의 진입 방식과 브릿지의 빌드업이 서로 모순되지 않게(인트로가 "no build-up"이면 브릿지 빌드업은 "이 곡에서 처음 나오는 빌드업"으로 표현).
-
-[프로듀서 레퍼런스]
-- 명세의 producerSound는 고른 프로듀서의 소리 특징이야. 이름은 쓰지 말고 이 키워드를 스타일(필요하면 훅)에 살려 써. 곡의 무드·에너지와 정반대(예: 미니멀 소리 vs 맥시멈 밀도)라면 억지로 섞지 말고 그 소리 특징을 리듬/베이스 한두 군데에만 짧게 반영해.
-
-[brief · 이름 규칙]
-- 명세에 brief가 있으면 사용자가 원하는 곡/느낌의 소리 특징이야. brief.styleTags는 스타일 프롬프트에 그대로(또는 거의 그대로) 넣고, brief.cues는 해당 섹션 문구에 녹여. 장르의 평균적인 관습과 brief가 다르면 brief 쪽을 따라.
-- 실존 아티스트·프로듀서·곡 이름을 출력에 절대 쓰지 마(Suno 정책 — 명세의 producerReference·referenceSong도 소리 특징으로만 풀어 써). "OO-inspired" 같은 표현도 금지.
-
-[Suno 사실]
-- 스타일 박스는 1000자, 섹션(가사) 박스는 5000자 한도이고 넘으면 뒤가 잘림. 스타일 태그는 10개 안팎을 넘으면 뒤쪽이 무시됨(관련 요소는 " & "로 융합해서 태그 1개로).
-- 스타일 박스는 앞쪽 단어일수록 가중치가 커 — 무보컬 여부·장르·핵심 사운드를 맨 앞에, 부가 디테일은 뒤에. 일반어보다 구체어가 잘 먹혀("pop"보다 "synth-pop", "male vocals"보다 "raspy male vocals", "electronic"보다 "acid 303 bassline"). 서로 충돌하는 장르·질감(예: 트랩 + 오케스트라 + 록)을 한 줄에 쌓지 마.
-- 섹션 메타태그는 대괄호 "[Verse 1]", 곡 안 세부 지시는 "[Verse 1: 짧은 키워드]" 문법이 공식적이고, 소괄호는 메타태그로 읽히지 않아. (이 프로그램의 섹션 프롬프트 "[헤더] + ( … )" 형식은 사용자가 Suno에서 검증했고 Lyrics 칸에도 그 형식(연출 설명 + 가사)을 쓰기로 정했으니 그대로 유지.) 가사 자체에는 소괄호 설명문을 넣지 마.
-- BPM·Key는 정확한 제어가 아니라 방향 지시(근사치로 반영됨). "no drums" 같은 부정 표현은 스타일 칸에서 약해서 프로그램이 Exclude 칸을 따로 제공하니, 스타일에는 원하는 소리를 긍정 표현으로 쓰는 게 우선.
-- Suno는 문학적 비유가 아니라 실제로 들리는 소리(악기·이펙트·다이내믹·공간감·타이밍)를 콤마로 끊은 짧은 키워드 구로 지시할 때 가장 잘 반영함. 완결된 서술 문장은 금지.
-
-[반드시 지킬 것 — 검사기가 확인함]
-- 섹션 헤더 줄([Intro], [Instrumental Hook 1: …] 등)은 [명세]의 structure 순서·문구 그대로, 각 헤더 다음 줄에 본문 한 덩어리를 괄호 "( … )"로 씀. 마디 수가 있는 섹션은 "(8 Bars: "로 시작.
-- 리드 악기는 인트로와 첫·마지막 훅에 이름으로, 배경 악기는 훅에 한 번 이상, 메인 드럼은 첫 훅에, 고른 드럼은 곡 전체에서 전부 등장(모든 섹션에 반복하지는 마). 악기 이름·BPM·Key·보컬 유무 지시는 동의어로 바꾸지 마. 808 강도 라벨(예: Balanced 808)은 곡 전체에서 인트로 등 1~2곳에만 그대로 쓰고, 나머지 섹션에선 808의 질감·역할을 섹션마다 다른 단어로 묘사해 (라벨 복붙은 '설정값 나열'로 읽혀 감점).
-- 무보컬이면 "no vocals", "ZERO vocal chops" 외에 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir)를 쓰지 마. 보컬이 있으면 모든 훅에 그 보컬을 명시.
-- 스타일: fixedStyleTags를 그대로 포함, 총 950자 이하, 태그 13개 이하, 첫 태그들은 [Instrumental]/no vocals → 장르 순. 섹션 총합은 4900자 이하이고 각 섹션은 maxChars 안팎.
-- [지시]에 적힌 것은 사용자·리뷰어가 확정한 요구사항이니 해당 섹션에 반드시 구체적인 소리 표현으로 반영해(스타일 지시는 스타일 프롬프트에).
-
-[퀄리티 원칙]
-- 같은 타입 섹션(훅끼리, 벌스끼리, 브릿지끼리)은 리듬·필터·공간·악기 역할에서 실제로 다른 단어를 써서 회차마다 무엇이 달라지는지 드러내. 문구를 복사하지 마.
-- 에너지 곡선: 첫 훅은 강하되 여유를 남기고, "maximum/peak/every element maxed" 같은 절대 최대치는 마지막 훅에서만. 중간 훅은 단계적으로 밀도를 올려.
-- 벌스는 무드에 맞게 에너지를 낮추거나 눌러 두고(공격적 무드면 억눌린 긴장), 브릿지·벌스 끝에는 고른 전환효과로 다음 드롭을 준비하는 2마디 빌드를 넣어. 브릿지가 없는 구조면 벌스 끝에서 빌드.
-- 공간감(스테레오·리버브) 아크는 인트로→벌스→훅→클라이맥스→아웃트로로 이어지고 브릿지에도 공간 정보가 있어야 하며, 고른 텍스처(dry/reverb/wide/tape 등)와 모순되면 안 돼. 스타일 태그와 섹션 문구가 서로 충돌(예: dense 대 stripped, quantized 대 human-feel)하지 않게 정리해.
-- 리드·배경 악기가 808과 중저역에서 겹치지 않게 분리(하이패스·사이드체인·필터) 지시를 훅에 넣어. 인간미(Anti-AI)는 범용어 대신 실제 악기·드럼의 구체적인 불완전함(타이밍 밀림, 벨로시티 불균일, 피치 흔들림)으로.
-- **총량을 관리해**: 새로 쓸 때는 3000~3800자 안팎을 목표로, 고쳐쓸 때는 지시를 반영하면서 겹치거나 낡거나 서로 모순되는 문구를 삭제해서 이전 결과보다 길어지지 않게(±5%). 서술을 늘리지 말고 같은 뜻이면 더 짧은 구로. 한 섹션에 지시가 과밀하면(약 800자 초과) 덜 중요한 것부터 뺀다.
-- 무드의 다이내믹(진입 방식, 훅 어택, 벌스 거동, 브릿지 긴장, 끝맺음)과 장르 특유의 기법은 이 곡의 의도에 맞을 때만 네 판단으로 살려. 의도와 어긋나는 장르 관습은 따르지 마.
-
-[출력 형식 — 이 두 태그만, 설명 없이]
-<section>
-섹션 프롬프트 전체
-</section>
-<style>
-스타일 프롬프트 한 줄
-</style>`;
+[출력 계약 — 앱의 편집·병합 형식]
+- 무보컬은 <section>…</section><style>…</style>, 보컬이면 <lyrics>…</lyrics>를 맨 앞에 추가. 다른 설명 없이 출력해.
+- section은 structure의 헤더·순서를 글자 그대로. 헤더 아래 본문은 괄호로 감싼 한 줄. bars가 있으면 (N Bars: …), 없으면 (…). 그 안의 자연어 문장·명령형을 허용해. 이 외곽 형식은 앱 호환용이며 유일한 Suno 문법이라는 뜻이 아니야.
+- style은 자연어 한 문단이며 fixedStyleTags를 정확히 포함해. 무보컬 여부와 장르부터 시작해. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
+- 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
 async function writeOnce({mode,spec,prev,errors,onPartial}){
   const key=getAnthropicKey();
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';

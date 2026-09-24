@@ -19,7 +19,7 @@ const st={
 
 // Vocal tab states
 const VTS={
-  pop:{genre:null,bpm:120,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',narrSt:{},structSegs:['intro','verse','chorus','chorus','outro'],structIdx:null},
+  pop:{genre:null,bpm:120,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',userLyrics:'',refSong:'',refAf:null,narrSt:{},structSegs:['intro','verse','prechorus','chorus','verse','prechorus','chorus','bridge','chorus','outro'],structIdx:null},
   elec:{genre:null,bpm:128,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',narrSt:{},structSegs:['intro','build','drop','breakdown','drop','outro'],structIdx:null},
   rock:{genre:null,bpm:120,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',narrSt:{},structSegs:['intro','verse','chorus','chorus','outro'],structIdx:null},
 };
@@ -822,22 +822,14 @@ function clearAutoHint(id){
   if(el)el.hidden=true;
 }
 
-let _genreFamily='all';
+// 힙합 탭은 힙합 장르만 보여준다. 팝·R&B는 별도 탭에서 가사 중심 흐름으로 만든다.
 function renderHhGenres(){
   const container=document.getElementById('hh-genre-chips');
   container.innerHTML='';
   let fam=document.getElementById('hh-genre-family');
-  if(!fam){fam=document.createElement('div');fam.id='hh-genre-family';fam.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px';container.before(fam);}
-  fam.innerHTML='';
-  GENRE_FAMILIES.forEach(([k,label])=>{
-    const b=document.createElement('button');
-    b.textContent=label;
-    b.style.cssText=`padding:4px 12px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid ${_genreFamily===k?'var(--accent)':'var(--border)'};background:${_genreFamily===k?'var(--accent-dim)':'var(--surface-2)'};color:${_genreFamily===k?'var(--accent-text)':'var(--text-2)'}`;
-    b.onclick=()=>{_genreFamily=k;if(k==='pop'||k==='hiphop')setChart(k);renderHhGenres();};   // 핫한 곡 차트도 계열을 따라감(힙합→Hip-Hop/R&B, 팝→Hot 100)
-    fam.appendChild(b);
-  });
+  if(fam)fam.remove();
   GENRES.forEach((g,i)=>{
-    if(_genreFamily!=='all'&&g.family!==_genreFamily&&st.genre!==i)return;   // 고른 장르는 필터와 상관없이 계속 보임
+    if(g.family!=='hiphop')return;
     const el=document.createElement('div');
     el.className='chip'+(st.genre===i?' selected':'');
     el.textContent=g.kr;
@@ -872,7 +864,7 @@ function renderGenreGuide(){
 function renderGenreGuideResult(){
   const res=document.getElementById('hh-guide-result');
   if(!res)return;
-  const ids=_guideMood?MOOD_GENRE_GUIDE[_guideMood]||[]:[];
+  const ids=_guideMood?(MOOD_GENRE_GUIDE[_guideMood]||[]).filter(gi=>GENRES[gi]?.family==='hiphop'):[];
   res.hidden=!ids.length;
   res.innerHTML='';
   ids.forEach((gi,rank)=>{
@@ -915,17 +907,15 @@ function syncInstrumentMenus(){
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
 }
 function selectGenre(i){
+  if(GENRES[i]?.family!=='hiphop'){
+    showToast('팝·R&B 장르는 팝·R&B 탭에서 선택하세요');
+    return;
+  }
   const deselect=st.genre===i;
   st.genre=deselect?null:i;
   _aiSuggestions=null;
   syncInstrumentMenus();
   if(st.genre!==null){
-    if(GENRES[i].family==='pop'&&(!st.vocal||st.vocal==='No Vocal')){   // 팝·R&B는 노래가 중심이라 보컬을 제안(바꿀 수 있음)
-      st.vocal='Sung lead vocal';
-      chipGrid(document.getElementById('hh-vocal'),HH_VOCAL,st,'vocal',1,onVocalChange);
-      recommendVocalChar();
-      syncLyricBox();
-    }
     if(GENRE_LYRIC_LANG_FIXED[i]){st.lyricLang=GENRE_LYRIC_LANG_FIXED[i];_lyricLangForced=true;}   // J-Pop은 일본어 고정
     else if(_lyricLangForced){st.lyricLang='English';_lyricLangForced=false;}                   // 고정 장르에서 벗어나면 되돌림
     else if(GENRE_LYRIC_LANG[i]&&!_lyricLangTouched)st.lyricLang=GENRE_LYRIC_LANG[i];           // K-Pop→한국어 제안
@@ -1145,12 +1135,16 @@ function applyArtistSong(tabKey,song,artist){
     setRefSongFromPicker(artist&&song.title?`${artist.name} - ${song.title}`:(song.title||''),{bpm:song.bpm,key:song.key,genre:song.genre});
   } else {
     const s=VTS[tabKey];
-    if(song.tag)s.genre=song.tag;
+    if(song.tag){
+      const valid=(tabKey==='pop'?POP_GENRES:tabKey==='elec'?ELEC_GENRES:ROCK_GENRES).some(g=>g.tag===song.tag);
+      s.genre=valid?song.tag:(tabKey==='pop'?(song.tag.includes('r&b')?'alt r&b':song.tag.includes('synth')?'synthpop':'indie pop'):song.tag);
+    }
     if(song.bpm)s.bpm=song.bpm;
     if(song.key!==undefined)s.key=song.key;
     document.getElementById(`${tabKey}-bpm`).value=s.bpm;
     document.getElementById(`${tabKey}-key`).value=s.key;
     renderVocalGenres(tabKey);
+    if(tabKey==='pop')applyPopAuto(tabKey);
     showToast(`🎵 <b>${artist?.name||''} — ${song.title||''}</b><br>${s.bpm}BPM 적용됨`);
     updateFloatSummary();
   }
@@ -1291,7 +1285,7 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
       el.textContent=p.name;
       el.style.borderColor=p.color+'80';
       el.style.color=p.color;
-      el.onclick=()=>{s.genre=p.tag;renderVocalGenres(tabKey);};
+      el.onclick=()=>{s.genre=p.tag;renderVocalGenres(tabKey);if(tabKey==='pop')applyPopAuto(tabKey);};
       prow.appendChild(el);
     });
     body.appendChild(prow);
@@ -1299,11 +1293,22 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
     chips.className='chip-grid';
     chips.id=`${tabKey}-genre-chips`;
     body.appendChild(chips);
+    if(tabKey==='pop'){
+      const hint=document.createElement('div');
+      hint.id='pop-auto-hint';hint.hidden=true;
+      hint.style.cssText='font-size:10px;color:var(--accent-text);margin-top:8px;padding:6px 8px;border-radius:var(--r-sm);background:var(--accent-dim)';
+      body.appendChild(hint);
+    }
     return body;
   }));
 
-  // Artists
-  inner.appendChild(makeSection('🎤','ARTIST PRESETS',()=>{
+  // Pop은 아티스트 프리셋 대신 Billboard Hot 100 곡을 레퍼런스로 사용
+  if(tabKey==='pop')inner.appendChild(makeSection('🎵','BILLBOARD HOT 100 · TOP 30',()=>{
+    const body=document.createElement('div');
+    body.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px"><span id="pop-hot100-status" style="font-size:10px;color:var(--text-3)">이번 주 차트를 불러오는 중…</span><button id="pop-hot100-refresh" onclick="fetchPopHot100(true)" style="padding:5px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--accent-text);font-size:11px;cursor:pointer">↻ 새로고침</button></div><div id="pop-hot100" class="songs-grid"><span style="font-size:11px;color:var(--text-3)">이번 주 인기곡을 불러오면 여기에 표시됩니다</span></div>';
+    return body;
+  }));
+  else inner.appendChild(makeSection('🎤','ARTIST PRESETS',()=>{
     const body=document.createElement('div');
     body.className='artist-accordion';
     body.id=`${tabKey}-artists`;
@@ -1360,7 +1365,7 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
     body.appendChild(segs);
     const conceptArea=document.createElement('div');
     conceptArea.className='concept-area';
-    conceptArea.innerHTML=`<label>곡 기획 · 상황</label><textarea id="${tabKey}-concept" placeholder="예) 디카페인을 마셨는데 카페인을 마신 것처럼 심장이 뛰는 설렘 / 새벽에 전화하면 안 되는 상대에게 전화한 자책감" rows="3"></textarea>`;
+    conceptArea.innerHTML=`<label>곡 기획 · 상황</label><textarea id="${tabKey}-concept" placeholder="예) 디카페인을 마셨는데 카페인을 마신 것처럼 심장이 뛰는 설렘 / 새벽에 전화하면 안 되는 상대에게 전화한 자책감" rows="3"></textarea>${tabKey==='pop'?`<label style="display:block;margin-top:10px">가사 직접 입력 <span style="font-weight:400;color:var(--text-3)">(선택 · 비워두면 AI가 작성)</span></label><textarea id="${tabKey}-user-lyrics" placeholder="직접 쓴 가사가 있으면 붙여 넣으세요. AI는 이 가사를 바꾸지 않고 섹션 연출만 맞춥니다." rows="5"></textarea>`:''}`;
     body.appendChild(conceptArea);
     return body;
   }));
@@ -1391,11 +1396,16 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
   out.className='output-section';
   out.innerHTML=`
     <button class="gen-btn" onclick="vocalGenerate('${tabKey}')">✨ Generate Prompts</button>
+    ${tabKey==='pop'?`<div id="pop-ai-status" hidden style="font-size:11px;padding:7px 9px;margin-top:8px;border-radius:var(--r-sm);background:var(--surface-3)"></div>`:''}
     <div class="output-boxes" id="${tabKey}-output" style="display:none">
+      ${tabKey==='pop'?`<div class="output-box">
+        <div class="output-box-header"><span class="output-box-label">② 가사</span><div style="display:flex;gap:6px"><button class="copy-btn" onclick="popGenerateLyrics()" style="background:var(--accent)">🎤 가사 생성</button><button class="copy-btn" onclick="copyOutput('${tabKey}-lyrics-ta',this)">Copy</button></div></div>
+        <textarea class="output-ta" id="${tabKey}-lyrics-ta" rows="12" placeholder="첫 Generate 후 이 버튼을 눌러 가사를 생성하세요. 직접 입력한 가사는 그대로 사용됩니다."></textarea>
+      </div>`:''}
       <div class="output-box">
         <div class="output-box-header">
           <div style="display:flex;align-items:center;gap:8px">
-            <span class="output-box-label">② 섹션 프롬프트</span>
+            <span class="output-box-label">${tabKey==='pop'?'③':'②'} 섹션 프롬프트</span>
             <span class="output-badge" id="${tabKey}-antiai-badge" style="display:none">✦ Anti-AI ON</span>
           </div>
           <button class="copy-btn" onclick="copyOutput('${tabKey}-sect-ta',this)">Copy</button>
@@ -1404,7 +1414,7 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
       </div>
       <div class="output-box">
         <div class="output-box-header">
-          <span class="output-box-label">③ 스타일 프롬프트</span>
+          <span class="output-box-label">${tabKey==='pop'?'④':'③'} 스타일 프롬프트</span>
           <button class="copy-btn" onclick="copyOutput('${tabKey}-style-ta',this)">Copy</button>
         </div>
         <textarea class="output-ta" id="${tabKey}-style-ta" rows="4" readonly></textarea>
@@ -1414,20 +1424,13 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
 
   // Now populate dynamic parts
   renderVocalGenres(tabKey);
-  renderArtists(`${tabKey}-artists`,artists,tabKey);
+  if(tabKey==='pop')fetchPopHot100();
+  else renderArtists(`${tabKey}-artists`,artists,tabKey);
   moodGrid(document.getElementById(`${tabKey}-mood-grid`),moods,s,'mood',null);
   chipGrid(document.getElementById(`${tabKey}-instr-chips`),instrs,s,'instruments',3,null);
 
   // vocal styles
-  const vsChips=document.getElementById(`${tabKey}-vstyle-chips`);
-  vsChips.innerHTML='';
-  vocalStyles.forEach(vs=>{
-    const el=document.createElement('div');
-    el.className='chip'+(s.vocalStyle===vs.kr?' selected':'');
-    el.textContent=vs.kr;
-    el.onclick=()=>{s.vocalStyle=s.vocalStyle===vs.kr?null:vs.kr;vsChips.querySelectorAll('.chip').forEach((c,ci)=>c.classList.toggle('selected',vocalStyles[ci].kr===s.vocalStyle));};
-    vsChips.appendChild(el);
-  });
+  renderVocalStyles(tabKey,vocalStyles);
 
   // narr
   renderVocalNarr(tabKey,narr);
@@ -1435,6 +1438,8 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
   // concept textarea
   const concTa=document.getElementById(`${tabKey}-concept`);
   if(concTa){concTa.value=s.concept;concTa.oninput=()=>{s.concept=concTa.value;};}
+  const userLy=document.getElementById(`${tabKey}-user-lyrics`);
+  if(userLy){userLy.value=s.userLyrics||'';userLy.oninput=()=>{s.userLyrics=userLy.value;};}
 
   // struct
   renderStructBuilder(tabKey,structPresets,palette,s);
@@ -1465,9 +1470,45 @@ function renderVocalGenres(tabKey){
     const el=document.createElement('div');
     el.className='chip'+(s.genre===g.tag?' selected':'');
     el.textContent=g.kr;
-    el.onclick=()=>{s.genre=s.genre===g.tag?null:g.tag;renderVocalGenres(tabKey);};
+    el.onclick=()=>{
+      s.genre=s.genre===g.tag?null:g.tag;
+      renderVocalGenres(tabKey);
+      if(tabKey==='pop'&&s.genre)applyPopAuto(tabKey);
+    };
     container.appendChild(el);
   });
+}
+
+function renderVocalStyles(tabKey,vocalStyles){
+  const s=VTS[tabKey],box=document.getElementById(`${tabKey}-vstyle-chips`);
+  if(!box)return;
+  box.innerHTML='';
+  vocalStyles.forEach(vs=>{
+    const el=document.createElement('div');
+    el.className='chip'+(s.vocalStyle===vs.kr?' selected':'');
+    el.textContent=vs.kr;
+    el.onclick=()=>{s.vocalStyle=s.vocalStyle===vs.kr?null:vs.kr;box.querySelectorAll('.chip').forEach((c,ci)=>c.classList.toggle('selected',vocalStyles[ci].kr===s.vocalStyle));};
+    box.appendChild(el);
+  });
+}
+
+function applyPopAuto(tabKey){
+  const s=VTS[tabKey],auto=POP_AUTO[s.genre];
+  if(!auto)return;
+  s.mood=auto.mood;
+  s.instruments=[...auto.instruments];
+  s.vocalStyle=auto.vocalStyle;
+  s.narrSt={...(auto.narr||{})};
+  const preset=POP_STRUCT_PRESETS.find(p=>p.name===auto.structure);
+  if(preset){s.structSegs=[...preset.segs];s.structIdx=POP_STRUCT_PRESETS.indexOf(preset);}
+  moodGrid(document.getElementById(`${tabKey}-mood-grid`),POP_MOODS,s,'mood',null);
+  chipGrid(document.getElementById(`${tabKey}-instr-chips`),POP_INSTR,s,'instruments',3,null);
+  renderVocalStyles(tabKey,POP_VOCAL_STYLES);
+  renderVocalNarr(tabKey,POP_NARR);
+  renderStructBuilder(tabKey,POP_STRUCT_PRESETS,POP_SEG_PALETTE,s);
+  const hint=document.getElementById(`${tabKey}-auto-hint`);
+  if(hint){hint.hidden=false;hint.textContent=`🤖 ${auto.mood} · ${auto.vocalStyle} · ${auto.structure} 구조를 자동 추천했어요 · 원하는 값으로 바꿀 수 있어요`;
+  }
 }
 
 function renderVocalNarr(tabKey,narr){
@@ -2897,7 +2938,139 @@ function hhReset(){
 // ============================================================
 // GENERATE - VOCAL TABS
 // ============================================================
+const POP_VOCAL_GUIDE={
+  '팝 보컬':'clean expressive lead vocals with a memorable conversational tone',
+  'R&B 보컬':'smooth intimate vocals with relaxed rhythmic phrasing and tasteful runs',
+  '팝 펑크':'bright urgent vocals with clear diction and youthful punch',
+  '폴세토':'breathy falsetto with controlled upper-register emotion',
+  '드림팝 보컬':'soft airy vocals blurred gently into the atmosphere',
+  'K-Pop 보컬':'precise bright lead vocals with layered harmonies and dynamic phrasing',
+  '인디 보컬':'close natural vocals with charming imperfections and understated emotion',
+};
+const POP_NARR_EN={
+  '감성 빌드업':'let the atmosphere bloom gradually before the first lyric','직접 멜로디':'open with a clear memorable vocal phrase','반복 루프':'introduce a small motif that can return throughout the song','미니멀 피아노':'leave the voice exposed over a sparse piano opening',
+  '내러티브 스토리텔링':'use concrete details and actions to move the story forward','감성 고백':'keep the delivery intimate and emotionally direct','은유적 표현':'use vivid images and suggestive emotional language','직접적 메시지':'keep the lyric clear and immediately understandable',
+  '긴장감 고조':'raise melodic tension and shorten the space before the chorus','에너지 축적':'add harmony, percussion and lift without changing the core idea','감정 절정 직전':'hold back the final release while the melody climbs','미니멀→풀':'move from a stripped pocket into a fuller arrangement',
+  '후크 멜로디 강조':'make the title phrase short, singable and instantly repeatable','감정 폭발':'let the chorus open wide with the fullest emotional release','반복 레이어':'repeat the hook while adding backing layers on later phrases','업리프팅 에너지':'make the chorus buoyant and easy to sing along with',
+  '감정 대비':'remove layers and reveal a different emotional color','조성 변화':'use a restrained harmonic shift to refresh the final section','인트로스펙티브':'strip back and let the lyric question or reflect','서프라이즈 전환':'change one central texture or rhythm for a clear surprise',
+  '페이드 아웃':'let the last phrase and signature instrument drift away naturally','감성 마무리':'resolve with a final intimate line that completes the story','루프 엔딩':'return to the opening motif so the song can cycle naturally','갑작스러운 컷':'end immediately after the final phrase for a clean confident cut',
+};
+function popStylePrompt(s,genre,mood,bpm){
+  const instr=s.instruments.map(i=>POP_INSTR_SOUND[i]||i).filter(Boolean);
+  const vocal=POP_VOCAL_GUIDE[s.vocalStyle]||'clear expressive lead vocals with controlled emotion';
+  const choices=Object.values(s.narrSt).filter(Boolean).map(v=>POP_NARR_EN[v]||v).slice(0,4);
+  const concept=s.concept.trim();
+  const ref=s.refAf?`Use the selected reference as a contemporary production anchor with ${s.refAf.danceability>0.7?'a danceable pocket':'a relaxed pocket'}, ${s.refAf.energy>0.7?'forward energy':'controlled energy'} and ${s.refAf.valence>0.6?'bright melodic color':'bittersweet melodic color'}.`:'';
+  return `${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'} with a ${mood?.tag||'focused emotional'} mood. ${vocal}. ${ref} Build the identity around ${instr.length?instr.join(', '):'a clear signature melody, warm bass and tight drums'}. ${concept?'Shape the lyric and emotional arc around the user’s situation.':''} Keep the verses open and story-focused, let the pre-chorus raise melodic tension, then open into a wide, short and instantly memorable chorus with supporting harmonies and a fuller rhythm section. ${choices.join('; ')}. Preserve the central motif while changing register, backing layers and instrumental density between sections. Use polished modern production, clear vocal presence, controlled low end, clean transients and purposeful stereo width; keep every layer serving the lyric and hook. ${antiAI?'Natural dynamics, human phrasing and subtle imperfections, polished but not sterile.':''}`.replace(/\s+/g,' ').trim();
+}
+function popSectionPrompt(s,bpm){
+  const counts={};s.structSegs.forEach(x=>counts[x]=(counts[x]||0)+1);
+  const used={};const lines=[];const label={intro:'Intro',verse:'Verse',prechorus:'Pre-Chorus',chorus:'Chorus',bridge:'Bridge',outro:'Outro'};
+  const narrLabel={intro:'인트로',verse:'벌스',prechorus:'프리코러스',chorus:'코러스',bridge:'브릿지',outro:'아웃트로'};
+  s.structSegs.forEach(seg=>{
+    used[seg]=(used[seg]||0)+1;const n=used[seg],total=counts[seg],choice=s.narrSt[narrLabel[seg]],custom=choice?(POP_NARR_EN[choice]||choice):'';
+    let body='';
+    if(seg==='intro')body=`Open with ${custom||'a concise signature motif'} and a restrained vocal entrance; establish the emotional situation without explaining everything.`;
+    else if(seg==='verse')body=`${n>1?'Vary the phrasing and one supporting texture while keeping the same groove. ':'Keep the arrangement light around the lead vocal. '}${custom||'Use concrete story details and conversational melodic phrasing.'}`;
+    else if(seg==='prechorus')body=`${custom||'Add harmonic lift and a gradual rhythmic build'}; shorten the space toward the chorus without introducing a new unrelated idea.`;
+    else if(seg==='chorus')body=`${custom||'Make the hook short, melodic and easy to repeat'}; widen the arrangement, add supporting harmonies and let the lead phrase land clearly${n===total?' with the fullest earned release':''}.`;
+    else if(seg==='bridge')body=`${custom||'Strip back for a contrasting emotional turn'}; change one texture or harmonic color, then leave a clear opening for the final chorus.`;
+    else body=`${custom||'Resolve the story with a final phrase'}; let the signature motif and vocal tail decay naturally.`;
+    lines.push(`[${label[seg]||seg}${total>1?' '+n:''}]\n(${body})`);
+  });
+  return `${s.concept.trim()?`[Song concept]\nKeep every lyric section connected to this situation: ${s.concept.trim()}\n\n`:''}${lines.join('\n\n')}`;
+}
+function popLyricsPrompt(s){
+  if(s.userLyrics.trim())return s.userLyrics.trim();
+  const theme=s.concept.trim()||'the selected mood and a specific personal situation';
+  const eventTags=s.instruments.map(i=>({
+    '피아노':'[piano accent]','어쿠스틱 기타':'[acoustic guitar riff]','일렉 기타':'[guitar riff]',
+    '신스':'[synth stab]','스트링스':'[string swell]','브라스':'[brass stabs]',
+    '베이스':'[bass slide]','드럼':'[drum fill]','보컬 레이어':'[backing vocal echo]',
+    '패드':'[pad swell]','하프':'[harp accent]','플루트':'[flute phrase]'
+  }[i])).filter(Boolean);
+  const used={};const out=[`Write original English lyrics about ${theme}. Keep the story coherent, make the chorus easy to remember, and avoid generic filler.\n`];
+  out.push(`Treat the lyrics as a vocal source, not an essay: show emotion through concrete time, place, objects and actions. Keep each line easy to sing aloud with natural breathing space, short phrases and smooth vowel flow. Do not explain the production or put arrangement directions in parentheses. ${eventTags.length?`Only when a clear musical moment needs it, a lyric line may end with one of these event tags: ${eventTags.join(', ')}. Use no more than two tags in a section and never add an instrument outside this list.`:'Do not add instrument or production tags.'}\n`);
+  s.structSegs.forEach(seg=>{
+    used[seg]=(used[seg]||0)+1;const n=used[seg],label={intro:'Intro',verse:'Verse',prechorus:'Pre-Chorus',chorus:'Chorus',bridge:'Bridge',outro:'Outro'}[seg]||seg;
+    const title=`[${label}${['verse','chorus'].includes(seg)&&n>1?' '+n:''}]`;
+    const guide=seg==='chorus'?'Write 4–8 short lines around one clear, easy-to-pronounce hook phrase. Repeat the exact core phrase in at least two lines, then use small wording or melodic-space variations.':seg==='verse'?'Write 6–12 short lines that set the scene through time, place, objects and actions instead of directly naming the emotion. Leave natural breathing space.':seg==='prechorus'?'Write 2–6 concise lines that raise anticipation through a changing thought or image without giving away the chorus hook.':seg==='bridge'?'Write 4–8 short lines that reveal a new perspective or consequence, then leave room for the final chorus to return.':'Write up to 4 short lines connected to the story, with a clear vocal entrance or gentle resolution.';
+    out.push(`${title}\n(${guide})`);
+  });
+  return out.join('\n\n');
+}
+async function popAiWriteStyle(s,base){
+  const key=getAnthropicKey();if(!key)return;
+  const status=document.getElementById('pop-ai-status');
+  if(status){status.hidden=false;status.textContent='🤖 AI가 팝·R&B 스타일 프롬프트를 다듬는 중…';}
+  const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨. 다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
+  try{
+    const raw=await callAnthropic(key,{maxTokens:1800,staticText:'팝·R&B 스타일 작성 규칙: 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim(),sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
+    if(sec)document.getElementById('pop-sect-ta').value=sec;
+    if(sty)document.getElementById('pop-style-ta').value=sty;
+    if(status){status.textContent='✅ 스타일·섹션 작성 완료 — 이제 가사 생성을 눌러주세요';status.style.color='var(--success)';}
+  }catch(e){if(status){status.textContent=`⚠️ 스타일 AI 작성 실패 — 기본 프롬프트를 표시했어요 (${e.message})`;status.style.color='var(--danger)';}}
+}
+function popSectionKey(header){return (header||'').replace(/^\[/,'').replace(/\]$/,'').replace(/\s+\d+$/,'').toLowerCase();}
+function mergePopLyricsAndSection(section,lyrics){
+  const lyricBlocks=[];let current=null;
+  (lyrics||'').split(/\r?\n/).forEach(line=>{
+    const t=line.trim();
+    if(/^\[[^\]]+\]$/.test(t)){current={header:t,lines:[]};lyricBlocks.push(current);}
+    else if(current&&t)current.lines.push(t);
+  });
+  if(!lyricBlocks.length)return section;
+  const used={};let active=null;const out=[];
+  (section||'').split(/\r?\n/).forEach(line=>{
+    const t=line.trim();
+    if(/^\[[^\]]+\]$/.test(t)){
+      active={header:t,key:popSectionKey(t)};out.push(line);
+      const n=(used[active.key]||0);used[active.key]=n+1;
+      const match=lyricBlocks.filter(b=>popSectionKey(b.header)===active.key)[n]||lyricBlocks.find(b=>popSectionKey(b.header)===active.key);
+      if(match?.lines.length)out.push(...match.lines);
+      return;
+    }
+    out.push(line);
+  });
+  return out.join('\n');
+}
+async function popGenerateLyrics(){
+  const s=VTS.pop,style=document.getElementById('pop-style-ta')?.value||'',baseSection=document.getElementById('pop-sect-ta')?.value||'';
+  const status=document.getElementById('pop-ai-status');
+  if(s.userLyrics.trim()){
+    document.getElementById('pop-lyrics-ta').value=s.userLyrics.trim();
+    document.getElementById('pop-sect-ta').value=mergePopLyricsAndSection(baseSection,s.userLyrics.trim());
+    if(status){status.hidden=false;status.textContent='✅ 직접 입력한 가사를 섹션 프롬프트에 합쳤어요';status.style.color='var(--success)';}
+    return;
+  }
+  const key=getAnthropicKey();
+  if(!key){
+    if(status){status.hidden=false;status.textContent='⚠️ AI 가사를 만들려면 Anthropic API Key를 저장하거나, 위의 가사 직접 입력칸을 사용하세요';status.style.color='var(--danger)';}
+    return;
+  }
+  if(status){status.hidden=false;status.textContent='🤖 가사를 생성하고 섹션 프롬프트에 합치는 중…';status.style.color='';}
+  const lyricsGuide=popLyricsPrompt(s);
+  const prompt=`너는 팝·R&B 전문 작사가야. 아래 스타일과 섹션 흐름을 보고 Suno의 Lyrics 칸에 넣을 오리지널 영어 가사를 써. 이 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 섹션 헤더와 순서를 그대로 지키고, <lyrics> 블록 하나만 출력해. 설명문이나 긴 괄호 지시는 쓰지 마.\n\n작사 원칙:\n- 곡 기획·상황을 중심으로 쓰되, 벌스에서 감정을 직접 설명하지 말고 시간·장소·사물·행동으로 장면을 보여줘.\n- 한 줄을 소리 내어 불렀을 때 자연스럽게 짧게 쓰고, 숨 쉴 자리를 남겨. 음절 수와 반복되는 모음이 멜로디를 막지 않게 해.\n- 코러스는 짧고 발음하기 쉬운 핵심 훅 한 줄을 만들고, 정확히 반복해 기억되게 해. 후렴을 매번 완전히 새로 쓰지 마.\n- 프리코러스는 긴장을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 마지막 코러스로 돌아갈 공간을 남겨.\n- AI 티가 나는 추상적인 감정 선언과 설명적인 긴 문장을 줄이고, 구체적인 이미지와 행동을 우선해. 생성 후 실제로 불릴 수 있는지 소리 내어 읽는다고 생각해.\n- 악기 이벤트는 정말 필요한 순간에만 가사 줄 끝에 하나씩 붙여. 가사 중간에 넣거나 별도 태그 줄을 만들지 말고, 선택한 악기와 어울리는 태그만 사용해.\n\n[스타일]\n${style}\n\n[섹션 흐름]\n${baseSection}\n\n[곡 기획·상황]\n${s.concept.trim()||'선택된 무드와 장르에 맞는 구체적인 상황'}\n\n[작성 참고]\n${lyricsGuide}\n\n<lyrics>...</lyrics>`;
+  try{
+    const raw=await callAnthropic(key,{maxTokens:1800,staticText:'PDF의 Suno 가사 원칙을 적용해. 가사는 문장이 아니라 보컬 소스다. 벌스는 장면과 행동, 코러스는 짧고 반복 가능한 훅, 프리코러스는 긴장 상승, 브리지는 새로운 관점으로 쓴다. 음절·호흡·모음 흐름을 고려하고 원곡 가사를 인용하지 않는다. 섹션 헤더 순서를 보존하고 필요한 순간에만 선택 악기의 줄 끝 이벤트 태그를 쓴다.',dynamicText:prompt,think:false});
+    const lyrics=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i)?.[1]?.trim()||raw.trim();
+    document.getElementById('pop-lyrics-ta').value=lyrics;
+    document.getElementById('pop-sect-ta').value=mergePopLyricsAndSection(baseSection,lyrics);
+    if(status){status.textContent='✅ 가사 생성 완료 — 섹션 프롬프트에 가사를 합쳤어요';status.style.color='var(--success)';}
+  }catch(e){if(status){status.hidden=false;status.textContent=`⚠️ 가사 생성 실패 (${e.message})`;status.style.color='var(--danger)';}}
+}
+function popGenerate(){
+  const s=VTS.pop,genre=POP_GENRES.find(g=>g.tag===s.genre),mood=POP_MOODS.find(m=>m.kr===s.mood),bpm=parseInt(document.getElementById('pop-bpm')?.value)||s.bpm;
+  const section=popSectionPrompt(s,bpm),style=popStylePrompt(s,genre,mood,bpm);
+  const output=document.getElementById('pop-output');if(output)output.style.display='block';
+  document.getElementById('pop-sect-ta').value=section;document.getElementById('pop-style-ta').value=style;document.getElementById('pop-lyrics-ta').value=s.userLyrics.trim()||'';
+  const status=document.getElementById('pop-ai-status');if(status){status.hidden=true;status.textContent='';status.style.color='';}
+  if(getAnthropicKey())popAiWriteStyle(s,{section,style});
+  updateFloatSummary();
+}
 function vocalGenerate(tabKey){
+  if(tabKey==='pop'){popGenerate();return;}
   const s=VTS[tabKey];
   const keyStr=KEYS[s.key]||'A minor';
   const bpm=document.getElementById(`${tabKey}-bpm`).value||s.bpm;
@@ -3065,5 +3238,7 @@ hhInit();
 try{const t=sessionStorage.getItem('sp_direct_token');if(t)_spDirectToken=t;}catch(_){}
 updateSpPanelStatus();
 
-buildVocalTab('rock',ROCK_GENRES,ROCK_ARTISTS,ROCK_GENRE_PRESETS,ROCK_MOODS,ROCK_INSTR,ROCK_VOCAL_STYLES,ROCK_NARR,ROCK_STRUCT_PRESETS,ROCK_SEG_PALETTE);
+  buildVocalTab('rock',ROCK_GENRES,ROCK_ARTISTS,ROCK_GENRE_PRESETS,ROCK_MOODS,ROCK_INSTR,ROCK_VOCAL_STYLES,ROCK_NARR,ROCK_STRUCT_PRESETS,ROCK_SEG_PALETTE);
+  buildVocalTab('pop',POP_GENRES,POP_ARTISTS,POP_GENRE_PRESETS,POP_MOODS,POP_INSTR,POP_VOCAL_STYLES,POP_NARR,POP_STRUCT_PRESETS,POP_SEG_PALETTE);
+  buildVocalTab('elec',ELEC_GENRES,ELEC_ARTISTS,ELEC_GENRE_PRESETS,ELEC_MOODS,ELEC_INSTR,ELEC_VOCAL_STYLES,ELEC_NARR,ELEC_STRUCT_PRESETS,ELEC_SEG_PALETTE);
 updateFloatSummary();
