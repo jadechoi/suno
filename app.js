@@ -3056,12 +3056,14 @@ function checkPopBudget(section,style){
   if(style.length>WRITE_LIMITS.style)throw new Error(`스타일 ${style.length}자 — 1,000자 이하로 줄여주세요`);
   if(section.length>WRITE_LIMITS.section)throw new Error(`섹션·가사 합계 ${section.length}자 — 5,000자 이하로 줄여주세요`);
 }
-async function popAiWriteStyle(s,base,token){
+async function popAiWriteStyle(s,token){
   const key=getOpenAIKey();if(!key)return;
   const status=document.getElementById('pop-ai-status');
-  if(status){status.hidden=false;status.textContent='🤖 AI가 팝·R&B 스타일 프롬프트를 다듬는 중…';}
+  if(status){status.hidden=false;status.textContent='🤖 AI가 선택값과 레퍼런스로 스타일·섹션을 작성하는 중…';}
   const reference=s.refSong?.trim()||'(없음)';
-  const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨.\n\n[레퍼런스 곡]\n${reference}\n레퍼런스가 있으면 곡 제목을 보고 네가 확실히 아는 사운드·편곡 특성만 참고해. 실제 오디오를 들었다고 주장하거나 불확실한 세부를 지어내지 마. 최종 프롬프트에는 실존 곡명·아티스트명과 inspired by 표현을 쓰지 말고, 재현할 수 있는 소리·연주·전개 언어로 바꿔. BPM과 Key는 아래 기본 프롬프트에 적힌 값을 그대로 사용해.\n\n다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
+  const selection={genre:s.genre,bpm:s.bpm,key:KEYS[s.key],mood:s.mood,instruments:s.instruments,vocalStyle:s.vocalStyle,concept:s.concept,referenceSong:reference,structure:s.structSegs,direction:s.narrSt,antiAI};
+  const prompt=`레퍼런스와 아래 선택값에서 스타일과 섹션을 처음부터 직접 작성해. 규칙 초안이나 기존 문장을 고치는 작업이 아니야. 사용자가 고른 악기·보컬·BPM·Key·구조를 지키고, 비어 있는 음악적 결정은 곡의 의도에 맞게 설계해. 곡 기획·상황은 감정과 전개에 반영해. 레퍼런스는 확실히 아는 소리 특징만 참고하고 실제 오디오를 들었다고 주장하지 마. 곡명·아티스트 이름을 최종 출력에 쓰지 마. 가사는 나중에 별도로 작성하므로 지금 쓰지 마. 섹션 헤더는 [Intro], [Verse 1], [Chorus 1], [Bridge], [Outro] 같은 표준 영어 표기를 사용하고 같은 종류가 반복되면 순서대로 번호를 붙여. 선택된 구조와 순서를 유지해.\n\n[선택값]\n${JSON.stringify(selection)}\n\n<style>영어 자연어 한 문단, 1000자 이하</style><section>구간별 필요한 연출, 5000자 이하</section>`;
+
   try{
     const raw=await callOpenAI(key,{maxTokens:3000,staticText:PROMPT_ROLE_GUIDE+'\n팝·R&B 스타일 작성 규칙: 스타일은 공백 포함 1000자 이하, 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
     if(token!==popWriteToken)return;
@@ -3137,7 +3139,7 @@ function popGenerate(){
   const output=document.getElementById('pop-output');if(output)output.style.display='block';
   document.getElementById('pop-sect-ta').value=section;document.getElementById('pop-style-ta').value=style;document.getElementById('pop-lyrics-ta').value=s.userLyrics.trim()||'';
   const status=document.getElementById('pop-ai-status');if(status){status.hidden=true;status.textContent='';status.style.color='';}
-  if(popStylePending)popAiWriteStyle(s,{section,style},token);
+  if(popStylePending)popAiWriteStyle(s,token);
   updateFloatSummary();
 }
 function vocalGenerate(tabKey){

@@ -1077,12 +1077,21 @@ function lyricHeaders(structure){
     return t==='hook'?`[Chorus${n}]`:t==='verse'?`[Verse${n}]`:t==='intro'?'[Intro]':'[Outro]';
   });
 }
-function buildWriteSpec(draftSect,draftStyle,prev){
+function buildWriteSpec(prev){
   const g=GENRES[st.genre];
   const roles=computeMelodyRoles(st.melody);
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   const auto=st._mtAutoManaged!==false;   // 장르를 고르면 808·드럼·멜로디·텍스처·프로듀서가 장르 기본값으로 자동 채워짐 — 사용자가 고른 게 아니므로 확정 값이 아니라 참고
-  const secs=parseSections(draftSect);
+  // 선택된 구조만 전달한다. 규칙 엔진의 부제·연출 문장은 AI 입력으로 사용하지 않는다.
+  const counts={};
+  const secs=st.structSegs.map(type=>{
+    const n=counts[type]=(counts[type]||0)+1;
+    const label=type.charAt(0).toUpperCase()+type.slice(1);
+    const inner=['hook','verse','bridge'].includes(type);
+    const header=`[${inner&&(!hasVocal||type==='bridge')?'Instrumental ':''}${label}${inner?' '+n:''}]`;
+    const bars=inner?Number(document.getElementById('hh-bar-'+type)?.value||({hook:8,verse:12,bridge:4}[type])):null;
+    return {header,type,bars};
+  });
   const ul=hasVocal&&(st.userLyrics||'').trim()?fitUserLyrics(st.userLyrics,lyricHeaders(secs)):null;   // 사용자가 붙여넣은 가사(구조에 배치된 것)
   const userLy=ul&&ul.placed?ul.text:null;
   const secLimit=WRITE_LIMITS.section;   // 실제 연출+가사 병합 결과의 5000자 상한은 검증 단계에서 확인
@@ -1383,7 +1392,7 @@ async function hhAiWrite(entryId){
   const run=(async()=>{
     try{
       const mode=(_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
-      const spec=buildWriteSpec(draft.sect,draft.style,mode==='edit'?_hhWritten:null);
+      const spec=buildWriteSpec(mode==='edit'?_hhWritten:null);
       let errors=null,result=null,lastErrors=null,best=null,warn=null;
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
         const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,onPartial:txt=>{
