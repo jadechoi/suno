@@ -59,6 +59,9 @@ function seed(){
   const app=read('app.js');
   const restore=app.slice(app.indexOf('function restorePromptHistoryEntry('),app.indexOf('let _historyShowAll'));
   assert.ok(restore.indexOf('invalidateAiWrite();')<restore.indexOf('Object.assign(st,'));
+  assert.match(restore,/hhGenerate\(false,\{restore:true\}\)/);
+  assert.match(app,/if\(!isRefresh&&!opts\?\._afterRefAuto/);
+  assert.match(app,/keepSect=isRefresh&&!opts\?\.restore/);
   assert.match(app,/function hhReset\(\)\{\s*invalidateAiWrite\(\);/);
   console.log('PASS: stale responses, failed rewrites, chart badge identity and UK Garage preset.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

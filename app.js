@@ -2327,16 +2327,16 @@ function hhGenerate(source,opts){
   const _no808=!use808();   // 808은 힙합·트랩 저음 — 다른 계열은 직접 고르기 전에는 규칙 초안에도 안 씀
   const eff808=_no808?'None':st._808;
   if(source===undefined&&_pendingLabels.length)source=_pendingLabels.join(' + ');
-  const keepSect=isRefresh?document.getElementById('hh-sect-ta')?.value:null;
-  const keepStyle=isRefresh?document.getElementById('hh-style-ta')?.value:null;
-  const keepLyrics=isRefresh?document.getElementById('hh-lyrics-ta')?.value:null;
+  const keepSect=isRefresh&&!opts?.restore?document.getElementById('hh-sect-ta')?.value:null;
+  const keepStyle=isRefresh&&!opts?.restore?document.getElementById('hh-style-ta')?.value:null;
+  const keepLyrics=isRefresh&&!opts?.restore?document.getElementById('hh-lyrics-ta')?.value:null;
   const hasAiKey=!!getOpenAIKey();
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
   // 레퍼런스 곡만 고르고 장르를 고르지 않았다면, Generate 전에 곡명 GPT 분석을 끝내고 추천값을 채운 뒤 생성한다.
-  if(!opts?._afterRefAuto&&refSong&&st.brief?.text!==refSong&&getOpenAIKey()){
+  if(!isRefresh&&!opts?._afterRefAuto&&refSong&&st.brief?.text!==refSong&&getOpenAIKey()){
     return autoAnalyzeReference(refSong).then(ok=>{if(ok&&(document.getElementById('hh-ref-song')?.value||'').trim()===refSong)return hhGenerate(source,{...(opts||{}),_afterRefAuto:true});});
   }
   const moodIdx=HH_MOODS.findIndex(m=>m.kr===st.mood);
@@ -2863,7 +2863,7 @@ function restorePromptHistoryEntry(id){
     const f=hhWriteFingerprints();
     _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,lyrics:entry.lyrics||'',meta:{ok:true,mode:'restored',warn:promptBudgetWarnings(entry.section,entry.style,entry.lyrics)},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
   }else _hhWritten=null;
-  hhGenerate(`기록에서 복원: ${entry.label||entry.genre}`);
+  hhGenerate(false,{restore:true});
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});
   showToast('↺ 이 기록으로 복원됨 — AI 프로듀서 리뷰를 다시 받아보세요');
 }

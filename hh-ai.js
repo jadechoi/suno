@@ -1759,12 +1759,18 @@ function applyBrief(opts={}){
   markPending('곡/느낌 분석 적용');
 }
 // 반영 중인 소리 특징 표시 + 해제
+function briefAnalysisDetails(brief){
+  const labels={genre:'장르',groove:'그루브',bass:'베이스 역할',instruments:'악기 구성',arrangement:'전개',energy:'에너지 범위',balance:'악기별 전면·배경 비중',activity:'연주 빈도·밀도',timbreSpace:'음색·잔향·거리',vocalSpace:'보컬을 위한 여백'};
+  const rows=Object.entries(labels).map(([key,label])=>'<dt>'+label+'</dt><dd>'+escHtml(brief.instrumentalProfile?.[key]||'분석 정보 없음 — 임의로 확정하지 않음')+'</dd>').join('');
+  const uncertain=(brief.uncertainFields||[]).map(x=>escHtml(x)).join(', ')||'표시된 항목 없음 — 정확성이 검증됐다는 뜻은 아닙니다';
+  return '<details style="margin-top:8px"><summary>반주 설계 분석 펼치기</summary><p>'+(brief.kind==='song'?'곡명 기반 AI 분석이며 실제 음원으로 검증하지 않았습니다.':'입력한 느낌을 바탕으로 제안한 새 곡 설계입니다.')+'</p><dl>'+rows+'</dl><p>불확실하여 제외: '+uncertain+'</p></details>';
+}
 function renderBriefActive(){
   const el=document.getElementById('hh-brief-active');
   if(!el)return;
   if(!st.brief){el.hidden=true;return;}
   el.hidden=false;
-  el.innerHTML=`🧬 <b>반영 중인 소리 특징</b> — ${escHtml([...(st.brief.styleTags||[]),...Object.values(st.brief.cues||{})].join(' / '))} <button onclick="clearBrief()" style="margin-left:8px;padding:2px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:10px;cursor:pointer">해제</button>`;
+  el.innerHTML=`🧬 <b>반영 중인 소리 특징</b> — ${escHtml([...(st.brief.styleTags||[]),...Object.values(st.brief.cues||{})].join(' / '))} <button onclick="clearBrief()" style="margin-left:8px;padding:2px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:10px;cursor:pointer">해제</button>${briefAnalysisDetails(st.brief)}`;
 }
 function clearBrief(){
   st.brief=null;
