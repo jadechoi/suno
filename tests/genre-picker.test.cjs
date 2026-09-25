@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+function node(){return {dataset:{},children:[],attrs:{},replaceChildren(){this.children=[]},appendChild(n){this.children.push(n)},setAttribute(k,v){this.attrs[k]=v}};}
+const ctx=vm.createContext({document:{createElement:node}}),run=s=>vm.runInContext(s,ctx);
+for(const f of ['hh-data.js','genre-picker.js'])run(fs.readFileSync(f,'utf8'));
+const container=node();container.id='hh-genre-chips';let picked=null;
+const genres=run('GENRES');ctx.renderGenrePicker(container,genres,null,t=>picked=t);
+assert.equal(container.dataset.family,'hiphop');
+container.children[0].children.find(n=>n.textContent==='일렉·클럽').onclick();
+assert.equal(picked,null);assert.equal(container.dataset.family,'elec');
+assert.ok(container.children[1].children.some(n=>n.textContent==='일렉트로클래시'));
+assert.ok(container.children[1].children.some(n=>n.textContent==='하이퍼팝'));
+ctx.renderGenrePicker(container,genres,'reggaeton',t=>picked=t);
+assert.equal(container.dataset.family,'latin');
+assert.equal(container.children[1].children.find(n=>n.textContent==='레게톤').attrs['aria-pressed'],'true');
+container.children[1].children.find(n=>n.textContent==='레게톤').onclick();assert.equal(picked,'reggaeton');
+const vocal=node();vocal.id='pop-genre-chips';ctx.renderGenrePicker(vocal,run('POP_GENRES'),null,()=>{});assert.equal(vocal.dataset.family,'pop');
+ctx.renderGenrePicker(vocal,run('POP_GENRES'),'post-punk',()=>{});assert.equal(vocal.dataset.family,'rock');
+assert.ok(ctx.vocalInstrumentChoices({genre:'post-punk',instruments:[]}).includes('생드럼'));
+assert.ok(!ctx.vocalInstrumentChoices({genre:'post-punk',instruments:[]}).includes('808 베이스'));
+assert.ok(ctx.vocalInstrumentChoices({genre:'trap',instruments:[]}).includes('808 베이스'));
+const html=fs.readFileSync('index.html','utf8');assert.equal((html.match(/class="tab-btn/g)||[]).length,2);
+assert.ok(html.indexOf('id="sp-panel"')<html.indexOf('class="tab-content'));
+assert.ok(html.includes('data-tab="pop"'));assert.ok(!html.includes('data-tab="rock"'));assert.ok(!html.includes('data-tab="elec"'));
+console.log('PASS: two workflows, family browsing without selection changes, reference family activation and vocal palettes.');

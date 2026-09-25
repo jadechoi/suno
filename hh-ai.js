@@ -949,6 +949,11 @@ function parseSections(text){
   return secs;
 }
 // 부제만 달라진 헤더는 복원하되 구간 종류·번호·순서가 바뀐 결과는 검증에서 거절한다.
+// Some responses wrap each song part separately. Preserve every block, including streaming parts.
+function readAiSections(text,partial=false){
+  const pattern=partial?/<section\s*>([\s\S]*?)(?:<\/section\s*>|$)/gi:/<section\s*>([\s\S]*?)<\/section\s*>/gi;
+  return Array.from(text.matchAll(pattern),m=>m[1].trim()).filter(Boolean).join('\n\n');
+}
 function restoreSectionHeaders(text,structure,instrumental=false){
   // Markdown 강조·같은 줄 본문은 표시 차이일 뿐이다. 구간 종류·번호는 그대로 검사한다.
   text=text.replace(/^\s*(?:\*\*|#{1,6}\s*)?(\[(?:Instrumental\s+)?(?:Intro|Hook|Chorus|Verse|Bridge|Outro)\b[^\]\n]*\])(?:\*\*)?\s*/gim,'$1\n');
@@ -1223,6 +1228,7 @@ ${PROMPT_ROLE_GUIDE}
 이 예시의 장르·BPM·음형·악기·보컬을 다른 곡에 그대로 복사하지 마. 의도에 맞는 중심 아이디어와 상호작용을 새로 설계해. 같은 패턴의 반복 자체를 결함으로 보지 마.
 
 [섹션 디렉팅]
+- 하나의 <section> 블록 안에 선택한 전체 곡 구조를 처음부터 끝까지 작성해. Intro만 쓰고 끝내지 마.
 - <section>은 Suno 가사 칸에 들어갈 최종 연출이야. 각 구간에서 결과에 실제로 필요한 디테일만 간결한 영어 자연어로 써. 디테일 개수를 미리 정하지 말고, 하나로 충분하면 하나만 쓰고 서로 연결된 여러 지시가 꼭 필요할 때만 함께 써.
 - 스타일에 이미 적은 장르·BPM·무드·전체 악기 목록·모티프의 세부 음형을 반복하지 마. 이 구간에서 이전 구간과 달라지는 것, 반드시 유지할 패턴, 의도적으로 비울 요소처럼 구간을 구별하는 정보만 남겨.
 - 무엇이 언제 어떻게 움직이는지가 분명해야 해. 구간 전체 상태와 순간 이벤트를 throughout, after, before 같은 말로 구분하고, 순간 이벤트는 모티프나 보컬이 쉬는 자리에 배치해. 사용자가 정한 마디 수 밖의 시점을 만들지 마.
@@ -1298,11 +1304,11 @@ ${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.br
 ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n[직전 실패 결과 — 위 오류를 바로잡되 선택과 작성 스타일은 유지]\n${failed?JSON.stringify(failed):'(없음)'}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
   const raw=await callOpenAI(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
-  const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
+  const sec=readAiSections(raw),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],styleContext),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {section:restoreSectionHeaders(sec,spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],styleContext),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
@@ -1363,10 +1369,10 @@ async function hhAiWrite(entryId){
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
         const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,failed,onPartial:txt=>{
           if(token!==_writeToken)return;
-          const sm=txt.match(/<section>([\s\S]*?)(?:<\/section>|$)/i),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i),lm=txt.match(/<lyrics>([\s\S]*?)(?:<\/lyrics>|$)/i);
+          const sm=readAiSections(txt,true),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i),lm=txt.match(/<lyrics>([\s\S]*?)(?:<\/lyrics>|$)/i);
           const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta'),la=document.getElementById('hh-lyrics-ta');
           if(lm&&la)la.value=lm[1].trim();   // 스트리밍 중에는 가사만 보이다가, 끝나면 연출 설명과 합친 텍스트로 교체
-          if(sm&&ta)ta.value=sm[1].trim();
+          if(sm&&ta)ta.value=sm;
           if(tm&&sa)sa.value=tm[1].trim().replace(/\s*\n\s*/g,' ');
           updateWriteCounters();
         }});

@@ -979,3 +979,27 @@ setInstrumentMenus(null);
 
 MOOD_HEADER.push({energy:'Cool',climax:'Cool Groove Return',verse:'Dry'},{energy:'Bouncy',climax:'Playful Groove Return',verse:'Light'});
 MOOD_APPEAL.push({lead:'cool rhythmic',style:'cold confident club groove'},{lead:'playful rhythmic',style:'elastic playful bounce'});
+
+// 밴드·록도 결과물 중심의 두 제작 화면에서 고를 수 있게 기존 인덱스 뒤에 합류한다.
+MENU_BY_FAMILY.rock={drums:['Live pop drum kit','Half-time snare','Ghost-note snares','Brushed drums'],melody:['Electric guitar','Acoustic guitar','Bass guitar','Organ','Emotional piano','Strings','Ambient pad']};
+const ROCK_SOUNDS={
+  'indie rock':['jangly guitar riffs','light live drums','가벼운 기타 리프와 생드럼의 소박한 밴드 사운드'],
+  'post-punk':['angular muted guitar','driving live drums','각진 기타와 반복 베이스가 만드는 차갑고 긴장된 그루브'],
+  shoegaze:['layered reverb guitars','steady live drums','겹겹이 번지는 기타와 흐릿한 공간감의 몽환적인 사운드'],
+  emo:['dynamic distorted guitar','driving live drums','조용한 구간과 거친 기타가 대비되는 감정적인 밴드 사운드'],
+  'math rock':['interlocking tapped guitar','syncopated live drums','엇갈리는 기타 패턴과 복잡한 리듬이 맞물리는 연주'],
+  'alternative rock':['distorted guitar riffs','punchy live drums','뚜렷한 기타 리프와 힘 있는 생드럼 중심의 록'],
+  'post-rock':['evolving guitar textures','gradually building live drums','반복하는 기타 모티프를 천천히 쌓아 올리는 긴 전개'],
+};
+for(const g of ROCK_GENRES){
+  if(GENRES.some(x=>x.tag===g.tag))continue;
+  const [guitar,drum,feel]=ROCK_SOUNDS[g.tag];
+  GENRES.push({...g,en:g.tag,family:'rock',bpm:110,bpmR:[70,170],instr:[guitar,'electric bass',drum],vocal:'optional',pts:[guitar,'dynamic band arrangement'],sound:feel,energy:'mid-high',drum});
+  GENRE_FEEL.push(feel);GENRE_HOOK_NAME.push('Band Peak');GENRE_FUSION.push([g.tag,g.tag+' band arrangement']);
+}
+for(const g of GENRES)if(!POP_GENRES.some(p=>p.tag===g.tag))POP_GENRES.push({kr:g.kr,tag:g.tag});
+for(const m of HH_MOODS)if(!POP_MOODS.some(p=>p.kr===m.kr))POP_MOODS.push(m);
+POP_VOCAL_STYLES.push({kr:'리듬 중심 랩',tag:'rhythmic rap'},{kr:'멜로딕 랩',tag:'melodic rap'},{kr:'록 보컬',tag:'rock vocals'},{kr:'절제된 토크싱',tag:'restrained rhythmic talk-singing'});
+Object.assign(POP_INSTR_SOUND,{'드럼 머신':'dry electronic drum machine','디스토션 기타':'distorted electric guitar riffs','생드럼':'dynamic live drum kit','808 베이스':'controlled 808 bass','하이햇':'crisp hi-hats','샘플':'chopped instrumental samples'});
+for(const [k,v] of Object.entries(MENU_BY_FAMILY))for(const name of v.melody)if(!POP_INSTR_SOUND[name])POP_INSTR_SOUND[name]=name;
+setInstrumentMenus(null);

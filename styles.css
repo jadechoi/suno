@@ -156,3 +156,15 @@ body{padding-bottom:66px}
 .divider{border:none;border-top:1px solid var(--border);margin:4px 0}
 
 .hh-mode-btn.active{background:var(--accent-dim)!important;border-color:var(--accent)!important;color:var(--accent-text)!important}
+/* 결과물 중심 탐색 */
+.workflow-intro{color:var(--text-2);font-size:13px;line-height:1.7;margin:0 0 18px}
+.genre-families{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-bottom:12px}
+.genre-family{border:1px solid var(--border);border-radius:18px;padding:8px 12px;background:var(--surface-2);color:var(--text-2);font:inherit;cursor:pointer}
+.genre-family[aria-pressed="true"]{color:var(--accent-text);background:var(--accent-dim);border-color:var(--accent)}
+.genre-family:focus-visible,.chip:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
+@media(max-width:520px){.tab-bar{padding:0 8px}.tab-btn{flex:1;padding:12px 8px;font-size:12px}}
+.genre-picker{display:block;width:100%}
+.genre-help{margin-top:14px;font-size:12px;color:var(--text-2)}
+.genre-help summary{cursor:pointer}
+.reference-label{display:block;margin-top:16px;font-size:12px;color:var(--text-2)}
+.reference-label input{display:block;width:100%;margin-top:6px}

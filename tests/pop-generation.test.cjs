@@ -11,7 +11,7 @@ vm.runInContext(app.slice(app.indexOf('const POP_VOCAL_GUIDE='),app.indexOf('// 
 const run=s=>vm.runInContext(s,ctx);
 for(const tag of run('POP_GENRES.map(g=>g.tag)')){
   ctx.tag=tag;
-  const text=run(`popStylePrompt({...VTS.pop,...POP_AUTO[tag],narrSt:POP_AUTO[tag].narr},POP_GENRES.find(g=>g.tag===tag),null,120)`);
+  const text=run(`popStylePrompt({...VTS.pop,...POP_AUTO[tag],narrSt:POP_AUTO[tag]?.narr||{}},POP_GENRES.find(g=>g.tag===tag),null,120)`);
   assert.ok(text.length<=1000,`${tag}: ${text.length}`);
 }
 assert.doesNotThrow(()=>ctx.checkPopBudget('x'.repeat(5000),'x'.repeat(1000)));

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suno AI Prompt Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260925-13">
+<link rel="stylesheet" href="styles.css?v=20260925-14">
 </head>
 <body>
 
@@ -14,7 +14,7 @@
     <div class="logo-icon">🎵</div>
     <div>
       <h1>Suno Prompt Builder</h1>
-      <span>AI Music Prompt Generator · 20260925-13</span>
+      <span>AI Music Prompt Generator · 20260925-14</span>
     </div>
   </div>
   <div class="anti-ai-wrap">
@@ -27,21 +27,18 @@
 </div>
 
 <div class="tab-bar">
-  <button class="tab-btn active" data-tab="hiphop">🎤 힙합</button>
-  <button class="tab-btn" data-tab="pop">✨ 팝·R&B</button>
-  <button class="tab-btn" data-tab="elec">⚡ EDM·전자음악</button>
-  <button class="tab-btn" data-tab="rock">🎸 밴드·록</button>
+  <button class="tab-btn active" data-tab="hiphop">🎛️ 비트·인스트루멘털</button>
+  <button class="tab-btn" data-tab="pop">🎙️ 보컬곡·가사</button>
 </div>
 
 <div class="main">
 
-<!-- ========== HIP-HOP TAB ========== -->
-<div class="tab-content active" data-tab="hiphop">
+<!-- 연결 설정은 두 제작 화면이 공유한다. -->
 
   <!-- SPOTIFY SETTINGS PANEL -->
   <div id="sp-panel" style="margin-bottom:16px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
     <div onclick="toggleSpPanel()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface-2);cursor:pointer;user-select:none">
-      <span style="font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.4px">🎧 SPOTIFY 연동</span>
+      <span style="font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.4px">🔑 AI·음악 API 연결 설정</span>
       <span id="sp-panel-status" style="font-size:11px;color:var(--text-3)">미연결 · 클릭해서 설정</span>
     </div>
     <div id="sp-panel-body" style="display:none;padding:12px;background:var(--surface-1);border-top:1px solid var(--border)">
@@ -124,7 +121,9 @@
     </div>
   </div>
 
-  <!-- 01 GENRE (장르 기반 모드에서만 표시) -->
+<div class="tab-content active" data-tab="hiphop">
+  <p class="workflow-intro">보컬 없이 악기와 그루브가 중심인 곡을 만듭니다. 레퍼런스를 분석하거나 장르·무드부터 골라보세요.</p>
+  <!-- 01 GENRE -->
   <div id="hh-genre-section">
   <div id="hh-mode-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
     <div style="display:inline-flex;border:1px solid var(--border);border-radius:20px;overflow:hidden">
@@ -190,13 +189,14 @@
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
+      <div class="genre-picker" id="hh-genre-chips"></div>
+      <details class="genre-help"><summary>장르 선택 도움 · BPM·Key 빠른 시작</summary>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:6px">🧭 장르가 낯설다면 <span style="font-weight:400;text-transform:none;letter-spacing:0">— 만들고 싶은 분위기부터 고르면 어울리는 장르를 알려줘요</span></div>
       <div class="chip-grid" id="hh-guide-moods"></div>
       <div id="hh-guide-result" hidden style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:10px 0 4px"></div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin:14px 0 6px">⚡ 빠른 시작 <span style="font-weight:400;text-transform:none;letter-spacing:0">— BPM·Key까지 한 번에 세팅</span></div>
       <div class="preset-row" id="hh-genre-presets"></div>
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin:12px 0 6px">전체 장르 <span style="font-weight:400;text-transform:none;letter-spacing:0">— 장르만 선택 (BPM은 기본값)</span></div>
-      <div class="chip-grid cols-3" id="hh-genre-chips"></div>
+      </details>
       <div id="hh-genre-feel" hidden style="font-size:12px;color:var(--text-2);margin-top:10px;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-3)"></div>
     </div>
   </div>
@@ -239,7 +239,7 @@
   <!-- 03 VOCAL -->
   <div class="section">
     <div class="section-header open" onclick="toggleSection(this)">
-      <div class="section-title"><span class="section-num">03</span> VOCAL <span style="font-size:10px;color:var(--text-3);margin-left:4px">먼저 정해요 — 노래가 있는 곡인가요, 비트만인가요?</span></div>
+      <div class="section-title"><span class="section-num">03</span> VOCAL <span style="font-size:10px;color:var(--text-3);margin-left:4px">기본 무보컬 · 보컬곡은 보컬곡·가사 탭에서 시작하세요</span></div>
       <span class="caret">▼</span>
     </div>
     <div class="section-body">
@@ -500,20 +500,13 @@
 
 </div><!-- /hiphop -->
 
-<!-- ========== BAND·ROCK TAB ========== -->
+<!-- ========== VOCAL SONG TAB ========== -->
 <div class="tab-content" data-tab="pop">
+  <p class="workflow-intro">곡 기획·상황으로 스타일을 먼저 만든 뒤, 가사 생성 버튼으로 섹션에 가사를 합칩니다.</p>
   <div id="pop-inner"></div>
 </div>
 
-<!-- ========== EDM·ELECTRONIC TAB ========== -->
-<div class="tab-content" data-tab="elec">
-  <div id="elec-inner"></div>
-</div>
 
-<!-- ========== BAND·ROCK TAB ========== -->
-<div class="tab-content" data-tab="rock">
-  <div id="rock-inner"></div>
-</div>
 
 </div><!-- /main -->
 
@@ -525,13 +518,14 @@
 </div>
 <div id="toast"></div>
 
-<script src="hh-data.js?v=20260925-13"></script>
-<script src="hh-examples.js?v=20260925-13"></script>
-<script src="hh-ai.js?v=20260925-13"></script>
-<script src="hh-listen.js?v=20260925-13"></script>
-<script src="hh-openai-audio.js?v=20260925-13"></script>
-<script src="hh-spotify.js?v=20260925-13"></script>
-<script src="prompt-export.js?v=20260925-13"></script>
-<script src="app.js?v=20260925-13"></script>
+<script src="hh-data.js?v=20260925-14"></script>
+<script src="hh-examples.js?v=20260925-14"></script>
+<script src="hh-ai.js?v=20260925-14"></script>
+<script src="hh-listen.js?v=20260925-14"></script>
+<script src="hh-openai-audio.js?v=20260925-14"></script>
+<script src="hh-spotify.js?v=20260925-14"></script>
+<script src="prompt-export.js?v=20260925-14"></script>
+<script src="genre-picker.js?v=20260925-14"></script>
+<script src="app.js?v=20260925-14"></script>
 </body>
 </html>

@@ -177,6 +177,15 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   assert.equal(ctx.autoApplyIds.includes('vocal'),false);
   run(`document.getElementById=()=>null; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
 
+  const wrapped=ctx.parseSections(section).map(s=>'<section>'+s.header+'\n'+s.body+'</section>').join('');
+  assert.equal(ctx.parseSections(ctx.readAiSections(wrapped)).length,3);
+  assert.equal(ctx.parseSections(ctx.readAiSections(wrapped+'<section>[Outro]\nFade',true)).length,4);
+  assert.equal(validate('[Intro]\nOnly intro.').ok,false);
+  ctx.wrapped=wrapped;
+  run(`callOpenAI=async()=>wrapped+'<style>'+fixture.style+'</style>';`);
+  const repeated=await ctx.writeOnce({mode:'create',spec});
+  assert.equal(validate(repeated.section,repeated.style).ok,true);
+  run(`callOpenAI=async(key,request)=>{globalThis.request=request;return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
   const result=await ctx.writeOnce({mode:'create',spec});
   assert.equal(result.style,instrumentalStyle);
   assert.equal(result.section,section);

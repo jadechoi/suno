@@ -443,6 +443,7 @@ async function fetchPopHot100(force=false){
 async function applyPopHot100Song(song){
   const s=VTS.pop,label=`${song.artist} - ${song.name}`,status=document.getElementById('pop-hot100-status');
   s.refSong=label;
+  const refInput=document.getElementById('pop-ref-song');if(refInput)refInput.value=label;
   if(status)status.textContent=`🎧 ${label}의 BPM·Key 조회 중…`;
   const tok=await getSpotifyToken();
   if(!tok){if(status)status.textContent=`✅ #${song.position} ${label} 선택됨 · Spotify 연결 시 BPM·Key도 가져옵니다`;updateFloatSummary();return;}

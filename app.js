@@ -119,19 +119,23 @@ function uiMode(){try{return localStorage.getItem('hh_ui_mode')==='detail'?'deta
 function setUiMode(m){try{localStorage.setItem('hh_ui_mode',m);}catch(_){}applyUiMode();}
 function applyUiMode(){
   const simple=uiMode()==='simple';
+  let visibleNum=0;
   document.querySelectorAll('[data-tab="hiphop"] .section').forEach(s=>{
-    const num=s.querySelector('.section-num')?.textContent.trim();
+    const number=s.querySelector('.section-num');
+    if(number&&!number.dataset.section)number.dataset.section=number.textContent.trim();
+    const num=number?.dataset.section;
     const isTrend=/^📊/.test(s.querySelector('.section-title')?.textContent.trim()||'');
-    const detail=HH_DETAIL_NUMS.includes(num)||isTrend;
+    const detail=HH_DETAIL_NUMS.includes(num)||isTrend||(num==='03'&&st.vocal==='No Vocal');
     const hide808=num==='05'&&GENRES[st.genre]?.family!=='hiphop';
     s.style.display=((simple&&detail)||hide808)?'none':'';
+    if(number&&/^\d+$/.test(num)&&s.style.display!=='none')number.textContent=String(++visibleNum).padStart(2,'0');
   });
   const on='background:var(--accent);color:#fff',off='background:var(--surface-2);color:var(--text-2)';
   const bs=document.getElementById('hh-mode-simple'),bd=document.getElementById('hh-mode-detail');
   if(bs)bs.style.cssText+=';'+(simple?on:off);
   if(bd)bd.style.cssText+=';'+(simple?off:on);
   const hint=document.getElementById('hh-mode-hint');
-  if(hint)hint.textContent=simple?'핵심만 고르면 돼요 — 악기·드럼·808·질감·구조는 곡의 의도에 맞게 AI가 정해요':'악기·드럼·808·질감·전환·그루브·구조까지 직접 조절할 수 있어요';
+  if(hint)hint.textContent=simple?'핵심만 고르면 돼요 — 악기·리듬·저음·질감·구조는 곡의 의도에 맞게 AI가 정해요':'악기·리듬·저음·질감·전환·그루브·구조까지 직접 조절할 수 있어요';
 }
 function hhInit(){
   applyUiMode();
@@ -860,22 +864,7 @@ function clearAutoHint(id){
 // 기본 힙합 목록과 다른 계열 목록을 분리하되, 모든 장르를 직접 고를 수 있게 한다.
 function renderHhGenres(){
   const container=document.getElementById('hh-genre-chips');
-  container.innerHTML='';
-  let fam=document.getElementById('hh-genre-family');
-  if(fam)fam.remove();
-  const more=document.createElement('details');
-  more.style.width='100%';more.open=st.genre!==null&&GENRES[st.genre]?.family!=='hiphop';
-  const label=document.createElement('summary');label.textContent='다른 장르 선택 · 팝 / 라틴 / 일렉트로닉';more.appendChild(label);
-  const grid=document.createElement('div');grid.className='chip-grid';more.appendChild(grid);
-  GENRES.forEach((g,i)=>{
-    const el=document.createElement('div');
-    el.className='chip'+(st.genre===i?' selected':'');
-    el.textContent=g.kr;
-    el.title=GENRE_FEEL[i]||'';
-    el.onclick=()=>selectGenre(i);
-    (g.family==='hiphop'?container:grid).appendChild(el);
-  });
-  container.appendChild(more);
+  renderGenrePicker(container,GENRES,GENRES[st.genre]?.tag,tag=>selectGenre(GENRES.findIndex(g=>g.tag===tag)));
   // 장르 이름만으로는 어떤 소리인지 모르는 사람용 — 고른 장르의 느낌을 쉬운 말로 바로 아래에
   const feel=document.getElementById('hh-genre-feel');
   if(feel){
@@ -884,6 +873,7 @@ function renderHhGenres(){
     if(g)feel.textContent=`${g.kr} — ${GENRE_FEEL[st.genre]||g.sound||g.tag} (${g.bpm} BPM)`;
   }
   renderGenreGuideResult();
+  updateFloatSummary();
 }
 // 무드 → 장르 가이드: 무드를 고르면 어울리는 장르를 느낌 설명과 함께 보여주고, 누르면 장르+무드가 같이 설정됨
 let _guideMood=null;
@@ -1323,10 +1313,13 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
     });
     body.appendChild(prow);
     const chips=document.createElement('div');
-    chips.className='chip-grid';
+    chips.className='genre-picker';
     chips.id=`${tabKey}-genre-chips`;
     body.appendChild(chips);
     if(tabKey==='pop'){
+      const label=document.createElement('label');label.className='reference-label';label.textContent='레퍼런스 곡 (선택)';
+      const ref=document.createElement('input');ref.id='pop-ref-song';ref.className='select-input';ref.placeholder='아티스트 - 곡명';ref.value=s.refSong||'';ref.oninput=()=>{s.refSong=ref.value;};label.appendChild(ref);body.appendChild(label);
+
       const hint=document.createElement('div');
       hint.id='pop-auto-hint';hint.hidden=true;
       hint.style.cssText='font-size:10px;color:var(--accent-text);margin-top:8px;padding:6px 8px;border-radius:var(--r-sm);background:var(--accent-dim)';
@@ -1461,7 +1454,7 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
   if(tabKey==='pop')fetchPopHot100();
   else renderArtists(`${tabKey}-artists`,artists,tabKey);
   moodGrid(document.getElementById(`${tabKey}-mood-grid`),moods,s,'mood',null);
-  chipGrid(document.getElementById(`${tabKey}-instr-chips`),instrs,s,'instruments',3,null);
+  chipGrid(document.getElementById(`${tabKey}-instr-chips`),tabKey==='pop'?vocalInstrumentChoices(s):instrs,s,'instruments',3,null);
 
   // vocal styles
   renderVocalStyles(tabKey,vocalStyles);
@@ -1499,17 +1492,11 @@ function renderVocalGenres(tabKey){
   const genres=tabKey==='pop'?POP_GENRES:tabKey==='elec'?ELEC_GENRES:ROCK_GENRES;
   const container=document.getElementById(`${tabKey}-genre-chips`);
   if(!container)return;
-  container.innerHTML='';
-  genres.forEach(g=>{
-    const el=document.createElement('div');
-    el.className='chip'+(s.genre===g.tag?' selected':'');
-    el.textContent=g.kr;
-    el.onclick=()=>{
-      s.genre=s.genre===g.tag?null:g.tag;
-      renderVocalGenres(tabKey);
-      if(tabKey==='pop'&&s.genre)applyPopAuto(tabKey);
-    };
-    container.appendChild(el);
+  renderGenrePicker(container,genres,s.genre,tag=>{
+    s.genre=s.genre===tag?null:tag;
+    renderVocalGenres(tabKey);
+    if(tabKey==='pop'&&s.genre)applyPopAuto(tabKey);
+    updateFloatSummary();
   });
 }
 
@@ -1527,8 +1514,8 @@ function renderVocalStyles(tabKey,vocalStyles){
 }
 
 function applyPopAuto(tabKey){
-  const s=VTS[tabKey],auto=POP_AUTO[s.genre];
-  if(!auto)return;
+  const s=VTS[tabKey],family=genrePickerFamily(s.genre);
+  const auto=POP_AUTO[s.genre]||{mood:s.mood||null,instruments:[],vocalStyle:family==='hiphop'?'리듬 중심 랩':family==='rock'?'록 보컬':family==='elec'?'절제된 토크싱':'팝 보컬',structure:'Standard',narr:{}};
   s.mood=auto.mood;
   s.instruments=[...auto.instruments];
   s.vocalStyle=auto.vocalStyle;
@@ -1536,12 +1523,12 @@ function applyPopAuto(tabKey){
   const preset=POP_STRUCT_PRESETS.find(p=>p.name===auto.structure);
   if(preset){s.structSegs=[...preset.segs];s.structIdx=POP_STRUCT_PRESETS.indexOf(preset);}
   moodGrid(document.getElementById(`${tabKey}-mood-grid`),POP_MOODS,s,'mood',null);
-  chipGrid(document.getElementById(`${tabKey}-instr-chips`),POP_INSTR,s,'instruments',3,null);
+  chipGrid(document.getElementById(`${tabKey}-instr-chips`),vocalInstrumentChoices(s),s,'instruments',3,null);
   renderVocalStyles(tabKey,POP_VOCAL_STYLES);
   renderVocalNarr(tabKey,POP_NARR);
   renderStructBuilder(tabKey,POP_STRUCT_PRESETS,POP_SEG_PALETTE,s);
   const hint=document.getElementById(`${tabKey}-auto-hint`);
-  if(hint){hint.hidden=false;hint.textContent=`🤖 ${auto.mood} · ${auto.vocalStyle} · ${auto.structure} 구조를 자동 추천했어요 · 원하는 값으로 바꿀 수 있어요`;
+  if(hint){hint.hidden=false;hint.textContent=`🤖 ${auto.mood||'무드 직접 선택'} · ${auto.vocalStyle} · ${auto.structure} 구조를 자동 추천했어요 · 원하는 값으로 바꿀 수 있어요`;
   }
 }
 
@@ -2779,7 +2766,7 @@ function saveHhPromptAsMd(){
     ?`\n## 적용된 AI 프로듀서 리뷰\n${aiNote.map(s=>`- **${s.category}**${s.score!=null?` (${s.score}/100)`:''}: ${s.text}`).join('\n')}\n`
     :'';
 
-  const md=`# ${g?g.kr:'힙합'} 프롬프트 — ${dateStr}
+  const md=`# ${g?g.kr:'인스트루멘털'} 프롬프트 — ${dateStr}
 
 ## 선택 요약
 ${rows.map(([k,v])=>`- **${k}**: ${v}`).join('\n')}
@@ -2991,6 +2978,10 @@ const POP_VOCAL_GUIDE={
   '폴세토':'breathy falsetto with controlled upper-register emotion',
   '드림팝 보컬':'soft airy vocals blurred gently into the atmosphere',
   'K-Pop 보컬':'precise bright lead vocals with layered harmonies and dynamic phrasing',
+  '리듬 중심 랩':'rhythmic rap delivery with clear articulation and breathing space',
+  '멜로딕 랩':'melodic rap with rhythmic phrasing and a concise sung hook',
+  '록 보컬':'expressive rock vocals with dynamic restrained verses and stronger choruses',
+  '절제된 토크싱':'restrained rhythmic talk-singing with sparse doubles',
   '인디 보컬':'close natural vocals with charming imperfections and understated emotion',
 };
 const POP_NARR_EN={
@@ -3044,7 +3035,7 @@ const TAB_INSTR_SOUND={
 
 function popStylePrompt(s,genre,mood,bpm){
   const instr=s.instruments.map(i=>POP_INSTR_SOUND[i]||i).filter(Boolean);
-  const core=POP_GENRE_CORE[genre?.tag]||'warm melodic bass, tight drums and a clear signature instrument';
+  const core=POP_GENRE_CORE[genre?.tag]||GENRES.find(g=>g.tag===genre?.tag)?.instr.join(', ')||'a clear signature instrument and genre-appropriate rhythm';
   const vocal=POP_VOCAL_GUIDE[s.vocalStyle]||'clear expressive lead vocals with controlled emotion';
   const choices=Object.values(s.narrSt).filter(Boolean).map(v=>POP_NARR_EN[v]||v).slice(0,4);
   const concept=s.concept.trim();
@@ -3100,10 +3091,11 @@ async function popAiWriteStyle(s,token){
   if(status){status.hidden=false;status.textContent='🤖 AI가 선택값과 레퍼런스로 스타일·섹션을 작성하는 중…';}
   const reference=s.refSong?.trim()||'(없음)';
   const selection={genre:s.genre,bpm:s.bpm,key:KEYS[s.key],mood:s.mood,instruments:s.instruments,vocalStyle:s.vocalStyle,concept:s.concept,referenceSong:reference,structure:s.structSegs,direction:s.narrSt,antiAI};
-  const prompt=`레퍼런스와 아래 선택값에서 스타일과 섹션을 처음부터 직접 작성해. 규칙 초안이나 기존 문장을 고치는 작업이 아니야. 사용자가 고른 악기·보컬·BPM·Key·구조를 지키고, 비어 있는 음악적 결정은 곡의 의도에 맞게 설계해. 곡 기획·상황은 감정과 전개에 반영해. 레퍼런스는 확실히 아는 소리 특징만 참고하고 실제 오디오를 들었다고 주장하지 마. 곡명·아티스트 이름을 최종 출력에 쓰지 마. 가사는 나중에 별도로 작성하므로 지금 쓰지 마. 섹션 헤더는 [Intro], [Verse 1], [Chorus 1], [Bridge], [Outro] 같은 표준 영어 표기를 사용하고 같은 종류가 반복되면 순서대로 번호를 붙여. 선택된 구조와 순서를 유지해.\n\n[선택값]\n${JSON.stringify(selection)}\n\n<style>영어 자연어 한 문단, 1000자 이하</style><section>구간별 필요한 연출, 5000자 이하</section>`;
+  const genreGuide=!s.genre&&s.refSong?`레퍼런스의 장르를 확실히 알면 아래 태그 중 하나를 <genre>태그</genre>로 별도 출력해. 모르면 빈 값. ${POP_GENRES.map(g=>g.tag).join(' | ')}`:'';
+  const prompt=`${genreGuide}\n레퍼런스와 아래 선택값에서 스타일과 섹션을 처음부터 직접 작성해. 규칙 초안이나 기존 문장을 고치는 작업이 아니야. 사용자가 고른 악기·보컬·BPM·Key·구조를 지키고, 비어 있는 음악적 결정은 곡의 의도에 맞게 설계해. 곡 기획·상황은 감정과 전개에 반영해. 레퍼런스는 확실히 아는 소리 특징만 참고하고 실제 오디오를 들었다고 주장하지 마. 곡명·아티스트 이름을 최종 출력에 쓰지 마. 가사는 나중에 별도로 작성하므로 지금 쓰지 마. 섹션 헤더는 [Intro], [Verse 1], [Chorus 1], [Bridge], [Outro] 같은 표준 영어 표기를 사용하고 같은 종류가 반복되면 순서대로 번호를 붙여. 선택된 구조와 순서를 유지해.\n\n[선택값]\n${JSON.stringify(selection)}\n\n<style>영어 자연어 한 문단, 1000자 이하</style><section>구간별 필요한 연출, 5000자 이하</section>`;
 
   try{
-    const raw=await callOpenAI(key,{maxTokens:3000,staticText:STYLE_BUDGET_GUIDE+'\n'+PROMPT_ROLE_GUIDE+'\n팝·R&B 스타일 작성 규칙: 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:3000,staticText:STYLE_BUDGET_GUIDE+'\n'+PROMPT_ROLE_GUIDE+'\n보컬곡 스타일 작성 규칙: 선택 장르에 맞는 리듬·악기·보컬 전달 방식을 사용해. 랩·록·클럽 곡을 팝 발라드로 바꾸지 마. 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
     if(token!==popWriteToken)return;
     const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim();
     let sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
@@ -3114,6 +3106,8 @@ async function popAiWriteStyle(s,token){
     }
     checkPopBudget(sec||'',(sty||'').slice(0,WRITE_LIMITS.style)); // 길이 초과 AI 원문은 경고와 함께 보존
     const overBudget=sty.length>WRITE_LIMITS.style;
+    const inferredGenre=raw.match(/<genre>([^<]*)<\/genre>/i)?.[1]?.trim();
+    if(!s.genre&&s.refSong&&POP_GENRES.some(g=>g.tag===inferredGenre)){s.genre=inferredGenre;renderVocalGenres('pop');}
     popBaseSection=sec;
     document.getElementById('pop-sect-ta').value=sec;
     document.getElementById('pop-style-ta').value=sty;
@@ -3176,7 +3170,7 @@ async function popGenerateLyrics(){
   }
   if(status){status.hidden=false;status.textContent='🤖 가사를 생성하고 섹션 프롬프트에 합치는 중…';status.style.color='';}
   const lyricsGuide=popLyricsPrompt(s);
-  const prompt=`너는 팝·R&B 전문 작사가야. 아래 스타일과 섹션 흐름을 보고 Suno의 Lyrics 칸에 넣을 오리지널 영어 가사를 써. 이 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 섹션 헤더와 순서를 그대로 지키고, <lyrics> 블록 하나만 출력해. 설명문이나 긴 괄호 지시는 쓰지 마.\n\n작사 원칙:\n- 곡 기획·상황을 중심으로 쓰되, 벌스에서 감정을 직접 설명하지 말고 시간·장소·사물·행동으로 장면을 보여줘.\n- 한 줄을 소리 내어 불렀을 때 자연스럽게 짧게 쓰고, 숨 쉴 자리를 남겨. 음절 수와 반복되는 모음이 멜로디를 막지 않게 해.\n- 코러스는 짧고 발음하기 쉬운 핵심 훅 한 줄을 만들고, 정확히 반복해 기억되게 해. 후렴을 매번 완전히 새로 쓰지 마.\n- 프리코러스는 긴장을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 마지막 코러스로 돌아갈 공간을 남겨.\n- AI 티가 나는 추상적인 감정 선언과 설명적인 긴 문장을 줄이고, 구체적인 이미지와 행동을 우선해. 생성 후 실제로 불릴 수 있는지 소리 내어 읽는다고 생각해.\n- 악기 이벤트는 정말 필요한 순간에만 가사 줄 끝에 하나씩 붙여. 가사 중간에 넣거나 별도 태그 줄을 만들지 말고, 선택한 악기와 어울리는 태그만 사용해.\n\n[스타일]\n${style}\n\n[섹션 흐름]\n${baseSection}\n\n[곡 기획·상황]\n${s.concept.trim()||'선택된 무드와 장르에 맞는 구체적인 상황'}\n\n[작성 참고]\n${lyricsGuide}\n\n<lyrics>...</lyrics>`;
+  const prompt=`너는 선택 장르에 맞춰 노래와 랩을 쓰는 작사가야. 아래 스타일과 섹션 흐름을 보고 Suno의 Lyrics 칸에 넣을 오리지널 영어 가사를 써. 이 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 섹션 헤더와 순서를 그대로 지키고, <lyrics> 블록 하나만 출력해. 설명문이나 긴 괄호 지시는 쓰지 마.\n\n작사 원칙:\n- 곡 기획·상황을 중심으로 쓰되, 벌스에서 감정을 직접 설명하지 말고 시간·장소·사물·행동으로 장면을 보여줘.\n- 한 줄을 소리 내어 불렀을 때 자연스럽게 짧게 쓰고, 숨 쉴 자리를 남겨. 음절 수와 반복되는 모음이 멜로디를 막지 않게 해.\n- 코러스는 짧고 발음하기 쉬운 핵심 훅 한 줄을 만들고, 정확히 반복해 기억되게 해. 후렴을 매번 완전히 새로 쓰지 마.\n- 프리코러스는 긴장을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 마지막 코러스로 돌아갈 공간을 남겨.\n- AI 티가 나는 추상적인 감정 선언과 설명적인 긴 문장을 줄이고, 구체적인 이미지와 행동을 우선해. 생성 후 실제로 불릴 수 있는지 소리 내어 읽는다고 생각해.\n- 악기 이벤트는 정말 필요한 순간에만 가사 줄 끝에 하나씩 붙여. 가사 중간에 넣거나 별도 태그 줄을 만들지 말고, 선택한 악기와 어울리는 태그만 사용해.\n\n[스타일]\n${style}\n\n[섹션 흐름]\n${baseSection}\n\n[곡 기획·상황]\n${s.concept.trim()||'선택된 무드와 장르에 맞는 구체적인 상황'}\n\n[작성 참고]\n${lyricsGuide}\n\n<lyrics>...</lyrics>`;
   try{
     const raw=await callOpenAI(key,{maxTokens:1800,staticText:`가사는 연출 설명과 합쳐 공백 포함 5000자 이하. 이번 가사 예산은 최대 ${Math.max(0,5000-baseSection.length-100)}자. PDF의 Suno 가사 원칙을 적용해. 가사는 문장이 아니라 보컬 소스다. 벌스는 장면과 행동, 코러스는 짧고 반복 가능한 훅, 프리코러스는 긴장 상승, 브리지는 새로운 관점으로 쓴다. 음절·호흡·모음 흐름을 고려하고 원곡 가사를 인용하지 않는다. 섹션 헤더 순서를 보존하고 필요한 순간에만 선택 악기의 줄 끝 이벤트 태그를 쓴다.`,dynamicText:prompt,think:false});
     if(token!==popLyricsToken||writeToken!==popWriteToken)return;
@@ -3319,11 +3313,12 @@ function updateFloatSummary(){
   const el=document.getElementById('float-summary');
   if(!el)return;
   const tab=activeTab();
+  const reset=document.querySelector('.float-reset-btn');if(reset)reset.textContent=tab==='hiphop'?'↺ 초기화':'↑ 맨 위로';
   const parts=[];
   if(tab==='hiphop'){
     if(st.genre!==null)parts.push(GENRES[st.genre]?.en||'');
     const bpm=parseInt(document.getElementById('hh-bpm')?.value)||st.bpm;
-    parts.push(bpm+'BPM');
+    if(st.bpmSet)parts.push(bpm+'BPM');
     if(st.mood)parts.push(st.mood);
     if(use808()&&st._808&&st._808!=='None')parts.push('808:'+st._808);
     if(st.drums.length)parts.push(st.drums[0]);
@@ -3371,7 +3366,5 @@ hhInit();
 try{const t=sessionStorage.getItem('sp_direct_token');if(t)_spDirectToken=t;}catch(_){}
 updateSpPanelStatus();
 
-  buildVocalTab('rock',ROCK_GENRES,ROCK_ARTISTS,ROCK_GENRE_PRESETS,ROCK_MOODS,ROCK_INSTR,ROCK_VOCAL_STYLES,ROCK_NARR,ROCK_STRUCT_PRESETS,ROCK_SEG_PALETTE);
-  buildVocalTab('pop',POP_GENRES,POP_ARTISTS,POP_GENRE_PRESETS,POP_MOODS,POP_INSTR,POP_VOCAL_STYLES,POP_NARR,POP_STRUCT_PRESETS,POP_SEG_PALETTE);
-  buildVocalTab('elec',ELEC_GENRES,ELEC_ARTISTS,ELEC_GENRE_PRESETS,ELEC_MOODS,ELEC_INSTR,ELEC_VOCAL_STYLES,ELEC_NARR,ELEC_STRUCT_PRESETS,ELEC_SEG_PALETTE);
+  buildVocalTab('pop',POP_GENRES,POP_ARTISTS,[],POP_MOODS,POP_INSTR,POP_VOCAL_STYLES,POP_NARR,POP_STRUCT_PRESETS,POP_SEG_PALETTE);
 updateFloatSummary();
