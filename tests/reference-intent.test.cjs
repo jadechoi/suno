@@ -38,3 +38,17 @@ assert.equal(balance.instrumentalProfile.balance,'guitar behind drums');
 assert.equal(balance.instrumentalProfile.activity,'sparse');
 assert.equal(balance.instrumentalProfile.vocalSpace,'open center');
 assert.equal(balance.instrumentalProfile.timbreSpace,undefined);
+
+const fixed=JSON.parse(fs.readFileSync('tests/fixtures/despacito-type-beat.json','utf8'));
+const plan=ctx.typeBeatPlan(fixed.spec);
+assert.equal(plan.constraints.bpm,178);
+assert.equal(plan.constraints.key,'D major');
+assert.equal(plan.userOverrides.instruments,undefined);
+assert.equal(plan.genrePalette,undefined);
+assert.equal(plan.lead,undefined);
+assert.equal(JSON.stringify(plan).includes('Generic pad'),false);
+assert.equal(JSON.stringify(plan).includes('Do not duplicate'),false);
+assert.equal(ctx.typeBeatPlan({...fixed.spec,selectionOrigins:{melody:'current-selection'}}).userOverrides.instruments[0],'Nylon-string guitar');
+// The same projection supports any reference; no genre-specific branching.
+const club=ctx.typeBeatPlan({...fixed.spec,referenceSong:'Another reference',lead:'Synth bass',background:null,brief:{instrumentalProfile:{balance:'Bass riff foreground, stabs sparse'}}});
+assert.equal(club.sound.balance,'Bass riff foreground, stabs sparse');

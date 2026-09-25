@@ -1,0 +1,74 @@
+{
+  "note": "Frozen regression input reconstructed from the observed 20260926-04 session. Title-based model claims, not verified musical facts. Previous output excerpts are not complete prompts.",
+  "previous": {
+    "version": "20260926-04",
+    "styleCharacters": 1035,
+    "sectionCharacters": 2695,
+    "sectionExcerpt": "nylon-string guitar returns to the main hook figure clearly in front again"
+  },
+  "spec": {
+    "designMode": "reference-type-beat",
+    "referenceSong": "Luis Fonsi, Daddy Yankee - Despacito",
+    "genre": "Reggaeton",
+    "mood": "sensual smooth",
+    "bpm": 178,
+    "key": "D major",
+    "vocal": null,
+    "lead": "Nylon-string guitar",
+    "background": "Puerto Rican cuatro",
+    "drums": [
+      "Dembow kick & snare",
+      "Interlocking percussion"
+    ],
+    "texture": [
+      "Polished production",
+      "Stereo wide"
+    ],
+    "density": "Balanced",
+    "selectionOrigins": {
+      "melody": "ai-reference",
+      "genre": "ai-reference",
+      "mood": "ai-reference",
+      "drums": "ai-reference",
+      "texture": "ai-reference",
+      "density": "ai-reference"
+    },
+    "genrePalette": {
+      "instruments": [
+        "Generic pad"
+      ]
+    },
+    "brief": {
+      "instrumentalProfile": {},
+      "cues": {
+        "hook": "full dembow rhythm with catchy nylon guitar hook and warm bass"
+      },
+      "understood": "Do not duplicate this summary",
+      "styleTags": [
+        "Do not duplicate tags"
+      ],
+      "uncertainFields": []
+    },
+    "structure": [
+      {
+        "header": "[Intro]"
+      },
+      {
+        "header": "[Instrumental Hook 1]"
+      },
+      {
+        "header": "[Instrumental Verse 1]"
+      },
+      {
+        "header": "[Instrumental Hook 2]"
+      },
+      {
+        "header": "[Outro]"
+      }
+    ],
+    "limits": {
+      "style": 1000,
+      "sectionTotal": 5000
+    }
+  }
+}

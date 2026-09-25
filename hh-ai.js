@@ -1284,7 +1284,7 @@ ${STYLE_BUDGET_GUIDE}
 ${REFERENCE_DEVELOPMENT_GUIDE}
 [타입비트 스타일 작성]
 - 새로 기억할 훅·상승 하강 음형·악기 간 대화를 의무적으로 만들지 마. 반주 분석의 중심 역할을 재현 가능한 자연어로 설명해. 새 선율이 필요해도 그 악기의 원래 비중과 연주 밀도 안에서만 설계해.
-- instrumentalProfile.balance는 무엇이 앞에 있고 뒤에 있는지, activity는 얼마나 자주 연주하는지, timbreSpace는 밝기·어택·잔향·거리, vocalSpace는 보컬을 위한 여백이다. 이 정보를 스타일의 악기 역할 문장에 반영해. 지원 악기를 lead/solo/front and center로 승격시키지 마.
+- 설계서 sound.balance는 무엇이 앞에 있고 뒤에 있는지, sound.activity는 얼마나 자주 연주하는지, sound.timbreSpace는 밝기·어택·잔향·거리, sound.vocalSpace는 보컬을 위한 여백이다. 이 정보를 스타일의 악기 역할 문장에 반영해. 지원 악기를 lead/solo/front and center로 승격시키지 마.
 - lead/background 메뉴 이름은 분석된 비중보다 우선하지 않는다. 사용자가 직접 악기 역할을 바꿨으면 그 변경만 반영해. 분석이 불확실하면 임의로 기타를 크게 하거나 모든 악기를 작게 하지 말고, 확인된 역할만 설명해.
 - 무보컬은 보컬 제거다. 보컬 멜로디를 기타로 옮기거나 빈자리를 새로운 모티프로 채우지 마. 그루브·베이스·반주의 균형과 보컬이 들어갈 공간을 유지해.
 - 지정 BPM/Key는 유지하되 장조라는 이유로 밝고 축제처럼 해석하지 마. 수치·장르명보다 주어진 무드·체감·음색의 관계를 명확하게 써.
@@ -1310,16 +1310,42 @@ async function fitAiStyle(style,context=''){
   }
   return text;
 }
+// One reference plan replaces overlapping profile, menu defaults and prose summaries.
+function typeBeatPlan(spec){
+  const origins=spec.selectionOrigins||{};
+  const mapping={genre:'genre',mood:'mood',drums:'drums',groove:'groove',texture:'texture',density:'density',transitionFx:'transitionFx',bass808:'_808'};
+  const overrides={};
+  for(const [key,origin] of Object.entries(mapping)){
+    const value=spec[key];
+    if(origins[origin]==='current-selection'&&value!=null&&(!Array.isArray(value)||value.length))overrides[key]=value;
+  }
+  const instruments=[spec.lead,spec.background].filter(Boolean);
+  if(origins.melody==='current-selection'&&instruments.length)overrides.instruments=instruments;
+  return {
+    designMode:'reference-type-beat',
+    reference:spec.referenceSong||null,
+    analysisBasis:'Title-based model knowledge; not verified by listening',
+    sound:spec.brief?.instrumentalProfile||{},
+    sectionCues:spec.brief?.cues||{},
+    uncertainFields:spec.brief?.uncertainFields||[],
+    menuHints:{genre:spec.genre,mood:spec.mood,instruments},
+    userOverrides:overrides,
+    constraints:{bpm:spec.bpm,key:spec.key,vocal:spec.vocal,structure:spec.structure,limits:spec.limits,antiAI:spec.antiAI,commercial:spec.commercial},
+    editing:{mutableHeaders:spec.mutableHeaders,lyrics:spec.lyrics,prevLyrics:spec.prevLyrics,removedPhrases:spec.removedPhrases}
+  };
+}
+
 async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
   const key=getOpenAIKey();
-  const styleContext=JSON.stringify({selection:Object.fromEntries(['designMode','genre','mood','vocal','bpm','key','lead','background','drums','bass','groove','texture','density','selectionOrigins'].map(k=>[k,spec[k]])),appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
+  const plan=spec.designMode==='reference-type-beat'?typeBeatPlan(spec):null;
+  const styleContext=JSON.stringify({selection:plan||Object.fromEntries(['designMode','genre','mood','vocal','bpm','key','lead','background','drums','bass','groove','texture','density','selectionOrigins'].map(k=>[k,spec[k]])),appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
 [모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **음악적 내용을 변경할 섹션은 다음이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 음악적 내용 유지)'}**. 다른 구간의 음악적 의도와 자연어 작성 방식은 유지해. 모든 구간에서 중복·장황한 문장을 줄이고 스타일과의 역할 모순을 정리해도 돼. 이전 문장 자체를 보존하라는 뜻은 아니야. 가사는 별도 보존 조건을 따라. 중복·모순을 줄이되 필요한 보완의 길이를 억지로 제한하지 마, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
 
 [명세]
-${JSON.stringify(spec,null,1)}
+${JSON.stringify(plan||spec,null,1)}
 
 [지시 — 섹션 키별, 스타일 지시는 아래 확정 태그]
 ${directives}
@@ -1328,8 +1354,8 @@ ${directives}
 ${_writeFix?`\n[개선 요청 — 이 결과가 추가 검사에서 지적받은 항목이야. 아래를 해소하도록 고쳐 써. 지적과 무관한 섹션·가사는 [이전 결과] 그대로 유지하고, 지적된 부분만 구체적인 소리 표현으로 바꿔. 새 지적을 만들지 않도록 다른 규칙도 그대로 지켜]\n${_writeFix.map((x,i)=>`${i+1}. ${x}`).join('\n')}`:''}
 
 [의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, BPM·Key·보컬은 유지해. 악기·드럼 등은 selectionOrigins를 확인해: ai-reference는 레퍼런스 분석보다 우선하지 않는 자동 추천이고 current-selection은 현재 선택이므로 존중해]
-${aiSelectionCtx({soft:true})}
-${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
+${plan?'위 단일 설계서만 기준으로 작성해. sound와 sectionCues를 userOverrides로 보완하고 constraints를 지켜. menuHints는 표시용 추천이며 악기 전면/배경 순위가 아니다. 서로 충돌하면 사용자 변경 > sound > sectionCues > menuHints 순으로 해석해. 없는 특징은 장르 기본값으로 채우지 마.':aiSelectionCtx({soft:true})}
+${!plan&&spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
 ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n[직전 실패 결과 — 위 오류를 바로잡되 선택과 작성 스타일은 유지]\n${failed?JSON.stringify(failed):'(없음)'}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
   const raw=await callOpenAI(key,{maxTokens:16000,staticText:writingInstructions(spec),dynamicText,think:false,onText:onPartial});
