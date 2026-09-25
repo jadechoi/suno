@@ -3,12 +3,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const ctx = vm.createContext({console});
-for (const file of ['hh-data.js', 'hh-ai.js']) {
+const ctx = vm.createContext({console,document:{getElementById:()=>null}});
+for (const file of ['hh-data.js', 'hh-ai.js', 'hh-openai-audio.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), ctx, {filename:file});
 }
 vm.runInContext(`const st={extraTags:[],vocal:'No Vocal',melody:['Muted guitar','Synth pluck'],refs:[]};`,ctx);
 const run = code => vm.runInContext(code,ctx);
+assert.equal(run(`audioFileFormat({name:'track.mp3',type:'audio/mpeg'})`),'mp3');
+assert.equal(run(`audioFileFormat({name:'track.wav',type:'audio/wav'})`),'wav');
+assert.equal(run(`audioFileFormat({name:'track.m4a',type:'audio/mp4'})`),'');
 const intro = 'In the intro, tease only its final three notes with a distant plucked synth.';
 const direction = 'Reintroduce it gradually in the rebuild, then transform it at the final peak with octave jumps, stronger accents, and a soaring counter-melody while preserving its original rhythm.';
 ctx.direction = direction;
@@ -79,7 +82,7 @@ assert.equal(checkEvents(koreanLyrics,eventStyle,{lyrics:{...eventSpec.lyrics,la
 
 // Exercise real request assembly / XML extraction with a fake transport, never a real key.
 ctx.fixture={section,style:instrumentalStyle};
-run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}); getAnthropicKey=()=> 'fixture-only'; callAnthropic=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
+run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}); getOpenAIKey=()=> 'fixture-only'; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
 (async()=>{
   const result=await ctx.writeOnce({mode:'create',spec});
   assert.equal(result.style,instrumentalStyle);

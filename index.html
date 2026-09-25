@@ -111,16 +111,15 @@
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:4px">🤖 AI 추천 <span style="font-weight:400;color:var(--text-3)">(멜로디·텍스처·톤·전환효과·그루브 — 선택사항)</span></div>
         <p style="font-size:11px;color:var(--text-3);margin:0 0 6px;line-height:1.6">
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent-text)">Anthropic Console</a>
+          <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--accent-text)">OpenAI API Keys</a>
           에서 API Key 발급 후 붙여넣으면, 지금까지 고른 장르·무드 등을 보고 AI가 멜로디·믹스 텍스처·악기 톤·전환효과·스윙/그루브까지 한 번에 가장 어울리는 조합으로 추천해줍니다.
         </p>
         <div style="display:flex;gap:8px;margin-bottom:6px">
-          <input id="anthropic-key" type="password" placeholder="Anthropic API Key (sk-ant-...)" autocomplete="off"
+          <input id="openai-key" type="password" placeholder="OpenAI API Key (sk-proj-...)" autocomplete="off"
             style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:12px;padding:6px 8px">
-          <button onclick="saveAnthropicKey()" style="padding:6px 14px;border-radius:var(--r-sm);border:none;background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">저장</button>
+          <button onclick="saveOpenAIKey()" style="padding:6px 14px;border-radius:var(--r-sm);border:none;background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">저장</button>
         </div>
-        <div id="anthropic-key-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3)"></div>
-        <div id="ai-cache-status" hidden style="font-size:10px;padding:4px 8px;color:var(--text-3);margin-top:4px"></div>
+        <div id="openai-key-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3)"></div>
       </div>
     </div>
   </div>
@@ -143,8 +142,8 @@
       <textarea id="hh-brief" rows="2" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:8px 10px;resize:vertical" placeholder="예) 신나고 춤추고 싶어지는 곡 · 비 오는 밤 혼자 듣는 몽환적인 곡 · Charli xcx - Guess featuring Billie Eilish" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
         <button id="hh-brief-btn" onclick="aiAnalyzeBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🤖 AI로 분석·추천</button>
-        <button onclick="geminiFromMain(this)" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--surface-3);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🎧 Gemini로 분석</button>
-        <span style="font-size:11px;color:var(--text-3)">장르를 몰라도 돼요 — 곡명이든 "이런 느낌" 설명이든 OK. Gemini는 mp3·유튜브 링크로도 분석해요(아래 🎧 칸). 결과를 확인하고 원하는 것만 적용해요.</span>
+        <button onclick="openAiAudioFromMain(this)" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--surface-3);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🎧 GPT로 음원 분석</button>
+        <span style="font-size:11px;color:var(--text-3)">곡명이나 느낌은 첫 버튼으로, 실제 소리는 MP3/WAV를 올려 GPT에게 들려주세요. 결과를 확인하고 원하는 것만 적용합니다.</span>
       </div>
       <details id="hh-picker" style="margin-top:10px">
         <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎤 아티스트·요즘 핫한 곡에서 고르기</summary>
@@ -166,16 +165,9 @@
         <div id="hh-artists-typeBeat"><span style="font-size:11px;color:var(--text-3)">상단 🔥 실시간 트렌딩 새로고침 후 Billboard 차트 아티스트가 자동으로 구성됩니다</span></div>
         </div>
       </details>
-      <details id="hh-brief-gemini" style="margin-top:10px">
-        <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎧 더 정확하게: Gemini가 곡을 듣고 분석하게 하기 (곡 제목·유튜브 링크·mp3)</summary>
-        <div id="hh-gem-direct" style="margin-top:8px"></div>
-        <details style="margin-top:8px"><summary style="cursor:pointer;font-size:11px;color:var(--text-3)">키 없이 복사·붙여넣기로 하기</summary>
-        <div style="margin-top:8px;font-size:11px;color:var(--text-2);line-height:1.8">Claude가 곡을 기억만으로 분석하면 매번 결과가 달라질 수 있어요. Gemini는 검색이나 실제 소리로 분석해서 더 정확합니다. <b>파일을 올리지 않아도 돼요</b> — 곡명만으로도 되고, 유튜브 링크를 함께 붙이면 더 정확해요.<br>① Gemini 열기 (원하면 mp3 또는 유튜브 링크 첨부) → ② 아래 <b>요청문 복사</b>를 눌러 붙여넣기 (위 참고 곡 칸의 곡명이 요청문에 자동으로 들어가요) → ③ Gemini가 준 <b>{ … } JSON</b>을 아래 칸에 붙여넣고 <b>분석 적용</b><div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="copyGeminiBriefRequest(this)" style="padding:5px 12px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">📋 Gemini 요청문 복사 + 새 탭 열기</button></div>
-        <textarea id="hh-brief-json" rows="4" style="width:100%;box-sizing:border-box;margin-top:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Mono',monospace;font-size:11px;padding:8px 10px" placeholder='Gemini가 준 { "kind": "song", ... } 를 여기에 붙여넣기'></textarea>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        <button onclick="pasteFromClipboard('hh-brief-json',this)" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--text-2);font-size:12px;cursor:pointer">📥 Gemini 탭에서 복사한 답 채우기</button>
-        <button onclick="applyBriefJson()" style="margin-top:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🔧 분석 적용</button>
-        </div></div></details>
+      <details id="hh-brief-audio" style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎧 더 정확하게: GPT가 실제 음원을 듣고 분석하기 (MP3/WAV)</summary>
+        <div id="hh-openai-audio" style="margin-top:8px"></div>
       </details>
       <div id="hh-brief-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
       <div id="hh-brief-result" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2)"></div>
@@ -542,7 +534,7 @@
 <script src="hh-examples.js"></script>
 <script src="hh-ai.js"></script>
 <script src="hh-listen.js"></script>
-<script src="hh-gemini.js"></script>
+<script src="hh-openai-audio.js"></script>
 <script src="hh-spotify.js"></script>
 <script src="app.js"></script>
 </body>

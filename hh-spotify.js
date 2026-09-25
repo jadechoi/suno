@@ -23,11 +23,11 @@ function toggleSpPanel(){
     if(rKeyEl&&rKey)rKeyEl.value='••••••••••••••••';
     const rSt=document.getElementById('rapidapi-status');
     if(rSt&&rKey){rSt.textContent='✅ RapidAPI Key 저장됨 — 403 시 자동 사용';rSt.hidden=false;rSt.style.color='var(--success)';}
-    const aKey=getAnthropicKey();
-    const aKeyEl=document.getElementById('anthropic-key');
+    const aKey=getOpenAIKey();
+    const aKeyEl=document.getElementById('openai-key');
     if(aKeyEl&&aKey)aKeyEl.value='••••••••••••••••';
-    const aSt=document.getElementById('anthropic-key-status');
-    if(aSt&&aKey){aSt.textContent='✅ Anthropic API Key 저장됨';aSt.hidden=false;aSt.style.color='var(--success)';}
+    const aSt=document.getElementById('openai-key-status');
+    if(aSt&&aKey){aSt.textContent='✅ OpenAI API Key 저장됨';aSt.hidden=false;aSt.style.color='var(--success)';}
     if(_spDirectToken)setSpTab('token');
   }
 }

@@ -1,9 +1,9 @@
 // ============================================================
-// AI PRODUCER REVIEW (Anthropic API)
+// AI PRODUCER REVIEW (OpenAI API)
 // ============================================================
 // API Key 없으면 눌러도 "Key부터 넣으세요" 안내만 뜨는 AI 버튼들을 아예 숨김 — Key 저장 성공 시 다시 호출해서 드러남
 function updateAiButtonVisibility(){
-  const hasKey=!!getAnthropicKey();
+  const hasKey=!!getOpenAIKey();
   const melodyBlock=document.getElementById('hh-melody-ai-block');
   if(melodyBlock)melodyBlock.hidden=!hasKey;
   const refBlock=document.getElementById('hh-ref-ai-block');
@@ -17,63 +17,30 @@ function updateAiButtonVisibility(){
 }
 
 
-// ---- AI 추천 (Anthropic API — 고른 요소를 보고 멜로디·믹스 텍스처 추천) ----
-function getAnthropicKey(){
-  try{return localStorage.getItem('anthropic_api_key')||'';}catch(_){return'';}
+// ---- AI 추천 (GPT — 고른 요소를 보고 멜로디·믹스 텍스처 추천) ----
+const OPENAI_TEXT_MODEL='gpt-5.1';
+function getOpenAIKey(){
+  try{return localStorage.getItem('openai_api_key')||'';}catch(_){return'';}
 }
-// content 배열의 첫 블록이 항상 text는 아님 — extended thinking 블록이 먼저 오면 content[0].text는 undefined가 됨
-function anthropicText(data){
-  const block=(data.content||[]).find(b=>b.type==='text');
-  return block?.text||'';
-}
-// staticText(지시문/규칙/옵션 목록처럼 호출마다 안 바뀌는 부분)에 prompt caching을 걸어서 반복 호출 시 input 토큰을 아낌.
-// 이 모델/계정이 caching을 거부하면(400) 한 번만 감지하고, 그 세션 동안은 캐싱 없이 바로 요청 — 매번 두 번 쏘지 않도록.
-let _aiCachingUnsupported=false;
-// AI 버튼을 한 번이라도 눌러봐야 알 수 있음 — 캐싱 지원 여부는 콘솔에도 항상 찍히고(F12 → Console, "[AI 캐싱]" 검색),
-// 여기서는 🎧 SPOTIFY 연동 패널의 AI Key 밑에 요약 한 줄로 보여줌
-function reportCacheStatus(status,usage){
-  const el=document.getElementById('ai-cache-status');
-  if(!el)return;
-  el.hidden=false;
-  if(status==='rejected')el.textContent='⚠️ 이 모델은 프롬프트 캐싱 미지원 — 일반 모드로 전환됨 (기능은 정상 작동)';
-  else if(status==='active')el.textContent=`🎯 캐싱 작동 중 (생성 ${usage.cache_creation_input_tokens||0} / 재사용 ${usage.cache_read_input_tokens||0} 토큰)`;
-  else el.textContent='⚠️ 캐싱 요청이 거부되진 않았지만 실제 사용 흔적이 없음';
-}
-// claude-sonnet-5는 temperature 파라미터를 거부함("deprecated for this model", 실사용 확인) — 채점 안정화는 scoringAnchor로 함.
-// 대신 think:false로 숨은 추론을 끄면 리뷰 145초→23초, 작성 61초→17초(출력 토큰 1/4~1/9)로 빨라짐 — 추천·채점·분석처럼 답이 짧게 정해지는 호출용
 // onText를 주면 스트리밍(SSE)으로 받아서 글자가 나오는 대로 콜백(누적 텍스트) — 채팅처럼 바로 보이게. 끝나면 전체 텍스트 반환
-async function callAnthropic(key,{maxTokens,staticText,dynamicText,think,onText}){
-  const url='https://api.anthropic.com/v1/messages';
-  const headers={
-    'content-type':'application/json',
-    'x-api-key':key,
-    'anthropic-version':'2023-06-01',
-    'anthropic-dangerous-direct-browser-access':'true',
-  };
-  const body=useCache=>JSON.stringify({
-    model:'claude-sonnet-5',
-    max_tokens:maxTokens,
-    ...(think===false?{thinking:{type:'disabled'}}:{}),
-    ...(onText?{stream:true}:{}),
-    messages:[{role:'user',content:useCache
-      ?[{type:'text',text:staticText,cache_control:{type:'ephemeral'}},{type:'text',text:dynamicText}]
-      :staticText+dynamicText
-    }],
+async function callOpenAI(key,{maxTokens,staticText,dynamicText,onText}){
+  const res=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'content-type':'application/json','authorization':`Bearer ${key}`},
+    body:JSON.stringify({
+      model:OPENAI_TEXT_MODEL,
+      max_completion_tokens:maxTokens,
+      stream:!!onText,
+      messages:[{role:'developer',content:staticText},{role:'user',content:dynamicText}],
+    }),
   });
-  const attemptCache=!_aiCachingUnsupported;
-  let res=await fetch(url,{method:'POST',headers,body:body(attemptCache)});
-  if(!res.ok&&attemptCache){
-    _aiCachingUnsupported=true;
-    reportCacheStatus('rejected');
-    res=await fetch(url,{method:'POST',headers,body:body(false)});
-  }
   if(!res.ok){
     const errText=await res.text().catch(()=>'');
     throw new Error(`API 오류 (${res.status}) ${errText.slice(0,150)}`);
   }
   if(onText){
     const reader=res.body.getReader(),dec=new TextDecoder();
-    let buf='',acc='',stop='';
+    let buf='',acc='',finish='';
     for(;;){
       const {done,value}=await reader.read();
       if(done)break;
@@ -84,32 +51,25 @@ async function callAnthropic(key,{maxTokens,staticText,dynamicText,think,onText}
         const line=ev.split('\n').find(l=>l.startsWith('data:'));
         if(!line)continue;
         let j;try{j=JSON.parse(line.slice(5));}catch(_){continue;}
-        if(j.type==='content_block_delta'&&j.delta?.type==='text_delta'){acc+=j.delta.text;onText(acc);}
-        else if(j.type==='message_delta'&&j.delta?.stop_reason)stop=j.delta.stop_reason;
-        else if(j.type==='error')throw new Error(`API 오류 ${j.error?.message||''}`.slice(0,150));
+        const ch=j.choices?.[0];
+        if(ch?.delta?.content){acc+=ch.delta.content;onText(acc);}
+        if(ch?.finish_reason)finish=ch.finish_reason;
       }
     }
-    if(stop==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+    if(finish==='length')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
     if(!acc.trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
     return acc;
   }
   const data=await res.json();
-  // usage.cache_creation_input_tokens/cache_read_input_tokens가 응답에 실제로 있어야 캐싱이 "진짜" 동작한 것 —
-  // 요청이 거부 안 됐다고 캐싱이 적용됐다는 보장은 없어서 (모델이 그냥 무시할 수도 있음) 직접 확인
-  if(attemptCache&&!_aiCachingUnsupported){
-    const u=data.usage||{};
-    console.log('[AI 캐싱]',u);
-    reportCacheStatus((u.cache_creation_input_tokens||u.cache_read_input_tokens)?'active':'ignored',u);
-  }
-  if(data.stop_reason==='max_tokens')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
-  const text=anthropicText(data);
+  if(data.choices?.[0]?.finish_reason==='length')throw new Error('응답이 너무 길어서 잘렸어요 — 다시 시도해주세요');
+  const text=data.choices?.[0]?.message?.content||'';
   if(!text.trim())throw new Error('AI가 빈 응답을 반환했습니다 — 다시 시도해주세요');
   return text;
 }
-function saveAnthropicKey(){
-  const el=document.getElementById('anthropic-key');
+function saveOpenAIKey(){
+  const el=document.getElementById('openai-key');
   const val=el?.value.trim()||'';
-  const msgEl=document.getElementById('anthropic-key-status');
+  const msgEl=document.getElementById('openai-key-status');
   if(val==='••••••••••••••••'){ // 패널 열 때 채워둔 마스킹 표시일 뿐, 안 건드렸으면 그대로 둠
     if(msgEl){msgEl.textContent='✅ 이미 저장된 Key 그대로 유지됨';msgEl.hidden=false;msgEl.style.color='var(--success)';}
     return;
@@ -118,9 +78,10 @@ function saveAnthropicKey(){
     if(msgEl){msgEl.textContent='❌ Key를 입력하세요';msgEl.hidden=false;msgEl.style.color='var(--danger)';}
     return;
   }
-  try{localStorage.setItem('anthropic_api_key',val);}catch(_){}
+  try{localStorage.setItem('openai_api_key',val);}catch(_){}
   if(msgEl){msgEl.textContent='✅ 저장됨 — MELODY 섹션의 🤖 AI 추천받기 버튼을 눌러보세요';msgEl.hidden=false;msgEl.style.color='var(--success)';}
   updateAiButtonVisibility();
+  if(typeof refreshOpenAiAudioUi==='function')refreshOpenAiAudioUi();
 }
 // 룰 테이블은 정해진 옵션 중 최선을 고를 뿐, "이 조합에 뭘 더하면 좋을지"·"전체적으로 뭐가 아쉬운지" 같은
 // 열린 판단은 못 함 — 그 갭을 메우기 위해 여러 관점(악기/편곡/구조/믹스/보컬/무드)에서 자유 형식 조언을 받고,
@@ -261,11 +222,11 @@ ${REVIEW_RUBRIC.map(r=>`${r.key} ${p.criteria[r.key]??'-'}`).join(', ')} (총 ${
 채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 최대 3점까지 올리거나 내려 (직전 지적이 실제로 해결됐으면 크게 올려도 되고, 새 모순·중복·중복·모순·불필요한 분량 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
 }
 async function aiProducerReview(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const btn=document.getElementById('hh-ai-arrange-btn');
   const statusEl=document.getElementById('hh-ai-arrange-status');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
   if(_writePromise)await _writePromise;   // AI 작성이 진행 중이면 초안이 아니라 최종 텍스트를 리뷰하도록 대기
   const uniqueSegs=[...new Set(st.structSegs)].filter(s=>s==='hook'||s==='verse'||s==='bridge');
@@ -323,7 +284,7 @@ ${Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없�
 ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}`).join('\n'):'(없음 — 이번이 첫 리뷰)'}`;
 
     // 총평과 필요한 핵심 개선만 반환한다. 기존 응답 형식은 유지한다.
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:16000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const rawList=(parsed.suggestions||[]).filter(s=>s&&s.text);
     const total=rawList.find(s=>s.category==='총평');
@@ -475,12 +436,12 @@ function clearAiSuggestions(){
 // (다른 AI 청취 평가, 사람 리뷰 등)은 오디오 근거가 있어서 훨씬 신뢰도 높은 정보 — 그걸 붙여넣으면
 // aiProducerReview와 같은 스키마로 파싱해서 같은 적용 파이프라인(applyAiSuggestionCore)을 그대로 태움
 async function aiParseExternalFeedback(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const btn=document.getElementById('hh-ai-external-btn');
   const statusEl=document.getElementById('hh-ai-arrange-status');
   const ta=document.getElementById('hh-external-feedback-ta');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
   const feedback=(ta?.value||'').trim();
   if(!feedback){fail('피드백 텍스트를 먼저 붙여넣으세요');return;}
@@ -516,7 +477,7 @@ ${(_aiSuggestions||[]).filter(s=>s.applied).map((s,i)=>`${i+1}. (${s.category}) 
 ${feedback}`;
 
     // 외부 피드백도 추가할 내용이 없으면 액션 없는 총평만 허용한다.
-    const raw=await callAnthropic(key,{maxTokens:16000,staticText,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:16000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const rawList=(parsed.suggestions||[]).filter(s=>s&&s.text);
     const total=rawList.find(s=>s.category==='총평');
@@ -536,11 +497,11 @@ ${feedback}`;
 // 룰 기반 모순 제거(태그 겹침, 반복 등)는 적용 순간 코드가 이미 처리하지만, 그건 "우리가 미리 안 패턴"만 잡음 —
 // 조언이 실제로 "의도한 대로" 반영됐는지(위치·대상·뉘앙스까지)는 판단이 필요한 영역이라 AI로 한 번 더 대조
 async function aiVerifyAppliedSuggestions(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const btn=document.getElementById('hh-ai-verify-btn');
   const statusEl=document.getElementById('hh-ai-arrange-status');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   const applied=(_aiSuggestions||[]).filter(s=>s.applied);
   if(!applied.length){fail('적용된 조언이 없습니다');return;}
 
@@ -571,7 +532,7 @@ ${sectText}
 [최종 스타일 프롬프트]
 ${styleText}`;
 
-    const raw=await callAnthropic(key,{maxTokens:2000,staticText,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:2000,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const checks=parsed.checks||[];
     let matched=0;
@@ -602,12 +563,12 @@ ${styleText}`;
 }
 let _polishOriginal=null;
 async function aiPolishSectionPrompt(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const btn=document.getElementById('hh-ai-polish-btn');
   const statusEl=document.getElementById('hh-ai-polish-status');
   const ta=document.getElementById('hh-sect-ta');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
 
   if(btn.dataset.state==='polished'){
     ta.value=_polishOriginal;
@@ -637,7 +598,7 @@ async function aiPolishSectionPrompt(){
 
 [원본]
 ${original}`;
-    const polished=(await callAnthropic(key,{maxTokens:10000,staticText,dynamicText})).trim();
+    const polished=(await callOpenAI(key,{maxTokens:10000,staticText,dynamicText})).trim();
     if(!polished)throw new Error('빈 응답을 받았습니다');
     _polishOriginal=original;
     ta.value=polished;
@@ -652,11 +613,11 @@ ${original}`;
   }
 }
 async function aiRecommendMelodyTexture(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const statusEl=document.getElementById('ai-reco-status');
   const btn=document.getElementById('ai-reco-btn');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
 
   btn.disabled=true;btn.textContent='🤖 추천 중...';
@@ -713,7 +674,7 @@ ${HH_DRUMS.join(', ')}
 [현재 선택]
 ${ctx}`;
 
-    const raw=await callAnthropic(key,{maxTokens:1500,staticText,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:1500,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const lead=parsed.melodyLead;
     let bg=parsed.melodyBackground;
@@ -802,11 +763,11 @@ ${ctx}`;
 // 더 어울리는 다른 프로듀서가 있을 수 있음 — 그 판단은 룰로 못 담아서 AI로
 // 구조만 따로 AI 추천 — 다른 요소(장르·무드·보컬·밀도·색깔·길이·레퍼런스 곡)를 다 고른 뒤에 눌러서 그걸 전부 보고 구조 프리셋 1개를 고름
 async function aiRecommendStructure(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const statusEl=document.getElementById('hh-ai-struct-status');
   const btn=document.getElementById('hh-ai-struct-btn');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
   btn.disabled=true;btn.textContent='🤖 추천 중...';
   if(statusEl)statusEl.hidden=true;
@@ -823,7 +784,7 @@ ${list}
 
 [현재 선택]
 ${aiSelectionCtx({structure:false})}`;
-    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:600,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const idx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
     if(idx<0)throw new Error('AI가 목록에 없는 구조를 반환했습니다');
@@ -841,11 +802,11 @@ ${aiSelectionCtx({structure:false})}`;
   }
 }
 async function aiRecommendProducerRef(opts){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const statusEl=document.getElementById('hh-ai-ref-status');
   const btn=document.getElementById('hh-ai-ref-btn');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   if(st.genre===null){fail('장르를 먼저 선택하세요');return;}
 
   btn.disabled=true;btn.textContent='🤖 추천 중...';
@@ -872,7 +833,7 @@ ${ctx}
 [이미 적용된 스타일 태그 — 이거랑 상반되는 프로듀서는 제외]
 ${st.extraTags.length?st.extraTags.join(', '):'(없음)'}`;
 
-    const raw=await callAnthropic(key,{maxTokens:600,staticText,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:600,staticText,dynamicText,think:false});
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const refs=(parsed.refs||[]).filter(r=>HH_REF.some(p=>p.kr===r)).slice(0,1);
     if(!refs.length)throw new Error('AI가 목록에 없는 프로듀서를 반환했습니다');
@@ -920,7 +881,7 @@ function reviseWithWarnings(btn){
 let _writeWarn=null;   // 핵심 검사는 통과했지만 추가 개선 검사 일부를 못 넘은 AI 결과의 사유
 
 function aiWriteEnabled(){
-  try{return !!getAnthropicKey()&&localStorage.getItem('hh_ai_write')!=='0';}catch(_){return false;}
+  try{return !!getOpenAIKey()&&localStorage.getItem('hh_ai_write')!=='0';}catch(_){return false;}
 }
 // 상태 지문 — 초안 텍스트는 매번 무작위 문구가 섞여 달라지므로 텍스트가 아니라 "입력 상태"로 캐시 키를 만듦.
 // fpBase = 지시(directive)를 뺀 나머지 → 같으면 고쳐쓰기, 다르면 새로 쓰기
@@ -1302,7 +1263,7 @@ const WRITE_STATIC=`너는 장르 전문 프로듀서이자 Suno 프롬프트 �
 - style은 자연어 한 문단이며 fixedStyleTags를 정확히 포함해. 무보컬 여부와 장르부터 시작해. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
 async function writeOnce({mode,spec,prev,errors,onPartial}){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
@@ -1322,7 +1283,7 @@ ${aiSelectionCtx({soft:true})}
 ${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
 ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
-  const raw=await callAnthropic(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
+  const raw=await callOpenAI(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
   const sec=raw.match(/<section>([\s\S]*?)<\/section>/i),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
@@ -1490,7 +1451,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 - BPM과 Key는 분석하지 마 — 참고 곡을 고르면 프로그램이 Spotify에서 채우고, 아니면 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
 {"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
-// 분석 프롬프트에 붙는 선택지 목록 (AI 분석·Gemini 요청문 공용)
+// 분석 프롬프트에 붙는 선택지 목록 (텍스트 분석·GPT 오디오 분석 공용)
 function briefOptionsText(){
   return `[선택지]
 장르(en — 느낌):
@@ -1507,12 +1468,12 @@ ${Object.entries(MENU_BY_FAMILY).map(([f,m])=>`[${f}] 드럼: ${m.drums.join(' |
 Key: ${KEYS.join(' | ')}`;
 }
 async function aiAnalyzeBrief(){
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   const text=(document.getElementById('hh-brief')?.value||'').trim();
   const btn=document.getElementById('hh-brief-btn');
   const statusEl=document.getElementById('hh-brief-status');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 Anthropic API Key를 먼저 저장하세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
   if(!text){fail('곡명이나 만들고 싶은 느낌을 한 줄 적어주세요');return;}
   btn.disabled=true;btn.textContent='🤖 분석 중...';
   if(statusEl)statusEl.hidden=true;
@@ -1524,7 +1485,7 @@ ${text}
 
 ${briefOptionsText()}`;
 
-    const raw=await callAnthropic(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText,think:false});
+    const raw=await callOpenAI(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText,think:false});
     const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     _briefProposal=buildBriefProposal(text,p);
     renderBriefResult();
@@ -1650,23 +1611,20 @@ function clearBrief(){
 }
 
 // ============================================================
-// 곡을 실제로 듣는 AI(예: Gemini)에게 분석시키기 — AI가 곡을 기억으로 분석하면 매번 결과가 달라서(같은 곡이 하이퍼팝 / 저지클럽으로 갈림), 오디오를 듣는 쪽에 맡기고 결과 JSON만 받는다
+// 곡을 실제로 듣는 GPT에게 분석시키기 — 곡명 추측 대신 첨부한 오디오에서 들리는 소리를 근거로 결과 JSON을 받는다.
 // ============================================================
-function geminiBriefRequestText(){
+function audioBriefRequestText(){
   const title=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim();
   return `내가 Suno AI로 비슷한 느낌의 곡을 만들고 싶어서 고른 참고 곡을 분석해줘.${title?`\n참고 곡: ${title}`:''}
-- 오디오 파일이나 유튜브 링크가 함께 있으면 그걸 직접 듣고 실제로 들리는 소리만 근거로 분석해줘.
-- 없으면 곡 제목으로 웹 검색(리뷰, 프로덕션 설명)과 네가 아는 정보를 활용해서 분석해줘. BPM과 Key는 분석하지 않아도 돼(다른 곳에서 가져와). 정확히 모르는 값은 지어내지 말고 가장 가까운 선택지를 고르되 understood에 "확실하지 않음"이라고 적어.
+- 첨부된 오디오를 처음부터 끝까지 직접 듣고 실제로 들리는 소리만 근거로 분석해줘.
+- BPM과 Key는 분석하지 않아도 돼. 정확히 판단하기 어려운 요소는 지어내지 말고 understood에 "확실하지 않음"이라고 적어.
 kind는 항상 "song"으로 써.
 
 ${BRIEF_STATIC}
 
 ${briefOptionsText()}`;
 }
-function copyGeminiBriefRequest(btn){
-  copyAndOpenGemini(geminiBriefRequestText(),btn);
-}
-// Gemini가 준 답(JSON 포함 텍스트)을 AI 분석과 같은 추천 카드로 — 붙여넣기·직접 호출 공용. JSON을 못 읽으면 false
+// GPT가 준 답(JSON 포함 텍스트)을 AI 분석과 같은 추천 카드로 바꾼다.
 function applyBriefFromRaw(raw){
   const a=raw.indexOf('{'),b=raw.lastIndexOf('}');
   if(a<0||b<a)return false;
@@ -1679,13 +1637,6 @@ function applyBriefFromRaw(raw){
     return true;
   }catch(e){return false;}
 }
-function applyBriefJson(){
-  const statusEl=document.getElementById('hh-brief-status');
-  const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  const raw=(document.getElementById('hh-brief-json')?.value||'').trim();
-  if(!raw){fail('Gemini가 준 JSON을 붙여넣어 주세요');return;}
-  if(!applyBriefFromRaw(raw))fail('JSON을 읽지 못했어요 — Gemini 답변에서 { 로 시작해서 } 로 끝나는 부분을 통째로 붙여넣어 주세요');
-}
 // 레퍼런스 곡 칸에 곡명만 있고 분석이 안 된 상태를 알려줌 (곡이 프롬프트에 전혀 반영되지 않기 때문)
 function refSongNeedsDna(){
   const s=(document.getElementById('hh-ref-song')?.value||'').trim();
@@ -1695,10 +1646,10 @@ function analyzeRefSongFromBanner(){
   const s=(document.getElementById('hh-ref-song')?.value||'').trim();
   const b=document.getElementById('hh-brief');if(b)b.value=s;
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
-  if(getAnthropicKey())aiAnalyzeBrief();
+  if(getOpenAIKey())aiAnalyzeBrief();
 }
-function openGeminiBrief(){
-  const d=document.getElementById('hh-brief-gemini');if(d)d.open=true;
+function openAudioBrief(){
+  const d=document.getElementById('hh-brief-audio');if(d)d.open=true;
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -1727,7 +1678,7 @@ function setRefSongFromPicker(label,cand){
   const s=document.getElementById('hh-brief-status');
   if(s){
     s.hidden=false;s.style.color='var(--text-1)';
-    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. 이제 <b>AI로 분석·추천</b>이나 <b>Gemini로 정확하게 분석</b>을 눌러 이 곡의 소리를 가져오세요.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터의 BPM·Key 참고값: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">참고값 적용</button></div>`:''}`;
+    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. 곡명 기준은 <b>AI로 분석·추천</b>, 실제 소리는 <b>GPT로 음원 분석</b>을 사용하세요.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터의 BPM·Key 참고값: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">참고값 적용</button></div>`:''}`;
   }
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   markPending('참고 곡 선택');

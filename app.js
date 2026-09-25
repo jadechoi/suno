@@ -1131,7 +1131,7 @@ function onStructSignalChange(){if(st._structAutoManaged)recommendStructure();}
 
 function applyArtistSong(tabKey,song,artist){
   if(tabKey==='hh'){
-    // 곡을 누르면 장르 기본값을 채우는 대신 입력칸에 곡만 넣음 — 소리는 분석(AI/Gemini)으로, BPM·Key는 곡에서 가져오거나 사용자가 정함
+    // 곡을 누르면 장르 기본값을 채우는 대신 입력칸에 곡만 넣음 — 소리는 GPT 분석으로, BPM·Key는 곡에서 가져오거나 사용자가 정함
     setRefSongFromPicker(artist&&song.title?`${artist.name} - ${song.title}`:(song.title||''),{bpm:song.bpm,key:song.key,genre:song.genre});
   } else {
     const s=VTS[tabKey];
@@ -2308,7 +2308,7 @@ function hhGenerate(source,opts){
   const keepSect=isRefresh?document.getElementById('hh-sect-ta')?.value:null;
   const keepStyle=isRefresh?document.getElementById('hh-style-ta')?.value:null;
   const keepLyrics=isRefresh?document.getElementById('hh-lyrics-ta')?.value:null;
-  const hasAiKey=!!getAnthropicKey();
+  const hasAiKey=!!getOpenAIKey();
   const g=st.genre!==null?GENRES[st.genre]:null;
   const keyStr=KEYS[st.key]||'A minor';
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
@@ -2323,7 +2323,7 @@ function hhGenerate(source,opts){
   if(refSongNeedsDna()){
     const bn=document.createElement('div');
     bn.style.cssText='padding:10px 12px;border-radius:var(--r);border:1px solid #F59E0B;background:rgba(245,158,11,.1);font-size:12px;color:var(--text-1);line-height:1.7';
-    bn.innerHTML=`🎵 레퍼런스 곡 <b>${escHtml(refSong)}</b>은 아직 프롬프트에 <b>반영되지 않았어요</b> — 지금은 고른 장르의 기본값으로만 만들어져요.<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="analyzeRefSongFromBanner()" style="padding:5px 12px;border-radius:14px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer">🤖 AI로 분석해서 반영</button><button onclick="geminiFromMain(this)" style="padding:5px 12px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">🎧 Gemini로 정확하게 분석</button></div>`;
+    bn.innerHTML=`🎵 레퍼런스 곡 <b>${escHtml(refSong)}</b>은 아직 프롬프트에 <b>반영되지 않았어요</b> — 지금은 고른 장르의 기본값으로만 만들어져요.<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button onclick="analyzeRefSongFromBanner()" style="padding:5px 12px;border-radius:14px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer">🤖 곡명으로 GPT 분석</button><button onclick="openAiAudioFromMain(this)" style="padding:5px 12px;border-radius:14px;border:1px solid var(--border-hi);background:var(--surface-3);color:var(--accent-text);font-size:11px;cursor:pointer">🎧 음원을 GPT가 직접 듣기</button></div>`;
     container.appendChild(bn);
   }
   // ① 선택 내용 요약
@@ -3000,12 +3000,12 @@ function popLyricsPrompt(s){
   return out.join('\n\n');
 }
 async function popAiWriteStyle(s,base){
-  const key=getAnthropicKey();if(!key)return;
+  const key=getOpenAIKey();if(!key)return;
   const status=document.getElementById('pop-ai-status');
   if(status){status.hidden=false;status.textContent='🤖 AI가 팝·R&B 스타일 프롬프트를 다듬는 중…';}
   const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨. 다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
   try{
-    const raw=await callAnthropic(key,{maxTokens:1800,staticText:'팝·R&B 스타일 작성 규칙: 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:1800,staticText:'팝·R&B 스타일 작성 규칙: 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
     const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim(),sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
     if(sec)document.getElementById('pop-sect-ta').value=sec;
     if(sty)document.getElementById('pop-style-ta').value=sty;
@@ -3044,16 +3044,16 @@ async function popGenerateLyrics(){
     if(status){status.hidden=false;status.textContent='✅ 직접 입력한 가사를 섹션 프롬프트에 합쳤어요';status.style.color='var(--success)';}
     return;
   }
-  const key=getAnthropicKey();
+  const key=getOpenAIKey();
   if(!key){
-    if(status){status.hidden=false;status.textContent='⚠️ AI 가사를 만들려면 Anthropic API Key를 저장하거나, 위의 가사 직접 입력칸을 사용하세요';status.style.color='var(--danger)';}
+    if(status){status.hidden=false;status.textContent='⚠️ AI 가사를 만들려면 OpenAI API Key를 저장하거나, 위의 가사 직접 입력칸을 사용하세요';status.style.color='var(--danger)';}
     return;
   }
   if(status){status.hidden=false;status.textContent='🤖 가사를 생성하고 섹션 프롬프트에 합치는 중…';status.style.color='';}
   const lyricsGuide=popLyricsPrompt(s);
   const prompt=`너는 팝·R&B 전문 작사가야. 아래 스타일과 섹션 흐름을 보고 Suno의 Lyrics 칸에 넣을 오리지널 영어 가사를 써. 이 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 섹션 헤더와 순서를 그대로 지키고, <lyrics> 블록 하나만 출력해. 설명문이나 긴 괄호 지시는 쓰지 마.\n\n작사 원칙:\n- 곡 기획·상황을 중심으로 쓰되, 벌스에서 감정을 직접 설명하지 말고 시간·장소·사물·행동으로 장면을 보여줘.\n- 한 줄을 소리 내어 불렀을 때 자연스럽게 짧게 쓰고, 숨 쉴 자리를 남겨. 음절 수와 반복되는 모음이 멜로디를 막지 않게 해.\n- 코러스는 짧고 발음하기 쉬운 핵심 훅 한 줄을 만들고, 정확히 반복해 기억되게 해. 후렴을 매번 완전히 새로 쓰지 마.\n- 프리코러스는 긴장을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 마지막 코러스로 돌아갈 공간을 남겨.\n- AI 티가 나는 추상적인 감정 선언과 설명적인 긴 문장을 줄이고, 구체적인 이미지와 행동을 우선해. 생성 후 실제로 불릴 수 있는지 소리 내어 읽는다고 생각해.\n- 악기 이벤트는 정말 필요한 순간에만 가사 줄 끝에 하나씩 붙여. 가사 중간에 넣거나 별도 태그 줄을 만들지 말고, 선택한 악기와 어울리는 태그만 사용해.\n\n[스타일]\n${style}\n\n[섹션 흐름]\n${baseSection}\n\n[곡 기획·상황]\n${s.concept.trim()||'선택된 무드와 장르에 맞는 구체적인 상황'}\n\n[작성 참고]\n${lyricsGuide}\n\n<lyrics>...</lyrics>`;
   try{
-    const raw=await callAnthropic(key,{maxTokens:1800,staticText:'PDF의 Suno 가사 원칙을 적용해. 가사는 문장이 아니라 보컬 소스다. 벌스는 장면과 행동, 코러스는 짧고 반복 가능한 훅, 프리코러스는 긴장 상승, 브리지는 새로운 관점으로 쓴다. 음절·호흡·모음 흐름을 고려하고 원곡 가사를 인용하지 않는다. 섹션 헤더 순서를 보존하고 필요한 순간에만 선택 악기의 줄 끝 이벤트 태그를 쓴다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:1800,staticText:'PDF의 Suno 가사 원칙을 적용해. 가사는 문장이 아니라 보컬 소스다. 벌스는 장면과 행동, 코러스는 짧고 반복 가능한 훅, 프리코러스는 긴장 상승, 브리지는 새로운 관점으로 쓴다. 음절·호흡·모음 흐름을 고려하고 원곡 가사를 인용하지 않는다. 섹션 헤더 순서를 보존하고 필요한 순간에만 선택 악기의 줄 끝 이벤트 태그를 쓴다.',dynamicText:prompt,think:false});
     const lyrics=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i)?.[1]?.trim()||raw.trim();
     document.getElementById('pop-lyrics-ta').value=lyrics;
     document.getElementById('pop-sect-ta').value=mergePopLyricsAndSection(baseSection,lyrics);
@@ -3066,7 +3066,7 @@ function popGenerate(){
   const output=document.getElementById('pop-output');if(output)output.style.display='block';
   document.getElementById('pop-sect-ta').value=section;document.getElementById('pop-style-ta').value=style;document.getElementById('pop-lyrics-ta').value=s.userLyrics.trim()||'';
   const status=document.getElementById('pop-ai-status');if(status){status.hidden=true;status.textContent='';status.style.color='';}
-  if(getAnthropicKey())popAiWriteStyle(s,{section,style});
+  if(getOpenAIKey())popAiWriteStyle(s,{section,style});
   updateFloatSummary();
 }
 function vocalGenerate(tabKey){
