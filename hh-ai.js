@@ -252,7 +252,7 @@ ${RUBRIC_TEXT()}
 - 악기의 연주 순서·응답 관계·쉼·등장 시점이 구체적인가? 밝은 반주와 쓸쓸한 멜로디처럼 역할이 나뉜 감정은 모순이 아니야.
 - 스타일의 전체 전개와 섹션의 상세 전개가 양립하는가? 스타일의 악기 팔레트가 모든 구간의 상시 연주를 뜻하지는 않아. only/avoid 같은 단어를 일괄 금지하지 마.
 - 작은 벌스와 훅의 대비, 필요한 곳의 변화가 있는가? 모든 구간에 새로운 필인·공간 변화·최대 밀도를 요구하지 마. 반복적인 클럽 그루브는 그대로 유지할 수 있어.
-- 선택한 무보컬 조건·악기·BPM·Key·구조가 지켜졌는가? 실제 충돌이나 선택 위반을 우선 지적해.
+- 선택한 무보컬 조건·악기·BPM·Key·구조가 지켜졌는가? 실제 충돌이나 선택 위반을 우선 지적해. 메뉴 이름·고정 태그와 단어가 다르다는 이유로 누락이라고 하지 마. 보컬 제외 문장, 동의어, 구간별 의도적인 생략은 전체 문맥으로 판단해.
 - Anti-AI가 켜져도 피치·타이밍 흔들림을 강요하지 마. 시그니처 시작·침묵·특정 순간의 변형으로 개성을 평가해.
 레퍼런스는 제공된 분석 근거로 비교하고 제목만으로 들은 것처럼 말하지 마. 음악을 듣지 않은 평가는 텍스트 설계 평가야.
 
@@ -952,7 +952,7 @@ function hasSelectedDrum(text,name){
 }
 function splitPhrases(body){return (body||'').replace(/^\(\d+ Bars: /,'').replace(/\)$/,'').split(/, (?![^()]*\))/).map(x=>x.trim().toLowerCase()).filter(Boolean);}
 // 명세: 고정 정보 + 힌트 — 검사기의 기준이기도 함
-// 고쳐쓰기에서 바뀌어도 되는 섹션 — 지시가 바뀐 섹션, 새로 삭제 확정된 구가 들어 있던 섹션만. 나머지는 이전 결과를 글자 그대로 유지해야 함
+// 고쳐쓰기의 주요 수정 대상. 다른 구간의 음악적 의도와 작성 스타일은 보존한다.
 // (AI가 전체를 다시 쓰면 지시와 무관한 섹션까지 조금씩 흔들려 라운드마다 일관성·파싱 적합이 깎이던 문제 — 수정 범위를 지시가 닿은 곳으로 제한)
 function editScopeFor(prev,headers){
   if(_writeFix)return headers.slice();   // "개선 권장 반영" 다시 쓰기 — 어느 섹션이 지적됐는지는 AI가 판단하니 전 섹션을 열어 둠(안 걸린 섹션은 그대로 두라고 지시)
@@ -1128,140 +1128,29 @@ function buildWriteSpec(prev){
     prevLyrics:userLy||((hasVocal&&prev&&prev.lyrics)?prev.lyrics:null),
   };
 }
-// 검사기 — 규칙 엔진이 만든 명세를 정답으로 AI 결과의 고정 정보를 확인
-function validateWritten(spec,section,style,opts){
-  const strict=!!(opts&&opts.strict);   // strict=AI가 쓴 결과에만 거는 추가 검사(규칙 초안 폴백은 대상 아님)
+// 전송·표시·가사 병합에 필요한 조건만 검사한다. 음악적 품질은 AI 프로듀서 리뷰가 판단한다.
+function validateWritten(spec,section,style,opts={}){
   const errors=[];
+  if(!section.trim())errors.push('섹션 프롬프트가 비어 있음');
+  if(!style.trim())errors.push('스타일 프롬프트가 비어 있음');
+  if(section.length>WRITE_LIMITS.section)errors.push('섹션 프롬프트는 5,000자 이하여야 함');
+  if(style.length>WRITE_LIMITS.style)errors.push('스타일 프롬프트는 1,000자 이하여야 함');
   const secs=parseSections(section);
-  const wantHeaders=spec.structure.map(s=>s.header);
-  if(secs.length!==wantHeaders.length||secs.some((s,i)=>s.header!==wantHeaders[i]))
-    errors.push(`선택한 곡 구조와 AI 결과가 다름. 필요한 순서: ${wantHeaders.join(' | ')} / 실제 결과: ${secs.map(s=>s.header).join(' | ')||'(헤더를 읽지 못함)'}`);
-  else secs.forEach((s,i)=>{
-    const sp=spec.structure[i];
-    if(!/^\(.*\)$/.test(s.body))errors.push(`${s.header} 본문이 한 덩어리 괄호 "( … )"가 아님`);
-    if(sp.bars&&!s.body.startsWith(`(${sp.bars} Bars: `))errors.push(`${s.header} 본문은 "(${sp.bars} Bars: "로 시작해야 함`);
-    // 구간별 maxChars는 간결한 작성 가이드. 하드 제한은 전체 5000자이다.
-  });
-  if(section.length>spec.limits.sectionTotal)errors.push(`${spec.lyrics?'연출 설명':'섹션 프롬프트'} 총 ${section.length}자 — ${spec.limits.sectionTotal}자 이하여야 함`);
-  // 고쳐쓰기에서 조언을 반영할 때 이전보다 길어지면 라운드마다 부풀어서 'Suno 파싱 적합'이 깎임 — 낡은/겹치는 문구를 빼서 총량을 유지
-  if(spec.prevLength&&section.length>spec.prevLength*1.08+60)errors.push(`이전 결과(${spec.prevLength}자)보다 8% 넘게 길어짐(${section.length}자) — 지시를 반영하면서 겹치거나 낡은 문구를 삭제해 총량을 유지할 것`);
-  if(spec.mutableHeaders&&spec.prevSections&&secs.length===spec.prevSections.length){
-    const norm=s=>s.replace(/\s+/g,' ').trim();
-    secs.forEach((s,i)=>{
-      const p=spec.prevSections[i];
-      if(p&&p.header===s.header&&!spec.mutableHeaders.includes(s.header)&&norm(p.body)!==norm(s.body))
-        errors.push(`${s.header}는 이번 지시의 대상이 아니라서 이전 결과를 글자 그대로 유지해야 함 (바뀌면 안 됨)`);
-    });
-  }
-  (spec.removedPhrases||[]).forEach(p=>{if((section+' '+style).toLowerCase().includes(p.toLowerCase()))errors.push(`삭제하기로 확정한 문구 "${p}"가 다시 들어감`);});
-  const low=section.toLowerCase();
-  const hooks=secs.filter(s=>s.type==='hook');
-  if(spec.lead&&!hasSelectedInstrument(section+'\n'+style,spec.lead))errors.push(`리드 악기 "${spec.lead}"가 스타일·섹션에 없음`);
-  if(spec.background&&!hasSelectedInstrument(section+'\n'+style,spec.background))errors.push(`배경 악기 "${spec.background}"가 스타일·섹션에 없음`);
-  spec.drums.forEach(d=>{if(!hasSelectedDrum(section+'\n'+style,d))errors.push(`고른 리듬 요소 "${d}"의 소리 특징이 스타일·섹션에 없음`);});
-  // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
-  {
-    const names=[...HH_REF.map(r=>r.kr),...(spec.referenceSong||'').split(' - ')[0].split(/\s+(?:feat\.?|featuring|ft\.?|x|&)\s+|,\s*/i)].map(n=>n.trim().toLowerCase()).filter(n=>n.length>=4);
-    const hay=(section+' '+style+' '+((opts&&opts.lyrics)||'')).toLowerCase();
-    const hit=[...new Set(names)].find(n=>hay.includes(n));
-    if(hit)errors.push(`실존 아티스트/프로듀서 이름 "${hit}"이 들어감 — 이름 대신 그 소리의 특징을 묘사하는 키워드로 바꿀 것`);
-  }
-  // 프로듀서 레퍼런스는 이름 대신 소리 특징으로 남아야 함 — 빠지면 리뷰의 "레퍼런스 부합"이 바닥(실사용에서 2점)
-  if(spec.producerSound){
-    const hay=_toks(section+' '+style);
-    const ok=spec.producerSound.split(', ').some(p=>{const tt=[..._toks(p)];return tt.length&&tt.filter(w=>hay.has(w)).length/tt.length>=0.6;});
-    if(!ok)errors.push(`프로듀서 레퍼런스의 소리 특징(${spec.producerSound}) 중 하나 이상을 스타일에 소리 키워드로 반영해야 함 (이름은 쓰지 말 것)`);
-  }
-  // brief(곡명/느낌 분석)의 스타일 태그 중 최소 하나는 스타일에 반영돼야 함
-  if(spec.brief?.styleTags?.length){
-    const sty=_toks(style);
-    const ok=spec.brief.styleTags.some(t=>{const tt=[..._toks(t)];return tt.length&&tt.filter(w=>sty.has(w)).length/tt.length>=0.6;});
-    if(!ok)errors.push(`brief 스타일 태그(${spec.brief.styleTags.join(' / ')}) 중 하나 이상이 스타일 프롬프트에 그대로 반영돼야 함`);
-  }
-  // 보컬 규칙
-  if(!spec.vocal){
-    const stripped=stripVocalExclusions(section+' '+style);
-    const vocalMatch=stripped.match(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b|\bwhisper\w*\b|\bhumm?ing\b/i);
-    if(vocalMatch)errors.push(`무보컬 곡에서 보컬 관련 표현 "${vocalMatch[0]}"이 감지됨 — 보컬을 요구하는 표현인지 확인하고 제외 지시는 명확하게 작성해주세요`);
-    // 무보컬은 스타일에서 명확히 제외하되 동등한 표현을 허용하고 각 훅의 반복은 요구하지 않는다.
-    if(!NO_VOCAL_CHOPS.test(style))errors.push('무보컬 스타일에 "no vocal chops"처럼 보컬찹 제외를 명시해주세요');
-  }else{
-    // 보컬이 있는 곡: 무보컬 신호가 하나라도 있으면 Suno가 보컬을 끄거나 결과가 엉킴 (예시 프롬프트가 전부 무보컬이라 AI가 [Instrumental]을 따라 쓰는 경우가 있었음)
-    const noVoc=(style+' '+section).match(/\[instrumental\]|\bno vocals?\b|zero vocal chops|no vocal samples|(?:purely|completely) instrumental|\bvocal chops?\b/i);
-    const label=(style+' '+section).match(/\b(heavy hooks|light ad-libs|full rap feature)\b/i);   // 우리 메뉴 이름이지 Suno가 아는 표현이 아님
-    if(label)errors.push(`메뉴 이름 "${label[0]}"이 그대로 들어감 — 실제로 들리는 보컬 소리(톤·마이크 거리·후크 라인 등)로 묘사할 것`);
-    if(noVoc)errors.push(`보컬이 있는 곡인데 무보컬 신호 "${noVoc[0]}"가 들어감 — 스타일·섹션에서 모두 빼고 보컬을 소리로 묘사할 것`);
-    if(hooks.some(s=>!/vocal|voice|sung|sing|rap|whisper|ad-?lib|chant|heavy hooks|full rap/i.test(s.body)))errors.push(`보컬(${spec.vocal})이 모든 훅에 소리로 묘사돼야 함`);
-    // "Instrumental"이라고 표시한 섹션(예: 브릿지)에 보컬 묘사가 있으면 헤더와 본문이 모순
-    if(strict){
-      const DELIV=/\b(whisper\w*|breath\w*|intimate|close-?mic\w*|falsetto|head voice|chest voice|belt\w*|soaring|vibrato|melismatic|vocal runs?|rasp\w*|husky|gritt\w*|growl\w*|scream\w*|shout\w*|spoken|rap|flow|chant\w*|harmon\w*|call-and-response|ad-?libs?|gang vocals?|double-?time|triplet|legato|staccato|croon\w*|cracking|mumbl\w*|muttered|sung-rap)\b/gi;
-      const vsecs=secs.filter(s=>!/instrumental/i.test(s.header)&&['verse','hook','outro'].includes(s.type));
-      const bare=vsecs.filter(s=>!(s.body.match(DELIV)||[]).length);
-      if(bare.length)errors.push(`보컬 곡인데 ${bare.map(s=>s.header.replace(/[\[\]]/g,'').split(':')[0]).join(', ')} 연출에 보컬 전달 방식(whispered·belted high notes·falsetto·rapid-fire flow·stacked harmonies 같은 창법 키워드)이 없음 — 섹션마다 어떻게 부르는지 넣을 것`);
-
-    }
-    const vocRe=/\b(vocals?|voices?|sing(?:ing|er)?|sung|whisper\w*|ad-?libs?|murmur\w*|humming|choir|lyrics?)\b/i;
-    secs.filter(s=>/instrumental/i.test(s.header)&&vocRe.test(s.body)).forEach(s=>errors.push(`${s.header}는 Instrumental 섹션인데 본문에 보컬 묘사(${s.body.match(vocRe)[0]})가 있음 — 보컬 없이 쓸 것`));
-  }
-  // 가사 언어가 한국어·일본어여도 연출 설명(섹션)과 스타일은 영어여야 Suno가 소리 키워드로 알아들음 — 가사 언어에 끌려 통째로 한국어로 쓰는 일이 있었음
-  if(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(section+' '+style))errors.push('연출 설명(<section>)이나 스타일(<style>)에 한글·일본어가 있음 — 가사 언어와 상관없이 이 둘은 영어 소리 키워드로만 쓸 것 (한국어·日本語는 <lyrics> 가사에만)');
-  // 가사(보컬 곡) — 헤더 순서, 줄 수, 언어, 후렴 반복, 가사 칸에는 가사만
+  if(section.trim()&&(!secs.length||secs.some(s=>!s.body.trim())))errors.push('섹션을 표시할 [헤더]와 구간별 설명이 필요함');
   if(spec.lyrics){
-    const ly=((opts&&opts.lyrics)||'').trim();
-    const provided=!!spec.lyrics.provided;   // 사용자가 준 가사 — 줄 수·언어·후렴 반복 같은 작성 품질 검사는 건너뜀
-    if(!ly)errors.push('<lyrics> 가사가 비어 있음');
+    const lyrics=(opts.lyrics||'').trim();
+    if(!lyrics)errors.push('가사가 비어 있음');
     else{
-      const {secs:secsL,stray}=parseLyricSections(ly);
-      if(!provided)errors.push(...validateLyricEvents(secsL,style));
-      const sungText=secsL.map(s=>s.lines.map(lyricWords).join('\n')).join('\n');
-      if(!provided&&ly.length>1800)errors.push(`가사가 ${ly.length}자 — 1,800자 이하로 (연출 설명과 합쳐 Lyrics 칸 5,000자 안에 들어가야 함)`);
-      {const merged=mergeLyricsAndDirection(ly,section);if(merged&&merged.length>WRITE_LIMITS.section)errors.push(`연출 설명과 합친 Lyrics 칸 텍스트가 ${merged.length}자 — 5,000자 이하로 (연출 설명이나 가사를 줄일 것)`);}
-      const want=spec.lyrics.headers;
-      if(stray||secsL.length!==want.length||secsL.some((s,i)=>s.header!==want[i]))errors.push(`가사 헤더/순서가 명세와 다름(헤더 앞에 다른 줄이 있어도 안 됨). 정확히 이 순서·문구: ${want.join(' | ')}`);
-      else if(!provided)secsL.forEach(s=>{
-        const n=s.lines.length;
-        if(/^\[Verse/.test(s.header)&&(n<6||n>20))errors.push(`${s.header} 가사가 ${n}줄 — 6~20줄로`);
-        if(/^\[Chorus/.test(s.header)&&(n<3||n>10))errors.push(`${s.header} 가사가 ${n}줄 — 3~10줄로`);
-        if(/^\[Instrumental/.test(s.header)&&n>0)errors.push(`${s.header}는 헤더만 두고 가사를 쓰지 말 것`);
-        if(/^\[(Intro|Outro)/.test(s.header)&&n>4)errors.push(`${s.header} 가사는 4줄 이하로`);
-        if(s.lines.some(l=>lyricWords(l).length>110))errors.push(`${s.header}에 너무 긴 줄이 있음 — 한 줄은 짧게`);
-      });
-      const longParen=(ly.match(/\(([^)]*)\)/g)||[]).find(p=>p.replace(/[()]/g,'').trim().split(/\s+/).length>4);
-      if(!provided&&longParen)errors.push(`가사에 괄호 설명문(${longParen.slice(0,30)}…)이 있음 — 가사 칸에는 가사만 (짧은 (ooh) 같은 애드립만 허용)`);
-      const prod=sungText.match(/\b(808|hi-?hats?|sub-?bass|sidechain|reverb|stereo|synths?|snare|bpm)\b/i);
-      if(!provided&&prod)errors.push(`가사에 연출·악기 설명 단어(${prod[0]})가 있음 — 그런 건 <section>에`);
-      const hanN=(sungText.match(/[\uAC00-\uD7A3]/g)||[]).length,jpN=(sungText.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length,letN=(sungText.match(/[A-Za-z\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g)||[]).length||1;
-      if(!provided&&spec.lyrics.lang==='한국어'&&hanN/letN<0.4)errors.push('가사 언어가 한국어인데 한글 비율이 낮음');
-      if(!provided&&spec.lyrics.lang==='日本語'&&jpN/letN<0.4)errors.push('가사 언어가 日本語인데 일본어(가나·한자) 비율이 낮음');
-      if(!provided&&spec.lyrics.lang==='English'&&(hanN+jpN)/letN>0.05)errors.push('가사 언어가 English인데 한글·일본어가 섞임');
-      const ch=secsL.filter(s=>/^\[Chorus/.test(s.header));
-      if(!provided&&ch.length>=2){const base=new Set(ch[0].lines.map(x=>lyricWords(x).toLowerCase()));if(ch[1].lines.filter(x=>base.has(lyricWords(x).toLowerCase())).length<2)errors.push('후렴 1과 후렴 2가 최소 2줄은 똑같이 반복돼야 함 (후렴의 핵심 한 줄을 정해 반복)');}
-      if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==ly.replace(/\s+/g,' ').trim())errors.push('고쳐쓰기에서는 가사를 이전 결과 글자 그대로 유지해야 함');
+      const parsed=parseLyricSections(lyrics),headers=lyricHeaders(secs);
+      if(parsed.stray||parsed.secs.length!==headers.length||parsed.secs.some((s,i)=>s.header!==headers[i]))
+        errors.push('가사와 연출을 빠짐없이 합칠 수 있도록 두 출력의 섹션을 맞춰주세요');
+      const merged=mergeLyricsAndDirection(lyrics,section);
+      if(!merged)errors.push('가사와 연출을 합치지 못함');
+      else if(merged.length>WRITE_LIMITS.section)errors.push('가사와 연출을 합친 출력은 5,000자 이하여야 함');
+      if(spec.prevLyrics&&spec.prevLyrics.replace(/\s+/g,' ').trim()!==lyrics.replace(/\s+/g,' ').trim())
+        errors.push('보존할 가사가 변경됨 — 사용자가 제공하거나 이전에 확정한 가사를 유지해주세요');
     }
   }
-  // ── 여섯 가지 개선 (프롬프트 리뷰에서 반복된 문제, "sample chop" 항목은 ZERO vocal chops 핵심 검사와 중복이라 삭제) ──
-  const allText=section+' '+style;
-  // 1) Key와 장조/단조 일관성 — "minor-tinged ... in G major" 같은 모순, 다른 Key 이름, 정하지 않은 Key
-  {
-    const names=(allText.match(/\b[A-G][#b]? (?:[Mm]ajor|[Mm]inor)\b/g)||[]).map(k=>k.toLowerCase());
-    if(spec.key){
-      const want=spec.key.toLowerCase();
-      const other=names.find(k=>k!==want);
-      if(other)errors.push(`Key가 ${spec.key}인데 다른 Key "${other}"가 들어감`);
-      const opp=/major/i.test(spec.key)?/\bminor[- ](?:key|tinged|toned?|chords?|scale|melody|feel|mood|flavou?r)\b/i:/\bmajor[- ](?:key|tinged|toned?|chords?|scale|melody|feel|mood|flavou?r)\b/i;
-      const m=allText.match(opp);
-      if(m)errors.push(`Key가 ${spec.key}인데 반대 조성 표현 "${m[0]}"이 있음 — 모순`);
-    }else if(names.length)errors.push(`Key를 정하지 않았는데 "${names[0]}"가 들어감`);
-  }
-  // 2) 무보컬 곡의 "sample chop"이 보컬 샘플과 헷갈릴 걱정 — "instrumental sample chop"을 매번 강제했더니 AI가 자꾸 놓쳐서 폴백으로 떨어짐.
-  // 실제로는 무보컬 곡의 스타일·첫훅·마지막훅에 "ZERO vocal chops"가 이미 핵심 검사로 강제돼 있어서(아래) 별도 접두어 없이도 충분히 분명함 — 검사 삭제.
-  // 스타일의 악기 언급이 긍정인지 제외 지시인지 문자열 검색만으로 판단하지 않는다.
-  // 확정 선택의 존재 여부는 위에서 검사하고 팔레트·전개 일관성은 리뷰에서 확인한다.
-  // 스타일 박스
-  spec.fixedStyleTags.forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase()))errors.push(`스타일 프롬프트에 고정 태그 "${t}"가 없음`);});
-  if(style.length>spec.limits.style)errors.push(`스타일 프롬프트 ${style.length}자 — ${WRITE_LIMITS.style}자 이하여야 함`);
-  (st.extraTags||[]).forEach(t=>{if(!style.toLowerCase().includes(t.toLowerCase().split(' ')[0]))errors.push(`확정된 스타일 지시 "${t}"가 스타일 프롬프트에 빠짐`);});
-  // 모티프 반복·문장 형식·only/avoid는 오류가 아니다. 실제 음악적 충돌은 맥락 리뷰로 판단한다.
   return {ok:!errors.length,errors};
 }
 // PDF PART 2·3 및 사용자가 제공한 자연어 스타일 프롬프트 5개의 원리를 적용한다.
@@ -1302,31 +1191,31 @@ ${PROMPT_ROLE_GUIDE}
 - 형용사 단어가 아니라 대상과 적용 구간을 보고 모순을 판단해. 같은 리듬을 지키면서 음색을 바꾸는 것은 모순이 아니야.
 
 [무보컬과 보컬 — 사용자 선택 최우선]
-- vocal이 null이면 보컬·보컬 샘플·보컬찹·위스퍼·허밍·합창·애드립을 넣지 마. 예시보다 이 선택이 우선이야. 스타일에 [Instrumental], no vocals, no vocal samples와 no vocal chops 또는 ZERO vocal chops를 명시해. 섹션마다 같은 금지 문구를 반복할 필요는 없어. 샘플은 instrumental sample chops로 분명히 해.
+- vocal이 null이면 보컬·보컬 샘플·보컬찹·위스퍼·허밍·합창·애드립을 넣지 마. 예시보다 이 선택이 우선이야. 스타일에 instrumental only, no vocals처럼 무보컬 의도를 자연스럽고 명확하게 표현해. 정해진 금지 문구를 모두 나열할 필요는 없어. 섹션마다 같은 금지 문구를 반복할 필요는 없어. 샘플은 instrumental sample chops로 분명히 해.
 - vocal이 있으면 [Instrumental]·no vocals·ZERO vocal chops·no vocal samples와 전체 purely/completely instrumental 선언은 넣지 마. 메뉴 이름 대신 실제 전달 방식·음역·처리를 써. Instrumental 헤더가 있는 구간에는 보컬을 넣지 마.
-- 보컬 벌스·후렴·아웃트로는 어떻게 부르는지 설명하되 매번 다른 창법이나 마지막 벨팅은 필수가 아니야. Light ad-libs는 리드 없이 드문 조각만, Full rap feature는 랩 중심, Heavy hooks는 후렴 중심, Sung lead vocal은 노래 중심이야. 요청하지 않은 듀엣을 예시 때문에 만들지 마.
+- 보컬 전달 방식은 스타일에서 정하고 섹션에서는 달라질 때만 설명해. 매 구간의 창법 키워드나 마지막 벨팅은 필수가 아니야. Light ad-libs는 리드 없이 드문 조각만, Full rap feature는 랩 중심, Heavy hooks는 후렴 중심, Sung lead vocal은 노래 중심이야. 요청하지 않은 듀엣을 예시 때문에 만들지 마.
 
 [가사 — lyrics가 있을 때만]
 - <lyrics>는 지정 언어와 주제로, <section>과 <style>은 영어로 써. 제공된 가사나 수정 모드의 이전 가사는 헤더·줄바꿈까지 보존해.
 - 앱이 각 구간의 [헤더] → (자연어 연출) → 실제 가사 순서로 합쳐. 개선할 편곡·연주·보컬 전달은 <section>에 쓰고, 설명문을 실제 노랫말에 섞지 마. 사용자 가사에 없는 줄이나 단어를 인용해 특정 위치를 지시하지 마.
 - 새 가사: 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 벌스는 직접적인 감정 선언을 줄이고 시간·장소·사물·행동으로 장면을 보여줘. 후렴은 짧고 발음하기 쉬운 핵심 라인을 만들고 정확히 반복해. 프리코러스는 기대감을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 다음 핵심 구간으로 돌아갈 공간을 남겨. 각 줄을 소리 내어 읽는다고 생각하고 음절·호흡·모음 흐름을 고려해 설명적인 긴 문장을 줄여.
-- lyrics.headers 순서 그대로. 벌스는 6~20줄, 후렴 3~10줄 안에서 마디·보컬 속도에 맞게 써. 반복 후렴은 최소 두 줄 유지. Intro/Outro는 4줄 이하, Instrumental은 헤더만.
+- 가사는 연출과 합칠 수 있는 헤더로 써. 줄 수는 마디·호흡·보컬 속도에 맞게 정하고 후렴의 핵심을 유지해. Instrumental 구간은 헤더만 둬.
 - 새 AI 가사를 쓸 때는 필요한 순간에만 줄 끝 악기 태그를 넣어. 예: Stay with me tonight [guitar riff]. 가사 중간·태그만 있는 별도 줄·한 줄에 여러 태그는 금지. 두 줄당 하나 이하, 구간당 최대 두 개이며 모든 구간에 넣을 필요는 없어. 보컬 프레이즈가 짧게 끝나는 쉼에 배치해.
 - 허용 이벤트: ${Object.keys(LYRIC_EVENTS).map(t=>'['+t+']').join(', ')}. 스타일에 긍정적으로 포함된 악기만 써. 원하지 않는 악기를 태그 때문에 추가하지 마. 지속 편성·페이드·믹스 처리는 <section>에 쓰고 실제 가사로 부를 문장에는 악기 설명을 넣지 마.
 - 사용자 제공 가사와 고쳐쓰기의 이전 가사는 태그까지 그대로 유지해. 새 이벤트 추가는 새 AI 가사 작성에만 적용해. 무보컬에는 가사나 줄 끝 태그를 생성하지 마. 짧은 (ooh)는 가능하나 기존 노래 가사를 인용하지 마.
-- 새 가사는 1800자 이하. 연출과 합친 Lyrics는 5000자 이하. 구간별 maxChars는 간결하게 쓰기 위한 권장값이며 전체 길이 상한과 구분해.
+- 연출과 합친 Lyrics는 5000자 이하. 가사와 연출의 분량은 곡에 맞게 배분해. 구간별 maxChars는 간결하게 쓰기 위한 권장값이며 전체 길이 상한과 구분해.
 
 [출력 계약 — 앱의 편집·병합 형식]
 - 무보컬은 <section>…</section><style>…</style>, 보컬이면 <lyrics>…</lyrics>를 맨 앞에 추가. 다른 설명 없이 출력해.
-- section은 structure의 헤더·순서를 글자 그대로. 헤더 아래 본문은 괄호로 감싼 한 줄. bars가 있으면 (N Bars: …), 없으면 (…). 그 안의 자연어 문장·명령형을 허용해. 이 외곽 형식은 앱 호환용이며 유일한 Suno 문법이라는 뜻이 아니야.
-- style은 자연어 한 문단이며 fixedStyleTags를 정확히 포함해. 무보컬 여부와 장르부터 시작해. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
+- section은 선택한 구조와 흐름을 반영해. 앱에서 구간을 구분할 수 있도록 [헤더]를 별도 줄에 쓰고 아래에 필요한 자연어 연출을 적어. 정해진 부제나 괄호·마디 접두어를 맞출 필요는 없어.
+- style은 자연어 한 문단이며 선택 조건을 의미로 반영해. fixedStyleTags는 참고 정보이지 복사할 필수 문구가 아니야. 무보컬 여부와 장르부터 시작해. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
 async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
   const key=getOpenAIKey();
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
-[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **수정 가능한 섹션은 다음뿐이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 섹션은 전부 그대로)'}**. 그 외 섹션은 [이전 결과]의 본문을 한 글자도 바꾸지 말고 그대로 복사해(바꾸면 검사에서 실패). 수정 가능한 섹션 안에서는 중복·모순을 정리하고 총량이 늘지 않게 써, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
+[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **수정 가능한 섹션은 다음뿐이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 섹션은 전부 그대로)'}**. 다른 구간의 음악적 의도와 기존 작성 스타일은 유지해. 필요한 연결 문장은 다듬어도 돼. 중복·모순을 줄이되 필요한 보완의 길이를 억지로 제한하지 마, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
 
 [명세]
 ${JSON.stringify(spec,null,1)}
@@ -1355,7 +1244,7 @@ function renderWriteBadge(){
   const map={
     off:['📝 규칙 초안',''],
     pending:['✍️ AI 작성 중…','작성이 끝나면 아래 텍스트가 교체돼요 (그 사이 복사하면 규칙 초안이 복사됨)'],
-    ok:_writeWarn?[`✍️ AI 작성 · 개선 권장 ${_writeWarn.length}개`,'핵심 검사(구조·보컬·이름·길이)는 통과했고, 아래 항목은 다듬으면 더 좋아요: '+_writeWarn.slice(0,4).join(' / ')]:['✍️ AI 작성 · 검증 통과','헤더·마디 수·악기·보컬·길이 검사를 통과한 AI 작성본'],
+    ok:_writeWarn?[`✍️ AI 작성 · 개선 권장 ${_writeWarn.length}개`,'핵심 검사(구조·보컬·이름·길이)는 통과했고, 아래 항목은 다듬으면 더 좋아요: '+_writeWarn.slice(0,4).join(' / ')]:['✍️ AI 작성 완료','출력 누락·글자 수·가사 병합을 확인했어요. 음악적 품질은 AI 프로듀서 리뷰에서 확인하세요.'],
     fallback:['📝 규칙 초안 (AI 작성 검증 실패)',_writeErr||''],
   };
   const [t,title]=map[_writeState]||map.off;
@@ -1372,7 +1261,7 @@ function renderWriteBadge(){
   d.hidden=!(has||_writeNote);
   d.innerHTML=has?(_writeState==='ok'
     ?'<b style="color:var(--text-1)">개선 권장 '+items.length+'개</b> — 핵심 검사(구조·보컬·이름·길이)는 통과했어요. 필수는 아니라서 그대로 써도 되고, 아래 버튼을 누르면 AI가 이 항목들을 반영해 다시 써요(나아지지 않으면 지금 결과를 그대로 둬요).'
-    :'<b style="color:var(--text-1)">AI 작성이 검증을 통과하지 못해 규칙 초안을 보여주고 있어요</b> — 이유:')
+    :'<b style="color:var(--text-1)">AI 출력 처리에 실패해 규칙 초안을 보여주고 있어요</b> — 이유:')
     +'<ul style="margin:6px 0 0;padding-left:18px">'+items.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul>'
     +(_writeState==='ok'?'<button onclick="reviseWithWarnings(this)" style="margin-top:8px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🔧 이 항목 반영해서 다시 쓰기</button>':'')+note:note;
 }
@@ -1404,7 +1293,7 @@ async function hhAiWrite(entryId){
     try{
       const mode=(_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
       const spec=buildWriteSpec(mode==='edit'?_hhWritten:null);
-      let errors=null,result=null,lastErrors=null,best=null,warn=null,failed=null;
+      let errors=null,result=null,lastErrors=null,warn=null,failed=null;
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
         const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,failed,onPartial:txt=>{
           if(token!==_writeToken)return;
@@ -1416,14 +1305,10 @@ async function hhAiWrite(entryId){
           updateWriteCounters();
         }});
         if(token!==_writeToken)return;
-        const v=validateWritten(spec,out.section,out.style,{strict:true,lyrics:out.lyrics});
+        const v=validateWritten(spec,out.section,out.style,{lyrics:out.lyrics});
         if(v.ok){result=out;break;}
         errors=v.errors;lastErrors=v.errors;failed=out;
-        // 구조·보컬·이름·길이 같은 핵심 검사(core)는 통과하고 추가 개선 검사(strict)만 못 넘은 결과 중 가장 나은 것을 기억
-        if(validateWritten(spec,out.section,out.style,{lyrics:out.lyrics}).ok&&(!best||v.errors.length<best.errors.length))best={out,errors:v.errors};
       }
-      // 끝까지 완벽하지 못해도 핵심 검사를 통과한 AI 결과가 있으면 규칙 초안(의도 반영이 약함) 대신 그걸 쓰고 경고만 표시
-      if(!result&&best){result=best.out;warn=best.errors;}
       if(token!==_writeToken)return;
       if(fixNotes&&prevW?.meta?.ok&&(!result||(warn&&warn.length>=(prevWarn||[]).length))){   // 개선 다시 쓰기가 실패했거나 나아지지 않음 → 규칙 초안이 아니라 이전 AI 결과를 그대로 둠
         _hhWritten=prevW;_writeState='ok';_writeWarn=prevWarn;

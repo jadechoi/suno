@@ -49,7 +49,7 @@ assert.equal(run('st.narrAI.hook2'),intro+' '+direction);
 const body='Muted guitar plays three syncopated notes, then rests. Synth pluck answers above it. Keep the same rhythm. Let the kick enter after the answer. ZERO vocal chops.';
 const section=`[Intro]\n(${body})\n[Instrumental Hook 1]\n(8 Bars: ${body})\n[Instrumental Hook 2]\n(8 Bars: ${body})`;
 const style='[Instrumental] night-pop at 110 BPM, no vocals, ZERO vocal chops, no vocal samples. Open with Muted guitar, then Synth pluck. Keep the kick straight, the bass late, the motif short, the harmony simple, the rests exposed, the accents light, the tone elastic, the response brief, the register low, the phrase intact, the ending short. Instrumental only. Avoid brass, choir-like pads and busy melodies.';
-// Do not mention a choir even as an exclusion: the existing no-vocal guard intentionally rejects it.
+// Quality and vocal intent are assessed by the AI review, not keyword rejection.
 const instrumentalStyle=style.replace('choir-like pads','lush pads');
 const spec={structure:ctx.parseSections(section).map(s=>({...s,bars:s.bars?+s.bars:null,maxChars:1000})),lead:'Muted guitar',background:'Synth pluck',drums:['kick'],vocal:null,bpm:110,key:null,fixedStyleTags:['[Instrumental]','no vocals','110 BPM','night-pop'],limits:{sectionTotal:4900,style:950},removedPhrases:[]};
 const validate=(sec=section,sty=instrumentalStyle,sp=spec)=>ctx.validateWritten(sp,sec,sty,{strict:true});
@@ -63,12 +63,12 @@ assert.equal(validate(section,styleAtLimit+'x',fullBudget).ok,false);
 const sectionAtLimit=section.padEnd(5000,' ');
 assert.equal(validate(sectionAtLimit,instrumentalStyle,fullBudget).ok,true);
 assert.equal(validate(sectionAtLimit+' ',instrumentalStyle,fullBudget).ok,false);
-assert.equal(validate(section,instrumentalStyle+' Use short dry female whisper chops.').ok,false);
-assert.equal(validate(section,instrumentalStyle+' Add humming.').ok,false);
-assert.equal(validate(section,instrumentalStyle+' Add sung vocals.').ok,false);
-assert.equal(validate(section.replaceAll('Muted guitar','Other instrument'),instrumentalStyle.replaceAll('Muted guitar','Other instrument')).ok,false);
+assert.equal(validate(section,instrumentalStyle+' Use short dry female whisper chops.').ok,true);
+assert.equal(validate(section,instrumentalStyle+' Add humming.').ok,true);
+assert.equal(validate(section,instrumentalStyle+' Add sung vocals.').ok,true);
+assert.equal(validate(section.replaceAll('Muted guitar','Other instrument'),instrumentalStyle.replaceAll('Muted guitar','Other instrument')).ok,true);
 assert.equal(validate(section.replaceAll('ZERO vocal chops.',''),instrumentalStyle.replaceAll('ZERO vocal chops','no vocal chops')).ok,true);
-assert.equal(validate(section,instrumentalStyle.replaceAll('ZERO vocal chops','')).ok,false);
+assert.equal(validate(section,instrumentalStyle.replaceAll('ZERO vocal chops','')).ok,true);
 assert.equal(ctx.hasSelectedInstrument('Chopped instrumental samples answer the synth.','Sample chop'),true);
 assert.equal(ctx.hasSelectedInstrument('Avoid chopped instrumental samples.','Sample chop'),false);
 assert.equal(ctx.hasSelectedInstrument('Soft strings answer the synth.','Sample chop'),false);
@@ -77,7 +77,7 @@ assert.equal(ctx.restoreSectionHeaders(shortHeaders,spec.structure,true),section
 const wrongNumber=section.replace('[Instrumental Hook 2]','[Hook 3]');
 assert.equal(ctx.restoreSectionHeaders(wrongNumber,spec.structure,true),wrongNumber);
 assert.equal(ctx.restoreSectionHeaders(shortHeaders,spec.structure,false),shortHeaders);
-assert.equal(validate(section.replace('[Intro]','[Outro]')).ok,false);
+assert.equal(validate(section.replace('[Intro]','[Outro]')).ok,true);
 const renamed=section.replace('[Instrumental Hook 1]','[Instrumental Hook 1: New subtitle]');
 assert.equal(ctx.restoreSectionHeaders(renamed,spec.structure),section);
 const reordered=section.replace('[Intro]','[Outro]');
@@ -99,19 +99,19 @@ run('st.genre=0;st.b808Set=false;');
 assert.equal(run('use808()'),true);
 assert.doesNotMatch(run('genreLowEnd(0,"None")'),/\b808 bass/);
 run('st.genre=null;');
-assert.equal(validate(section.replace('8 Bars:','16 Bars:')).ok,false);
+assert.equal(validate(section.replace('8 Bars:','16 Bars:')).ok,true);
 assert.equal(validate(section,instrumentalStyle+'x'.repeat(950)).ok,false);
-assert.equal(validate(section,instrumentalStyle.replace('110 BPM','120 BPM')).ok,false);
+assert.equal(validate(section,instrumentalStyle.replace('110 BPM','120 BPM')).ok,true);
 // Supply Drake as reference since not every artist is in the producer list.
-assert.equal(validate(section,instrumentalStyle+' Drake-inspired.',{...spec,referenceSong:'Drake - Example'}).ok,false);
+assert.equal(validate(section,instrumentalStyle+' Drake-inspired.',{...spec,referenceSong:'Drake - Example'}).ok,true);
 const restricted={...spec,mutableHeaders:['[Instrumental Hook 2]'],prevSections:ctx.parseSections(section)};
-assert.equal(validate(section.replace('plays three','plays four'),instrumentalStyle,restricted).ok,false);
+assert.equal(validate(section.replace('plays three','plays four'),instrumentalStyle,restricted).ok,true);
 
 // Vocal songs still work without compulsory belting or a different delivery per section.
 const vocalSection='[Hook 1]\n(8 Bars: Muted guitar plays first. A breathy female vocal echoes its rhythm. A gentle male vocal answers, then both voices finish together.)';
 const vocalSpec={...spec,vocal:'Sung lead vocal',background:null,drums:[],structure:ctx.parseSections(vocalSection).map(s=>({...s,bars:8,maxChars:1000})),fixedStyleTags:['110 BPM']};
 assert.equal(validate(vocalSection,'A summer pop duet at 110 BPM with breathy female vocals and gentle male vocals.',vocalSpec).ok,true);
-assert.equal(validate(vocalSection,'[Instrumental] no vocals at 110 BPM.',vocalSpec).ok,false);
+assert.equal(validate(vocalSection,'[Instrumental] no vocals at 110 BPM.',vocalSpec).ok,true);
 
 // Section prose reaches the actual Lyrics-box merge intact, without changing sung words.
 const lyricDirection='[Verse 1]\n(8 Bars: Keep the guitar motif beneath a breathy vocal. Let the synth answer after each phrase.)\n[Hook 1]\n(8 Bars: Let the guitar play first, then have the vocal echo its rhythm. Preserve the rests.)\n[Hook 2]\n(8 Bars: Bring back the same rhythm. Double the guitar only on the final phrase while the vocal stays intimate.)';
@@ -127,12 +127,12 @@ const eventStyle='Pop at 110 BPM with breathy vocals, guitar and synth.';
 const checkEvents=(lyrics,style=eventStyle,extra={})=>ctx.validateWritten({...eventSpec,...extra},eventSection,style,{strict:true,lyrics});
 assert.equal(checkEvents(eventLyrics).ok,true,JSON.stringify(checkEvents(eventLyrics).errors));
 assert.match(ctx.mergeLyricsAndDirection(eventLyrics,eventSection),/Stay with me tonight \[synth stab\]/);
-assert.equal(checkEvents(eventLyrics.replace('tonight [synth stab]','[synth stab] tonight')).ok,false);
-assert.equal(checkEvents(eventLyrics.replace('[synth stab]','[synth stab] [guitar riff]')).ok,false);
-assert.equal(checkEvents(eventLyrics.replace('[synth stab]','[drums drop out]')).ok,false);
-assert.equal(checkEvents(eventLyrics.replace('We can take it slow','We can take it slow [synth stab]')).ok,false);
-assert.equal(checkEvents(eventLyrics,'Pop at 110 BPM with breathy vocals and guitar. Avoid synth.').ok,false);
-assert.equal(checkEvents(eventLyrics.replace('[synth stab]','[brass stabs]')).ok,false);
+assert.equal(checkEvents(eventLyrics.replace('tonight [synth stab]','[synth stab] tonight')).ok,true);
+assert.equal(checkEvents(eventLyrics.replace('[synth stab]','[synth stab] [guitar riff]')).ok,true);
+assert.equal(checkEvents(eventLyrics.replace('[synth stab]','[drums drop out]')).ok,true);
+assert.equal(checkEvents(eventLyrics.replace('We can take it slow','We can take it slow [synth stab]')).ok,true);
+assert.equal(checkEvents(eventLyrics,'Pop at 110 BPM with breathy vocals and guitar. Avoid synth.').ok,true);
+assert.equal(checkEvents(eventLyrics.replace('[synth stab]','[brass stabs]')).ok,true);
 assert.equal(checkEvents(eventLyrics,eventStyle,{prevLyrics:eventLyrics,lyrics:{...eventSpec.lyrics,provided:true}}).ok,true);
 assert.equal(checkEvents(eventLyrics.replace('tonight','today'),eventStyle,{prevLyrics:eventLyrics,lyrics:{...eventSpec.lyrics,provided:true}}).ok,false);
 const koreanLyrics='[Chorus 1]\n오늘도 여기서 널 기다려 [synth stab]\n조금만 천천히 걸어줘\n아침이 올 때까지\n우리 둘 여기 있어\n[Chorus 2]\n오늘도 여기서 널 기다려 [guitar riff]\n조금만 천천히 걸어줘\n아침이 올 때까지\n우리 둘 여기 있어';
@@ -143,12 +143,22 @@ assert.equal(checkEvents(koreanLyrics,eventStyle,{lyrics:{...eventSpec.lyrics,la
 const decorated=section.replace('[Intro]','**[Intro]**').replace('[Instrumental Hook 1]\n','[Chorus 1 — Drop] ').replace('[Instrumental Hook 2]','[Chorus 2 — Peak]');
 assert.equal(ctx.restoreSectionHeaders(decorated,spec.structure,true),section);
 assert.equal(validate(section,instrumentalStyle+' No vocal textures or backing voices.').ok,true);
-assert.equal(validate(section,instrumentalStyle+' Without any vocal layers, add vocals.').ok,false);
-assert.equal(validate(section,instrumentalStyle+' No vocal textures, then add a vocal layer.').ok,false);
+assert.equal(validate(section,instrumentalStyle+' Without any vocal layers, add vocals.').ok,true);
+assert.equal(validate(section,instrumentalStyle+' No vocal textures, then add a vocal layer.').ok,true);
 assert.equal(ctx.hasSelectedDrum('Punchy 808 hits support the motif.','Sub-bass punch'),true);
 assert.equal(ctx.hasSelectedDrum('Low-end impact under the hook.','Sub-bass punch'),true);
 assert.equal(ctx.hasSelectedDrum('Avoid punchy 808 hits.','Sub-bass punch'),false);
 assert.equal(ctx.hasSelectedDrum('Sustained soft bass.','Sub-bass punch'),false);
+
+// Only transport/display budgets and lossless lyrics remain blocking.
+assert.equal(validate('',instrumentalStyle).ok,false);
+assert.equal(validate(section,'').ok,false);
+assert.equal(validate('[Intro]',instrumentalStyle).ok,false);
+assert.equal(validate('No section headers.',instrumentalStyle).ok,false);
+assert.equal(validate('[Intro]\nA soft motif.\n[Hook]\nKeep the same groove.', 'Instrumental only. A warm, sparse beat.', {...spec,prevLength:1,producerSound:'unmatched phrase',brief:{styleTags:['unmatched tag']}}).ok,true);
+assert.equal(checkEvents(eventLyrics.replace('[Chorus 2]','[Verse 2]')).ok,false);
+assert.equal(checkEvents(eventLyrics.replace('Here is where we go','x'.repeat(5000))).ok,false);
+assert.doesNotMatch(run('WRITE_STATIC'),/fixedStyleTags를 정확히|1800자 이하|최소 두 줄 유지|바꾸면 검사에서 실패/);
 
 // Exercise real request assembly / XML extraction with a fake transport, never a real key.
 ctx.fixture={section,style:instrumentalStyle};
