@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx=vm.createContext({console,getOpenAIKey:()=> 'fixture'});
+for(const file of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+vm.runInContext("getOpenAIKey=()=> 'fixture'",ctx);
+const spec={designMode:'reference-type-beat',brief:{instrumentalProfile:{balance:'Guitar stays behind the drums'}},structure:[{header:'[Intro]'}],selectionOrigins:{},vocal:null};
+const output={section:'[Intro]\n(Quiet guitar.)',style:'Guitar dominates the foreground.',lyrics:''};
+let calls=0;let edits=[];
+ctx.callOpenAI=async()=>{calls++;return JSON.stringify({edits});};
+(async()=>{
+ assert.equal((await ctx.checkTypeBeatAlignment({...spec,designMode:'original-song'},output)).result,output);
+ assert.equal(calls,0);
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
+ edits=[{field:'style',quote:output.style,replacement:'Guitar stays behind the drums.',planPath:'sound.balance',reason:'기타 비중 복원'}];
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result.style,'Guitar stays behind the drums.');
+ assert.equal(output.style,'Guitar dominates the foreground.');
+ edits[0].planPath='sound.unknown';
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
+ edits[0].planPath='sound.balance';edits[0].replacement='x'.repeat(1001);
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
+ edits=[{field:'section',quote:'[Intro]',replacement:'[Outro]',planPath:'sound.balance'}];
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
+ edits=[{field:'style',quote:'not in output',replacement:'different',planPath:'sound.balance'}];
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
+ console.log('PASS: grounded alignment edits, no-change path, original-song bypass, missing evidence and budget/header protection.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

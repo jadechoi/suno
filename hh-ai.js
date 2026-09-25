@@ -1365,6 +1365,33 @@ ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 �
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
   return {section:restoreSectionHeaders(sec,spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],JSON.stringify({intent:styleContext,section:sec})),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
+// One bounded comparison pass. Only grounded, exact-text edits may change the output.
+async function checkTypeBeatAlignment(spec,result){
+  if(spec.designMode!=='reference-type-beat')return {result,note:''};
+  const plan=typeBeatPlan(spec);
+  const raw=await callOpenAI(getOpenAIKey(),{maxTokens:2200,staticText:
+    'Compare the prompt with the supplied reference plan, not with your knowledge of the song. This is an intent-drift check, not a producer review. Look only for changed foreground/background roles, activity, timbre/space, mood or energy that contradict explicit plan evidence. User overrides take precedence. Menu order is not a role assignment. Unknown or absent evidence is not a defect. Do not invent facts, add musical improvements, enforce synonyms or require changes. Return JSON {"edits":[{"field":"style|section","quote":"exact unique substring from output","replacement":"minimal replacement preserving prose and section headers","planPath":"sound.balance or another explicit sound/userOverrides/constraints path","reason":"brief Korean explanation"}]}. Return empty edits if no grounded contradiction. At most 5 edits. Preserve lyrics, all section headers/order, BPM/key/vocal choice, and length budgets. Never turn a background part into a lead or demand a climax.',
+    dynamicText:JSON.stringify({plan,output:{style:result.style,section:result.section}})});
+  const data=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+  if(!Array.isArray(data.edits))throw new Error('설계 비교 응답 형식 오류');
+  let candidate={...result};const reasons=[];
+  for(const edit of data.edits.slice(0,5)){
+    if(!['style','section'].includes(edit.field)||typeof edit.quote!=='string'||!edit.quote||typeof edit.replacement!=='string')continue;
+    const path=String(edit.planPath||'').split('.');
+    if(path.length!==2||!['sound','userOverrides','constraints'].includes(path[0])||!Object.prototype.hasOwnProperty.call(plan[path[0]],path[1]))continue;
+    const evidence=plan[path[0]][path[1]];
+    if(evidence==null||evidence===''||(Array.isArray(evidence)&&!evidence.length))continue;
+    const source=candidate[edit.field];
+    if(source.split(edit.quote).length!==2)continue;
+    candidate[edit.field]=source.replace(edit.quote,()=>edit.replacement);
+    reasons.push(String(edit.reason||'설계와 다른 표현 수정').slice(0,180));
+  }
+  if(!reasons.length)return {result,note:data.edits.length?'설계 비교 제안의 근거 또는 수정 위치를 확인하지 못해 원문을 유지했어요.':'설계 비교에서 명확한 의도 이탈을 찾지 못했어요. 원곡 유사도를 검증한 것은 아니에요.'};
+  const headers=text=>JSON.stringify(parseSections(text).map(s=>s.header));
+  if(headers(candidate.section)!==headers(result.section)||!validateWritten(spec,candidate.section,candidate.style,{lyrics:candidate.lyrics}).ok)return {result,note:'설계 비교 수정안이 출력 조건을 충족하지 못해 원문을 유지했어요.'};
+  return {result:candidate,note:'설계 비교로 수정: '+reasons.join(' / ')};
+}
+
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
   if(!b)return;
@@ -1450,7 +1477,17 @@ async function hhAiWrite(entryId,{fresh=false}={}){
         updateWriteCounters();
         return;
       }
-      if(fixNotes)_writeNote=warn&&warn.length?('개선 권장 '+(prevWarn||[]).length+'개 → '+warn.length+'개로 줄었어요'):'개선 권장 항목을 모두 반영했어요';
+      if(result&&spec.designMode==='reference-type-beat'){
+        try{
+          const checked=await checkTypeBeatAlignment(spec,result);
+          if(token!==_writeToken)return;
+          result=checked.result;_writeNote=checked.note;
+        }catch(e){
+          if(token!==_writeToken)return;
+          _writeNote='설계 비교를 완료하지 못해 작성 원문을 유지했어요: '+e.message;
+        }
+      }
+      if(fixNotes&&!_writeNote)_writeNote=warn&&warn.length?('개선 권장 '+(prevWarn||[]).length+'개 → '+warn.length+'개로 줄었어요'):'개선 권장 항목을 모두 반영했어요';
       if(result){
         _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,lyrics:result.lyrics||'',meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
         _writeState='ok';_writeWarn=warn;
