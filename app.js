@@ -2825,6 +2825,7 @@ function restorePromptHistoryEntry(id){
   const entry=loadPromptHistory().find(e=>e.id===id);
   if(!entry)return;
   if(!entry.stSnapshot){showToast('⚠️ 이 기록은 옛날 버전이라 복원 정보가 없어요');return;}
+  invalidateAiWrite();
   Object.keys(st).forEach(k=>delete st[k]);
   Object.assign(st,entry.stSnapshot);
   const bpmEl=document.getElementById('hh-bpm');
@@ -2911,6 +2912,8 @@ function renderPromptHistory(){
 }
 
 function hhReset(){
+  invalidateAiWrite();
+  _hhWritten=null;_hhDraft=null;
   _aiSuggestions=null;
   st.genre=null;st.key=7;st.bpm=140;st.bpmSet=false;st.keySet=false;
   setInstrumentMenus(null);

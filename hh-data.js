@@ -60,7 +60,7 @@ const MOOD_GENRE_GUIDE={
 };
 
 const GENRE_PRESETS=[
-  {name:'UK Garage',genre:4,bpm:132,key:2,color:'#06B6D4'},
+  {name:'UK Garage',genre:22,bpm:132,key:2,color:'#06B6D4'},
   {name:'Jersey Club',genre:9,bpm:148,key:3,color:'#8B5CF6'},
   {name:'Phonk',genre:5,bpm:135,key:7,color:'#DC2626'},
   {name:'Afrobeats',genre:11,bpm:130,key:3,color:'#F59E0B'},

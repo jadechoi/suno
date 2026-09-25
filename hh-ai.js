@@ -884,6 +884,11 @@ function reviseWithWarnings(btn){
 }
 let _writeWarn=null;   // 핵심 검사는 통과했지만 추가 개선 검사 일부를 못 넘은 AI 결과의 사유
 
+// 복원·초기화 이후에는 이전 요청의 스트리밍·완료 콜백을 무시한다.
+function invalidateAiWrite(){
+  ++_writeToken;
+  _writePromise=null;_writeFix=null;_writeNote='';_writeWarn=null;_writeErr='';_writeState='off';
+}
 function aiWriteEnabled(){
   try{return !!getOpenAIKey()&&localStorage.getItem('hh_ai_write')!=='0';}catch(_){return false;}
 }
@@ -1310,12 +1315,12 @@ async function hhAiWrite(entryId){
         errors=v.errors;lastErrors=v.errors;failed=out;
       }
       if(token!==_writeToken)return;
-      if(fixNotes&&prevW?.meta?.ok&&(!result||(warn&&warn.length>=(prevWarn||[]).length))){   // 개선 다시 쓰기가 실패했거나 나아지지 않음 → 규칙 초안이 아니라 이전 AI 결과를 그대로 둠
+      if(prevW?.meta?.ok&&!result){   // 재작성 실패 시 기존 AI 결과를 보존한다.
         _hhWritten=prevW;_writeState='ok';_writeWarn=prevWarn;
-        _writeNote=result?'다시 써봤지만 개선 권장이 줄지 않아 이전 결과를 그대로 뒀어요':'다시 쓰기가 검사를 통과하지 못해 이전 결과를 그대로 뒀어요';
+        _writeNote='새 작성에 실패해 이전 AI 결과를 유지했어요. 현재 선택·피드백은 아직 반영되지 않았어요';
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=prevW.section;if(sa)sa.value=prevW.style;
-        {const la=document.getElementById('hh-lyrics-ta');if(la&&prevW.lyrics)la.value=mergeLyricsAndDirection(prevW.lyrics,prevW.section)||prevW.lyrics;}
+        {const la=document.getElementById('hh-lyrics-ta');if(la)la.value=prevW.lyrics?(mergeLyricsAndDirection(prevW.lyrics,prevW.section)||prevW.lyrics):'';const lo=document.getElementById('hh-lyrics-only-ta');if(lo)lo.value=prevW.lyrics||'';}
         updateWriteCounters();
         return;
       }
@@ -1338,11 +1343,11 @@ async function hhAiWrite(entryId){
       }
     }catch(e){
       if(token!==_writeToken)return;
-      if(fixNotes&&prevW?.meta?.ok){
-        _hhWritten=prevW;_writeState='ok';_writeWarn=prevWarn;_writeNote='다시 쓰기에 실패해서 이전 결과를 그대로 뒀어요 ('+e.message+')';
+      if(prevW?.meta?.ok){
+        _hhWritten=prevW;_writeState='ok';_writeWarn=prevWarn;_writeNote='새 작성에 실패해 이전 AI 결과를 유지했어요. 현재 선택·피드백은 아직 반영되지 않았어요 ('+e.message+')';
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=prevW.section;if(sa)sa.value=prevW.style;
-        {const la=document.getElementById('hh-lyrics-ta');if(la&&prevW.lyrics)la.value=mergeLyricsAndDirection(prevW.lyrics,prevW.section)||prevW.lyrics;}
+        {const la=document.getElementById('hh-lyrics-ta');if(la)la.value=prevW.lyrics?(mergeLyricsAndDirection(prevW.lyrics,prevW.section)||prevW.lyrics):'';const lo=document.getElementById('hh-lyrics-only-ta');if(lo)lo.value=prevW.lyrics||'';}
         updateWriteCounters();
         return;
       }

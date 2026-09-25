@@ -555,6 +555,11 @@ async function fetchArtistTopTracks(artistId,tok,limit=5){
   }));
 }
 
+// 검색 실패·캐시 복원 시에도 순번이 아닌 실제 곡명으로 차트 표시를 판단한다.
+function isChartTrack(track,chartSong){
+  const title=value=>(value||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+  return !!chartSong?.name&&title(track?.name)===title(chartSong.name);
+}
 // Billboard엔 트랙 ID가 없어서, "지금 차트인 그 곡"을 Spotify에서 아티스트+제목으로 직접 찾는다
 async function resolveTrackByArtistAndTitle(artist,title,tok){
   try{
@@ -635,7 +640,7 @@ async function buildTrendingArtistAccordion(artists,tok,opts={}){
       tracks.forEach((t,ti)=>{
         const card=document.createElement('div');
         card.className='song-card';
-        const chartBadge=(a.chartSong&&ti===0)?' · 📊 차트인':'';
+        const chartBadge=isChartTrack(t,a.chartSong)?' · 📊 차트인':'';
         const popText=t.popularity?` · 인기도 ${t.popularity}`:'';
         card.innerHTML=`<div class="song-name">${t.name}</div><div class="song-meta">${t.year}${popText}${chartBadge}</div>`;
         card.onclick=()=>applySpotifyTrackSong(a.id,a.name,a.genres,t.id,t.name);
