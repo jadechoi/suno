@@ -3068,9 +3068,15 @@ async function popAiWriteStyle(s,token){
   const prompt=`레퍼런스와 아래 선택값에서 스타일과 섹션을 처음부터 직접 작성해. 규칙 초안이나 기존 문장을 고치는 작업이 아니야. 사용자가 고른 악기·보컬·BPM·Key·구조를 지키고, 비어 있는 음악적 결정은 곡의 의도에 맞게 설계해. 곡 기획·상황은 감정과 전개에 반영해. 레퍼런스는 확실히 아는 소리 특징만 참고하고 실제 오디오를 들었다고 주장하지 마. 곡명·아티스트 이름을 최종 출력에 쓰지 마. 가사는 나중에 별도로 작성하므로 지금 쓰지 마. 섹션 헤더는 [Intro], [Verse 1], [Chorus 1], [Bridge], [Outro] 같은 표준 영어 표기를 사용하고 같은 종류가 반복되면 순서대로 번호를 붙여. 선택된 구조와 순서를 유지해.\n\n[선택값]\n${JSON.stringify(selection)}\n\n<style>영어 자연어 한 문단, 1000자 이하</style><section>구간별 필요한 연출, 5000자 이하</section>`;
 
   try{
-    const raw=await callOpenAI(key,{maxTokens:3000,staticText:PROMPT_ROLE_GUIDE+'\n팝·R&B 스타일 작성 규칙: 스타일은 공백 포함 1000자 이하, 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:3000,staticText:PROMPT_ROLE_GUIDE+'\n팝·R&B 스타일 작성 규칙: 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
     if(token!==popWriteToken)return;
-    const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim(),sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
+    const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim();
+    let sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
+    if(sty&&sty.length>WRITE_LIMITS.style){
+      if(status)status.textContent='🤖 AI 스타일을 1000자 이내로 다듬는 중…';
+      sty=await fitAiStyle(sty,JSON.stringify(selection));
+      if(token!==popWriteToken)return;
+    }
     checkPopBudget(sec||'',sty||'');
     popBaseSection=sec;
     document.getElementById('pop-sect-ta').value=sec;

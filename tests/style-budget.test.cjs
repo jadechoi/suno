@@ -1,0 +1,27 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes={};
+const ctx=vm.createContext({console,document:{getElementById:id=>nodes[id]??={value:'',style:{}}},getOpenAIKey:()=> 'fixture'});
+for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+const app=fs.readFileSync('app.js','utf8');
+vm.runInContext(app.slice(app.indexOf('const POP_VOCAL_GUIDE='),app.indexOf('// TOAST')),ctx);
+vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
+(async()=>{
+  let calls=0;
+  ctx.callOpenAI=async()=>{calls++;return '<style>Instrumental trap at 140 BPM. A short piano motif answers punchy bass. No vocals.</style>';};
+  const short='Instrumental only.';
+  assert.equal(await ctx.fitAiStyle(short),short);assert.equal(calls,0);
+  const fitted=await ctx.fitAiStyle('Long description. '.repeat(100));
+  assert.ok(fitted.length<=1000);assert.match(fitted,/140 BPM/);assert.equal(calls,1);
+  const section='[Intro]\nKeep a spare motif.\n[Chorus]\nWiden the same motif.';
+  calls=0;
+  ctx.callOpenAI=async()=>++calls===1?`<section>${section}</section><style>${'Long description. '.repeat(100)}</style>`:'<style>Warm pop at 100 BPM. A piano motif supports intimate vocals.</style>';
+  await ctx.popAiWriteStyle({genre:'pop',bpm:100,key:7,mood:'warm',instruments:['piano'],vocalStyle:'pop',concept:'summer',refSong:'',structSegs:['intro','chorus'],narrSt:{}},0);
+  assert.equal(calls,2);
+  assert.equal(nodes['pop-sect-ta'].value,section);
+  assert.ok(nodes['pop-style-ta'].value.length<=1000);
+  assert.match(nodes['pop-ai-status'].textContent,/작성 완료/);
+  // A permanently oversized response is bounded, never silently truncated.
+  calls=0;ctx.callOpenAI=async()=>{calls++;return '<style>'+ 'x'.repeat(1100)+'</style>';};
+  assert.equal((await ctx.fitAiStyle('x'.repeat(1100))).length,1100);assert.equal(calls,2);
+  console.log('PASS: first-pass budget, style-only compression, pop integration and bounded retries.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

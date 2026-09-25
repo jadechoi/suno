@@ -1213,8 +1213,22 @@ ${PROMPT_ROLE_GUIDE}
 [출력 계약 — 앱의 편집·병합 형식]
 - 무보컬은 <section>…</section><style>…</style>, 보컬이면 <lyrics>…</lyrics>를 맨 앞에 추가. 다른 설명 없이 출력해.
 - section은 선택한 구조와 흐름을 반영해. 앱에서 구간을 구분할 수 있도록 [헤더]를 별도 줄에 쓰고 아래에 필요한 자연어 연출을 적어. 정해진 부제나 괄호·마디 접두어를 맞출 필요는 없어.
-- style은 자연어 한 문단이며 선택 조건을 의미로 반영해. fixedStyleTags는 참고 정보이지 복사할 필수 문구가 아니야. 무보컬 여부와 장르부터 시작해. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
+- style은 자연어 한 문단이며 선택 조건을 의미로 반영해. fixedStyleTags는 참고 정보이지 복사할 필수 문구가 아니야. 무보컬 여부와 장르부터 시작해. 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 설계하고 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션의 세부 설명을 스타일에 반복하지 마. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
+// 토큰 수가 아닌 공백 포함 실제 글자 수를 기준으로 스타일만 압축한다.
+async function fitAiStyle(style,context=''){
+  let text=style.replace(/\s+/g,' ').trim();
+  for(let attempt=0;text.length>WRITE_LIMITS.style&&attempt<2;attempt++){
+    const raw=await callOpenAI(getOpenAIKey(),{
+      maxTokens:1800,think:false,
+      staticText:'이미 작성한 Suno 스타일 프롬프트를 같은 음악적 의도의 영어 자연어 한 문단으로 압축해. 공백·문장부호 포함 700~900자를 목표로 하고 반드시 1000자 이내. 단어 수나 토큰 수가 아니다. 보컬 유무·선택 BPM/Key·장르·중심 패턴·주요 악기 역할과 꼭 필요한 전개를 보존하고 중복 형용사·반복 설명부터 줄여. 새로운 악기·지시를 추가하지 마. 문장을 중간에서 자르지 마. <style>...</style>만 출력해.',
+      dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,context,style:text})
+    });
+    text=(raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]||raw).replace(/\s+/g,' ').trim();
+    if(!text)throw new Error('스타일 압축 결과가 비어 있어요');
+  }
+  return text;
+}
 async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
   const key=getOpenAIKey();
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
@@ -1241,7 +1255,7 @@ ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 �
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure,!spec.vocal),style:sty[1].trim().replace(/\s*\n\s*/g,' '),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],JSON.stringify(spec)),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
