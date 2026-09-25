@@ -35,6 +35,12 @@ function seed(){
   run("seed();writeOnce=async()=>({section:'',style:'',lyrics:''});");
   await ctx.hhAiWrite('invalid');
   assert.equal(run("nodes['hh-style-ta'].value"),'Previous style');
+  run("seed();writeOnce=async()=>({section:'[Intro]\\nAI direction',style:'x'.repeat(1100),lyrics:''});");
+  await ctx.hhAiWrite('over-budget');
+  assert.equal(run("nodes['hh-style-ta'].value.length"),1100);
+  assert.equal(run('_writeState'),'ok');
+  assert.match(run('_writeWarn[0]'),/1000자/);
+  ctx.historyWrites=undefined;
   // A stale streaming callback and completed response must not replace a restored result.
   run(`seed();writeOnce=({onPartial})=>new Promise(resolve=>{globalThis.finish=resolve;globalThis.partial=onPartial;});`);
   const pending=ctx.hhAiWrite('old');

@@ -3077,11 +3077,12 @@ async function popAiWriteStyle(s,token){
       sty=await fitAiStyle(sty,JSON.stringify(selection));
       if(token!==popWriteToken)return;
     }
-    checkPopBudget(sec||'',sty||'');
+    checkPopBudget(sec||'',(sty||'').slice(0,WRITE_LIMITS.style)); // 길이 초과 AI 원문은 경고와 함께 보존
+    const overBudget=sty.length>WRITE_LIMITS.style;
     popBaseSection=sec;
     document.getElementById('pop-sect-ta').value=sec;
     document.getElementById('pop-style-ta').value=sty;
-    if(status){status.textContent='✅ 스타일·섹션 작성 완료 — 이제 가사 생성을 눌러주세요';status.style.color='var(--success)';}
+    if(status){status.textContent=overBudget?`⚠️ AI 스타일 ${sty.length}자 — 압축 후에도 1000자를 넘습니다. AI 원문을 보존했어요. 다시 Generate하거나 줄인 뒤 사용하세요.`:'✅ 스타일·섹션 작성 완료 — 이제 가사 생성을 눌러주세요';status.style.color=overBudget?'var(--danger)':'var(--success)';}
   }catch(e){if(token===popWriteToken&&status){status.textContent=`⚠️ 스타일 AI 작성 실패 — 기본 프롬프트를 표시했어요 (${e.message})`;status.style.color='var(--danger)';}}
   finally{if(token===popWriteToken)popStylePending=false;}
 }

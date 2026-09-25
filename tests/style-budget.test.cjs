@@ -24,6 +24,6 @@ vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
   assert.match(nodes['pop-ai-status'].textContent,/작성 완료/);
   // A permanently oversized response is bounded, never silently truncated.
   calls=0;ctx.callOpenAI=async(key,request)=>{calls++;const input=JSON.parse(request.dynamicText);assert.equal(input.originalStyle,'x'.repeat(1100));assert.equal(input.context,'Keep the guitar answering the bass.');return '<style>'+ 'x'.repeat(1100)+'</style>';};
-  assert.equal((await ctx.fitAiStyle('x'.repeat(1100),'Keep the guitar answering the bass.')).length,1100);assert.equal(calls,2);
+  assert.equal((await ctx.fitAiStyle('x'.repeat(1100),'Keep the guitar answering the bass.')).length,1100);assert.equal(calls,3);
   console.log('PASS: first-pass budget, style-only compression, pop integration and bounded retries.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

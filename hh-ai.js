@@ -1221,11 +1221,11 @@ ${PROMPT_ROLE_GUIDE}
 async function fitAiStyle(style,context=''){
   const originalStyle=style.replace(/\s+/g,' ').trim();
   let text=originalStyle;
-  for(let attempt=0;text.length>WRITE_LIMITS.style&&attempt<2;attempt++){
+  for(let attempt=0;text.length>WRITE_LIMITS.style&&attempt<3;attempt++){
     const raw=await callOpenAI(getOpenAIKey(),{
       maxTokens:1800,think:false,
-      staticText:STYLE_BUDGET_GUIDE+'\n이미 작성한 Suno 스타일 프롬프트를 같은 음악적 의도의 영어 자연어 한 문단으로 압축해. 공백·문장부호 포함 700~900자를 목표로 하고 반드시 1000자 이내. 단어 수나 토큰 수가 아니다. 보컬 유무·선택 BPM/Key·장르·중심 패턴·주요 악기 역할과 꼭 필요한 전개를 보존하고 중복 형용사·반복 설명부터 줄여. 새로운 악기·지시를 추가하지 마. 문장을 중간에서 자르지 마. <style>...</style>만 출력해.',
-      dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,context,originalStyle,style:text})
+      staticText:STYLE_BUDGET_GUIDE+'\n이미 작성한 Suno 스타일 프롬프트를 같은 음악적 의도의 영어 자연어 한 문단으로 압축해. 공백·문장부호 포함 700~900자를 목표로 하고 반드시 1000자 이내. 단어 수나 토큰 수가 아니다. 보컬 유무·선택 BPM/Key·장르·중심 패턴·주요 악기 역할과 꼭 필요한 전개를 보존하고 중복 형용사·반복 설명부터 줄여. 새로운 악기·지시를 추가하지 마. 입력의 targetCharacters에 맞춰 다시 설계해. 직전 길이에서 minimumReduction 이상 줄여야 해. 원문과 조건은 보존할 의미를 확인하는 참고이며 모든 단어를 다시 복사하지 마. 문장을 중간에서 자르지 마. <style>...</style>만 출력해.',
+      dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,targetCharacters:[850,700,550][attempt],minimumReduction:Math.max(0,text.length-[850,700,550][attempt]),context,originalStyle,style:text})
     });
     text=(raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]||raw).replace(/\s+/g,' ').trim();
     if(!text)throw new Error('스타일 압축 결과가 비어 있어요');
@@ -1267,7 +1267,7 @@ function renderWriteBadge(){
   const map={
     off:['📝 규칙 초안',''],
     pending:['✍️ AI 작성 중…','작성이 끝나면 아래 텍스트가 교체돼요 (그 사이 복사하면 규칙 초안이 복사됨)'],
-    ok:_writeWarn?[`✍️ AI 작성 · 개선 권장 ${_writeWarn.length}개`,'핵심 검사(구조·보컬·이름·길이)는 통과했고, 아래 항목은 다듬으면 더 좋아요: '+_writeWarn.slice(0,4).join(' / ')]:['✍️ AI 작성 완료','출력 누락·글자 수·가사 병합을 확인했어요. 음악적 품질은 AI 프로듀서 리뷰에서 확인하세요.'],
+    ok:_writeWarn?[`✍️ AI 작성 · 길이 조정 필요`,'AI 작성문을 보존했지만 출력 제한 확인이 필요해요: '+_writeWarn.slice(0,4).join(' / ')]:['✍️ AI 작성 완료','출력 누락·글자 수·가사 병합을 확인했어요. 음악적 품질은 AI 프로듀서 리뷰에서 확인하세요.'],
     fallback:['📝 규칙 초안 (AI 작성 검증 실패)',_writeErr||''],
   };
   const [t,title]=map[_writeState]||map.off;
@@ -1283,7 +1283,7 @@ function renderWriteBadge(){
   b.style.cursor=has?'pointer':'';b.onclick=has?()=>{d.hidden=!d.hidden;}:null;
   d.hidden=!(has||_writeNote);
   d.innerHTML=has?(_writeState==='ok'
-    ?'<b style="color:var(--text-1)">개선 권장 '+items.length+'개</b> — 핵심 검사(구조·보컬·이름·길이)는 통과했어요. 필수는 아니라서 그대로 써도 되고, 아래 버튼을 누르면 AI가 이 항목들을 반영해 다시 써요(나아지지 않으면 지금 결과를 그대로 둬요).'
+    ?'<b style="color:var(--text-1)">개선 권장 '+items.length+'개</b> — AI 원문을 보존했어요. 스타일을 1000자 이내로 줄인 뒤 사용해주세요.'
     :'<b style="color:var(--text-1)">AI 출력 처리에 실패해 규칙 초안을 보여주고 있어요</b> — 이유:')
     +'<ul style="margin:6px 0 0;padding-left:18px">'+items.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul>'
     +(_writeState==='ok'?'<button onclick="reviseWithWarnings(this)" style="margin-top:8px;padding:6px 14px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer">🔧 이 항목 반영해서 다시 쓰기</button>':'')+note:note;
@@ -1330,6 +1330,10 @@ async function hhAiWrite(entryId){
         if(token!==_writeToken)return;
         const v=validateWritten(spec,out.section,out.style,{lyrics:out.lyrics});
         if(v.ok){result=out;break;}
+        // 압축까지 끝난 AI 원문을 길이 초과만으로 규칙 초안과 교체하지 않는다.
+        if(out.style.length>WRITE_LIMITS.style&&validateWritten(spec,out.section,out.style.slice(0,WRITE_LIMITS.style),{lyrics:out.lyrics}).ok){
+          result=out;warn=['스타일 '+out.style.length+'자 — 1000자 제한을 아직 넘습니다. 아래 버튼으로 다시 압축한 뒤 사용하세요.'];break;
+        }
         errors=v.errors;lastErrors=v.errors;failed=out;
       }
       if(token!==_writeToken)return;
