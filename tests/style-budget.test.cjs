@@ -7,6 +7,8 @@ vm.runInContext(app.slice(app.indexOf('const POP_VOCAL_GUIDE='),app.indexOf('// 
 vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
 (async()=>{
   let calls=0;
+  const guide=vm.runInContext('STYLE_BUDGET_GUIDE',ctx);
+  assert.ok(vm.runInContext('WRITE_STATIC',ctx).includes(guide));
   ctx.callOpenAI=async()=>{calls++;return '<style>Instrumental trap at 140 BPM. A short piano motif answers punchy bass. No vocals.</style>';};
   const short='Instrumental only.';
   assert.equal(await ctx.fitAiStyle(short),short);assert.equal(calls,0);
@@ -14,14 +16,14 @@ vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
   assert.ok(fitted.length<=1000);assert.match(fitted,/140 BPM/);assert.equal(calls,1);
   const section='[Intro]\nKeep a spare motif.\n[Chorus]\nWiden the same motif.';
   calls=0;
-  ctx.callOpenAI=async()=>++calls===1?`<section>${section}</section><style>${'Long description. '.repeat(100)}</style>`:'<style>Warm pop at 100 BPM. A piano motif supports intimate vocals.</style>';
+  ctx.callOpenAI=async(key,request)=>{assert.ok(request.staticText.includes(guide));return ++calls===1?`<section>${section}</section><style>${'Long description. '.repeat(100)}</style>`:'<style>Warm pop at 100 BPM. A piano motif supports intimate vocals.</style>';};
   await ctx.popAiWriteStyle({genre:'pop',bpm:100,key:7,mood:'warm',instruments:['piano'],vocalStyle:'pop',concept:'summer',refSong:'',structSegs:['intro','chorus'],narrSt:{}},0);
   assert.equal(calls,2);
   assert.equal(nodes['pop-sect-ta'].value,section);
   assert.ok(nodes['pop-style-ta'].value.length<=1000);
   assert.match(nodes['pop-ai-status'].textContent,/작성 완료/);
   // A permanently oversized response is bounded, never silently truncated.
-  calls=0;ctx.callOpenAI=async()=>{calls++;return '<style>'+ 'x'.repeat(1100)+'</style>';};
-  assert.equal((await ctx.fitAiStyle('x'.repeat(1100))).length,1100);assert.equal(calls,2);
+  calls=0;ctx.callOpenAI=async(key,request)=>{calls++;const input=JSON.parse(request.dynamicText);assert.equal(input.originalStyle,'x'.repeat(1100));assert.equal(input.context,'Keep the guitar answering the bass.');return '<style>'+ 'x'.repeat(1100)+'</style>';};
+  assert.equal((await ctx.fitAiStyle('x'.repeat(1100),'Keep the guitar answering the bass.')).length,1100);assert.equal(calls,2);
   console.log('PASS: first-pass budget, style-only compression, pop integration and bounded retries.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1159,7 +1159,9 @@ function validateWritten(spec,section,style,opts={}){
   return {ok:!errors.length,errors};
 }
 // PDF PART 2·3 및 사용자가 제공한 자연어 스타일 프롬프트 5개의 원리를 적용한다.
-const WRITE_STATIC=`너는 장르 전문 프로듀서이자 Suno 프롬프트 작가야. [의도]와 [명세]를 읽고, 하나의 음악적 정체성이 들리는 스타일 프롬프트와 그에 일치하는 섹션 디렉팅을 영어로 써.
+const WRITE_STATIC=`${STYLE_BUDGET_GUIDE}
+
+너는 장르 전문 프로듀서이자 Suno 프롬프트 작가야. [의도]와 [명세]를 읽고, 하나의 음악적 정체성이 들리는 스타일 프롬프트와 그에 일치하는 섹션 디렉팅을 영어로 써.
 
 ${PROMPT_ROLE_GUIDE}
 
@@ -1217,12 +1219,13 @@ ${PROMPT_ROLE_GUIDE}
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
 // 토큰 수가 아닌 공백 포함 실제 글자 수를 기준으로 스타일만 압축한다.
 async function fitAiStyle(style,context=''){
-  let text=style.replace(/\s+/g,' ').trim();
+  const originalStyle=style.replace(/\s+/g,' ').trim();
+  let text=originalStyle;
   for(let attempt=0;text.length>WRITE_LIMITS.style&&attempt<2;attempt++){
     const raw=await callOpenAI(getOpenAIKey(),{
       maxTokens:1800,think:false,
-      staticText:'이미 작성한 Suno 스타일 프롬프트를 같은 음악적 의도의 영어 자연어 한 문단으로 압축해. 공백·문장부호 포함 700~900자를 목표로 하고 반드시 1000자 이내. 단어 수나 토큰 수가 아니다. 보컬 유무·선택 BPM/Key·장르·중심 패턴·주요 악기 역할과 꼭 필요한 전개를 보존하고 중복 형용사·반복 설명부터 줄여. 새로운 악기·지시를 추가하지 마. 문장을 중간에서 자르지 마. <style>...</style>만 출력해.',
-      dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,context,style:text})
+      staticText:STYLE_BUDGET_GUIDE+'\n이미 작성한 Suno 스타일 프롬프트를 같은 음악적 의도의 영어 자연어 한 문단으로 압축해. 공백·문장부호 포함 700~900자를 목표로 하고 반드시 1000자 이내. 단어 수나 토큰 수가 아니다. 보컬 유무·선택 BPM/Key·장르·중심 패턴·주요 악기 역할과 꼭 필요한 전개를 보존하고 중복 형용사·반복 설명부터 줄여. 새로운 악기·지시를 추가하지 마. 문장을 중간에서 자르지 마. <style>...</style>만 출력해.',
+      dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,context,originalStyle,style:text})
     });
     text=(raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]||raw).replace(/\s+/g,' ').trim();
     if(!text)throw new Error('스타일 압축 결과가 비어 있어요');
@@ -1231,6 +1234,7 @@ async function fitAiStyle(style,context=''){
 }
 async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
   const key=getOpenAIKey();
+  const styleContext=JSON.stringify({selection:spec,appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
@@ -1255,7 +1259,7 @@ ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 �
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],JSON.stringify(spec)),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],styleContext),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
