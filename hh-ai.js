@@ -1278,6 +1278,20 @@ ${PROMPT_ROLE_GUIDE}
 - section은 선택한 구조와 흐름을 반영해. 앱에서 구간을 구분할 수 있도록 [헤더]를 별도 줄에 쓰고 아래에 필요한 자연어 연출을 ( )로 감싸 적어. 부제나 마디 접두어는 강제하지 않아.
 - style은 자연어 한 문단이며 선택 조건을 의미로 반영해. fixedStyleTags는 참고 정보이지 복사할 필수 문구가 아니야. 무보컬 여부와 장르부터 시작해. 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 설계하고 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션의 세부 설명을 스타일에 반복하지 마. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
+// Type beats share output/lyrics handling, not the original-song motif-design instructions.
+const TYPE_BEAT_WRITE_STATIC=`너는 레퍼런스 반주 기반 타입비트를 설계하는 프로듀서다. 다른 곡을 쓰되 같은 사운드 균형을 유지해.
+${STYLE_BUDGET_GUIDE}
+${REFERENCE_DEVELOPMENT_GUIDE}
+[타입비트 스타일 작성]
+- 새로 기억할 훅·상승 하강 음형·악기 간 대화를 의무적으로 만들지 마. 반주 분석의 중심 역할을 재현 가능한 자연어로 설명해. 새 선율이 필요해도 그 악기의 원래 비중과 연주 밀도 안에서만 설계해.
+- instrumentalProfile.balance는 무엇이 앞에 있고 뒤에 있는지, activity는 얼마나 자주 연주하는지, timbreSpace는 밝기·어택·잔향·거리, vocalSpace는 보컬을 위한 여백이다. 이 정보를 스타일의 악기 역할 문장에 반영해. 지원 악기를 lead/solo/front and center로 승격시키지 마.
+- lead/background 메뉴 이름은 분석된 비중보다 우선하지 않는다. 사용자가 직접 악기 역할을 바꿨으면 그 변경만 반영해. 분석이 불확실하면 임의로 기타를 크게 하거나 모든 악기를 작게 하지 말고, 확인된 역할만 설명해.
+- 무보컬은 보컬 제거다. 보컬 멜로디를 기타로 옮기거나 빈자리를 새로운 모티프로 채우지 마. 그루브·베이스·반주의 균형과 보컬이 들어갈 공간을 유지해.
+- 지정 BPM/Key는 유지하되 장조라는 이유로 밝고 축제처럼 해석하지 마. 수치·장르명보다 주어진 무드·체감·음색의 관계를 명확하게 써.
+- 스타일은 전체 사운드 균형과 꼭 필요한 대비만 담고, 섹션은 그 균형 안에서 필요한 변화만 ( )에 적어. 모든 훅을 점점 크거나 밝게 만들지 마. 실제 가사는 괄호 밖에 둬.
+${WRITE_STATIC.slice(WRITE_STATIC.indexOf('[섹션 디렉팅]'))}`;
+function writingInstructions(spec){return spec.designMode==='reference-type-beat'?TYPE_BEAT_WRITE_STATIC:WRITE_STATIC;}
+
 const STYLE_COMPRESSION_GUIDE=`Rewrite only the supplied style as one coherent English paragraph of at most 1000 characters INCLUDING spaces and punctuation, aiming for targetCharacters. This is compression, not composition.
 Preserve the intended genre/mood, vocal condition, supplied BPM/key, recognizable groove or motif, essential instrument roles, space for vocals when making a type beat, and the main arrangement contrast. Respect applied feedback and exclusions. Do not invent instruments, melodies, brighter moods, builds or new facts about a reference.
 Keep audible actions and relationships, not a tag list. Remove repeated adjectives, instrument-by-instrument elaboration and section-by-section narration first. Section context is for consistency only: do not copy it into the style. Maintain the original energy range and do not turn backing parts into solo leads. Keep explicit user constraints over generic defaults. Do not cut a sentence midway. Return only <style>the complete shortened paragraph</style>.`;
@@ -1318,7 +1332,7 @@ ${aiSelectionCtx({soft:true})}
 ${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
 ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n[직전 실패 결과 — 위 오류를 바로잡되 선택과 작성 스타일은 유지]\n${failed?JSON.stringify(failed):'(없음)'}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
-  const raw=await callOpenAI(key,{maxTokens:16000,staticText:WRITE_STATIC,dynamicText,think:false,onText:onPartial});
+  const raw=await callOpenAI(key,{maxTokens:16000,staticText:writingInstructions(spec),dynamicText,think:false,onText:onPartial});
   const sec=readAiSections(raw),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
@@ -1484,7 +1498,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - 아티스트의 대표 장르로 곡을 단정하지 마. 하이퍼팝·일렉트로클래시·일렉트로 하우스·UK 개러지는 해당 곡의 리듬과 소리로 구분해. 베이스 리프가 훅이면 그 베이스를 melodyLead로 고를 수 있고, 별도 기타·신스 멜로디를 만들 필요는 없어.
 - 선택지에 구체적인 장르가 있으면 일반 pop 대신 해당 장르를 골라. drums는 핵심 킥·스네어 패턴을 먼저, 셰이커·클랩 같은 보조 타악기는 그 다음에 골라. 멜로디 배경은 필수가 아니며 근거 없이 Ambient pad를 추가하지 마. 쿠아트로·나일론 기타·일반 어쿠스틱 기타를 구별하고 확신 없는 악기 재질이나 주법을 단정하지 마.
 - 곡명 분석은 음원 검증이 아니라 모델 지식이다. uncertainFields 배열에 확신 없는 필드 경로를 적고 해당 값은 null 또는 빈 값으로 둬. 예: ["melodyBackground","instrumentalProfile.instruments","cues.bridge"]. 앱은 이 필드를 추천·작성에서 제외한다. 다른 필드의 설명·styleTags·cues에도 같은 추측을 우회해서 넣지 마. 세부 일부만 확실하면 확실한 내용만 남기고 모르는 내용을 채우지 마. 새 편곡 아이디어는 원곡 특징에 포함하지 마. kind=vibe에는 이 제외 규칙을 적용하지 않고 창작 제안을 허용해.
-- 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy를 영어 자연어로 설명해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
+- 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy와 balance(악기별 전면·중간·배경 역할), activity(지속 반복·간헐 응답·구간 한정), timbreSpace(밝기·어택·음 길이·잔향·거리), vocalSpace(보컬 자리의 여백)를 영어 자연어로 설명해. 악기명만 보고 역할·크기를 추측하지 마. 보컬 제거 후에도 반주 악기의 비중을 그대로 유지해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
 - 그다음 화면 표시용 genre는 전체 장르 목록에서 가장 가까운 en을 고르되 적절한 항목이 없으면 null. 원곡을 힙합으로 변환하지 마. 다른 선택 필드도 맞는 항목만 고르고 없으면 null 또는 빈 배열. 메뉴 매핑 때문에 원곡의 반주 분석을 바꾸지 마.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). 메뉴에 없는 악기도 확실히 아는 원곡 특징이면 instrumentalProfile에 설명할 수 있어.
 - cues: intro/hook/verse/bridge/outro에 확실히 아는 반주 특징만 써. 원곡에서 같은 패턴이면 같은 설명을 유지해도 돼. 구간마다 다른 표현이나 고조를 만들어내지 마. 보컬 멜로디를 악기 훅으로 바꾸지 말고 모르는 구간은 빈 문자열로 둬.
@@ -1493,7 +1507,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
 - BPM과 Key는 분석하지 마 — 참고 곡을 고르면 프로그램이 Spotify에서 채우고, 아니면 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
-{"uncertainFields":[],"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+{"uncertainFields":[],"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":"","balance":"","activity":"","timbreSpace":"","vocalSpace":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
 // 분석 프롬프트에 붙는 선택지 목록 (텍스트 분석·GPT 오디오 분석 공용)
 function briefOptionsText(){
   return `[선택지]
@@ -1561,7 +1575,7 @@ function filterReferenceUncertainty(p){
   const out={...p,instrumentalProfile:{...p.instrumentalProfile},cues:{...p.cues}};
   // Model-reported uncertainty is not verification. Drop uncertain claims before menu mapping.
   const fields=['genre','mood','drums','bass808','melodyLead','melodyBackground','texture','density','styleTags'];
-  const profile=['genre','groove','bass','instruments','arrangement','energy'];
+  const profile=['genre','groove','bass','instruments','arrangement','energy','balance','activity','timbreSpace','vocalSpace'];
   const cues=['intro','hook','verse','bridge','outro'];
   const allowed=[...fields,...profile.map(k=>'instrumentalProfile.'+k),...cues.map(k=>'cues.'+k)];
   out.uncertainFields=[...new Set((Array.isArray(p.uncertainFields)?p.uncertainFields:[]).filter(k=>allowed.includes(k)))];

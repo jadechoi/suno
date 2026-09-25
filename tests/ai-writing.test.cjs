@@ -192,6 +192,13 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   const repeated=await ctx.writeOnce({mode:'create',spec});
   assert.equal(validate(repeated.section,repeated.style).ok,true);
   run(`callOpenAI=async(key,request)=>{globalThis.request=request;return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
+  const fixedSpec={...spec,designMode:'reference-type-beat',brief:{instrumentalProfile:{balance:'Guitar supports the rhythm behind bass and drums',activity:'Sparse phrase endings',timbreSpace:'Short dry plucks',vocalSpace:'Open center'}}};
+  await ctx.writeOnce({mode:'create',spec:fixedSpec});
+  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC'));
+  assert.doesNotMatch(ctx.request.staticText,/사용자가 준 예시에서 배울 설계|곡의 특징이 될 아이디어를 하나 정해/);
+  assert.match(ctx.request.dynamicText,/Sparse phrase endings/);
+  await ctx.writeOnce({mode:'edit',spec:fixedSpec,prev:{section,style:instrumentalStyle}});
+  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC'));
   const result=await ctx.writeOnce({mode:'create',spec});
   assert.equal(result.style,instrumentalStyle);
   assert.equal(result.section,section);

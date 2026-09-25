@@ -32,3 +32,9 @@ assert.equal(ctx.filterReferenceUncertainty({...uncertain,kind:'vibe'}).melodyBa
 const proposal=ctx.buildBriefProposal('Reference',uncertain);
 assert.equal(proposal.v.bg,null);
 assert.equal(proposal.uncertainFields.length,3);
+
+const balance=ctx.buildBriefProposal('Reference',{kind:'song',genre:'Reggaeton',instrumentalProfile:{balance:'guitar behind drums',activity:'sparse',timbreSpace:'dry',vocalSpace:'open center'},uncertainFields:['instrumentalProfile.timbreSpace']});
+assert.equal(balance.instrumentalProfile.balance,'guitar behind drums');
+assert.equal(balance.instrumentalProfile.activity,'sparse');
+assert.equal(balance.instrumentalProfile.vocalSpace,'open center');
+assert.equal(balance.instrumentalProfile.timbreSpace,undefined);
