@@ -1606,7 +1606,7 @@ function buildBriefProposal(text,p){
   v.vocalChar=HH_VOCAL_CHAR.includes(p.vocalChar)?p.vocalChar:null;
   v.producer=HH_REF.find(r=>r.kr===p.producer)?.kr||null;
   const styleTags=(Array.isArray(p.styleTags)?p.styleTags:[]).map(t=>clean(t,70)).filter(Boolean).slice(0,2);
-  const instrumentalProfile=Object.fromEntries(['genre','groove','bass','instruments','arrangement','energy'].map(k=>[k,clean(p.instrumentalProfile?.[k],400)]).filter(([,v])=>v));
+  const instrumentalProfile=Object.fromEntries(['genre','groove','bass','instruments','arrangement','energy','balance','activity','timbreSpace','vocalSpace'].map(k=>[k,clean(p.instrumentalProfile?.[k],400)]).filter(([,v])=>v));
   const cues={};
   ['intro','hook','verse','bridge','outro'].forEach(k=>{const c=clean(p.cues?.[k],110);if(c)cues[k]=c;});
   const items=[];
