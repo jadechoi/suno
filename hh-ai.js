@@ -164,6 +164,7 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const refProducers=(st.refs.length&&producerRefActive())?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   return [
+    REFERENCE_DEVELOPMENT_GUIDE,
     st.brief?.instrumentalProfile?`레퍼런스 반주 분석: ${JSON.stringify(st.brief.instrumentalProfile)}`:null,
     st.referenceSelections?`출처: ${JSON.stringify(referenceSelectionOrigins())}. ai-reference는 AI가 추천한 참고값이며 사용자 확정 조건이 아님. 실제 레퍼런스 반주 특징을 우선하고 메뉴와 맞지 않으면 자유롭게 표현.`:null,
     g?`장르: ${g.kr} (${g.sound})`:'장르: 미선택 — 레퍼런스 곡과 나머지 설정에서 가장 가까운 사운드를 판단',
@@ -257,11 +258,12 @@ async function aiProducerReview(){
     const hasVocal=st.vocal&&st.vocal!=='No Vocal';
     const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
     // 지시문/규칙은 호출마다 안 바뀌니 static — 상태에 따라 달라지는 건 전부 dynamic 쪽으로 몰아서 static이 매번 완전히 동일하게(캐싱 적중)
-    const staticText=`너는 ${producerRole()}야. 아래 [현재 생성된 섹션 프롬프트](실제 텍스트)와 트랙 설정을 보고, 이 곡이 더 창의적이고 퀄리티 있게 나오려면 프롬프트를 어떻게 구성하면 좋을지 서로 다른 관점에서 짧게 조언해줘. 설정값만 보고 짐작하지 말고, 반드시 실제 텍스트를 읽고 거기 적힌 구체적인 단어·구절 기준으로 판단해.
+    const staticText=`너는 ${producerRole()}야. 아래 [현재 생성된 섹션 프롬프트](실제 텍스트)와 트랙 설정을 보고, 레퍼런스 또는 선택한 무드·스타일을 더 잘 실현하는 데 실제로 필요한 보완이 있는지 판단해줘. 보완할 근거가 없으면 총평만 반환해. 설정값만 보고 짐작하지 말고, 반드시 실제 텍스트를 읽고 거기 적힌 구체적인 단어·구절 기준으로 판단해.
 
 "총평" 카테고리는 반드시 정확히 1개 포함해: 현재 설계의 핵심 의도가 전달되는지 짧게 판단해. 중요한 문제가 없으면 그대로 생성해볼 것을 권해. 오디오를 듣지 않고 결과가 확실히 좋아진다고 단정하거나 억지로 약점을 찾지 마.
 ${RUBRIC_TEXT()}
 총평 외에 실행할 개선은 중요도 순으로 0~5개만 제안해. 최소 개수는 없어. 한 가지 문제면 한 가지만, 충분히 잘 설계됐다면 총평에 "추가 수정 없이 생성·청취해볼 단계"라고 말하고 액션을 만들지 마. 낮은 점수를 채우기 위해 지적을 만들거나 모든 카테고리를 하나씩 다루지 마.
+킥·베이스·악기 교체를 상투적으로 권하지 마. 예를 들어 킥과 베이스가 같은 자리를 과하게 차지한다는 지시 충돌이나 사용자의 실제 청취 피드백이 있을 때만 그루브 의도를 살리는 최소 보완을 제안해. 음원을 듣지 않고 킥이 약하다거나 저역이 뭉친다고 단정하지 마. 의도에 맞는 발전 방향이 명확하면 제안하되 변화 자체를 목적으로 삼지 마.
 선정 기준은 사용자의 의도 위반, 실제 지시 충돌, 핵심 훅·그루브를 흐리는 과밀함, 곡의 정체성이나 필요한 대비가 없는 경우야. 취향 차이·단어 다듬기·추측성 믹싱 문제는 필수 개선으로 제시하지 마. 각 조언은 현재 텍스트의 근거와 바꿀 대상, 기대하는 효과를 짧게 연결하고 가장 작은 수정 하나로 해결해. 한 조언에 여러 악기·효과·구조 변경을 묶지 마. 추가보다 삭제·단순화·현 상태 유지가 더 나으면 그쪽을 택해.
 적용 후에도 연결된 자연어 디렉팅과 기존 중심 패턴을 유지해. 모든 박자·악기·공간감을 세세하게 통제하려 하지 말고, 수정 대상 밖의 좋은 부분과 여백을 보존해.
 
@@ -331,7 +333,8 @@ function setDirective(occKey,category,text){
   st.narrAI=st.narrAI||{};
   st.narrAI[occKey]=[...new Set(Object.values(st.narrDirs[occKey]))].join(' ');
 }
-const RUBRIC_TEXT=()=>`채점은 아래 8개 항목을 각각 0~10 정수로 매겨 criteria에 넣어 (합계는 내가 계산하니 네가 합산하지 마). 앵커: 5=어떤 장르에도 붙는 범용 템플릿 수준 / 7=탄탄하지만 다듬을 곳이 분명히 있음 / 9=지금 바로 Suno에 넣어 곡을 만들어도 되는 수준. 실제로 결함이 없는 항목엔 8~10을 줘도 돼 — 억지로 깎지 마.
+const RUBRIC_TEXT=()=>`${REFERENCE_DEVELOPMENT_GUIDE}
+채점은 아래 8개 항목을 각각 0~10 정수로 매겨 criteria에 넣어 (합계는 내가 계산하니 네가 합산하지 마). 앵커: 5=어떤 장르에도 붙는 범용 템플릿 수준 / 7=탄탄하지만 다듬을 곳이 분명히 있음 / 9=지금 바로 Suno에 넣어 곡을 만들어도 되는 수준. 실제로 결함이 없는 항목엔 8~10을 줘도 돼 — 억지로 깎지 마.
 악기의 역할·응답·여백이 명확하면 박자 좌표나 레이어를 더 붙이라고 하지 마. 같은 중심 리듬을 유지한 채 훅의 공간이나 저음만 바꾸는 것도 유효한 전개야. 모든 악기의 동시 타격을 무조건 금지하지 마. 충분히 설계됐으면 생성·청취 단계로 안내해. 사용자가 실제 결과의 약점을 알려줬다면 그 약점과 직접 관련된 최소 수정만 우선하고, 프롬프트만 보고 들리지 않은 문제를 단정하지 마.
 ${REVIEW_RUBRIC.map(r=>`- ${r.key}(${r.label}, 가중 ${r.w}): ${r.def}`).join('\n')}
 (레퍼런스 곡이 없으면 reference는 생략)\n자연어 문장·명령형·쉼표 수·같은 악기의 반복 자체로 감점하지 마. 중심 패턴의 유지와 의미 있는 변화, 명확한 연주 관계를 평가해. 형용사 유무를 점수 조건으로 삼지 마. &로 합쳐도 정보량이 줄지는 않아. 실제 오디오 없이 음악 품질을 보장한다고 말하지 마.`;
@@ -1461,6 +1464,8 @@ function referenceSelectionOrigins(){
 function briefCtxLine(){return st.brief?`원하는 곡의 느낌: "${st.brief.text}" — ${st.brief.understood} / 소리 특징: ${(st.brief.styleTags||[]).join(' & ')}`:null;}
 const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는 프로듀서야. 사용자는 Suno AI로 곡을 만들려고 하고, (a) 참고할 곡명("아티스트 - 제목") 또는 (b) 만들고 싶은 느낌·상황("신나고 춤추고 싶어지는 곡")을 한 줄로 적었어. 이걸 프롬프트 빌더의 선택 항목으로 번역해줘.
 
+${REFERENCE_DEVELOPMENT_GUIDE}
+
 규칙:
 - 곡명이면 kind="song": 제목과 아티스트를 보고 네가 확실히 아는 실제 사운드(드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 반영해. 실제 오디오를 들었다고 주장하지 말고, 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤 입력의 다른 단서로만 골라.
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
@@ -1469,7 +1474,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 - 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy를 영어 자연어로 설명해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
 - 그다음 화면 표시용 genre는 전체 장르 목록에서 가장 가까운 en을 고르되 적절한 항목이 없으면 null. 원곡을 힙합으로 변환하지 마. 다른 선택 필드도 맞는 항목만 고르고 없으면 null 또는 빈 배열. 메뉴 매핑 때문에 원곡의 반주 분석을 바꾸지 마.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). 메뉴에 없는 악기도 확실히 아는 원곡 특징이면 instrumentalProfile에 설명할 수 있어.
-- cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
+- cues: intro/hook/verse/bridge/outro에 확실히 아는 반주 특징만 써. 원곡에서 같은 패턴이면 같은 설명을 유지해도 돼. 구간마다 다른 표현이나 고조를 만들어내지 마. 보컬 멜로디를 악기 훅으로 바꾸지 말고 모르는 구간은 빈 문자열로 둬.
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
 - vocalChar: 보컬 녹음 질감 목록 중 하나(속삭임·친밀한 곡은 드라이/클로즈 계열).
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.

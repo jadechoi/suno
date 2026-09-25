@@ -9,6 +9,8 @@ vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
   let calls=0;
   const guide=vm.runInContext('STYLE_BUDGET_GUIDE',ctx);
   const roles=vm.runInContext('PROMPT_ROLE_GUIDE',ctx);
+  const referenceGuide=vm.runInContext('REFERENCE_DEVELOPMENT_GUIDE',ctx);
+  for(const expression of ['PROMPT_ROLE_GUIDE','BRIEF_STATIC','RUBRIC_TEXT()']) assert.ok(vm.runInContext(expression,ctx).includes(referenceGuide));
   assert.ok(vm.runInContext('WRITE_STATIC',ctx).includes(roles));
   assert.ok(vm.runInContext('WRITE_STATIC',ctx).includes(guide));
   ctx.callOpenAI=async(key,request)=>{assert.ok(request.staticText.includes(roles));calls++;return '<style>Instrumental trap at 140 BPM. A short piano motif answers punchy bass. No vocals.</style>';};
