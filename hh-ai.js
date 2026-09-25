@@ -1171,7 +1171,8 @@ function validateWritten(spec,section,style,opts){
   // 보컬 규칙
   if(!spec.vocal){
     const stripped=(section+' '+style).replace(new RegExp(NO_VOCAL_CHOPS.source,'gi'),'').replace(/vocal-?less|without (?:any )?vocals?|non-vocal|no vocals|no vocal samples|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
-    if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b|\bwhisper\w*\b|\bhumm?ing\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir/humming/chant/ad-lib)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
+    const vocalMatch=stripped.match(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b|\bwhisper\w*\b|\bhumm?ing\b/i);
+    if(vocalMatch)errors.push(`무보컬 곡에서 보컬 관련 표현 "${vocalMatch[0]}"이 감지됨 — 보컬을 요구하는 표현인지 확인하고 제외 지시는 명확하게 작성해주세요`);
     // 무보컬은 스타일에서 명확히 제외하되 동등한 표현을 허용하고 각 훅의 반복은 요구하지 않는다.
     if(!NO_VOCAL_CHOPS.test(style))errors.push('무보컬 스타일에 "no vocal chops"처럼 보컬찹 제외를 명시해주세요');
   }else{
