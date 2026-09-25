@@ -908,13 +908,28 @@ function parseSections(text){
   return secs;
 }
 // 부제만 달라진 헤더는 복원하되 구간 종류·번호·순서가 바뀐 결과는 검증에서 거절한다.
-function restoreSectionHeaders(text,structure){
-  const identity=h=>h.match(/^\[(Instrumental )?(Intro|Hook|Verse|Bridge|Outro)(?:\s+(\d+))?(?=:|\])/i)?.slice(1).map(x=>(x||'').toLowerCase()).join('|');
+function restoreSectionHeaders(text,structure,instrumental=false){
+  const identities=headers=>{
+    const counts={};
+    return headers.map(h=>{
+      const m=h.match(/^\[(Instrumental\s+)?(Intro|Hook|Chorus|Verse|Bridge|Outro)(?:\s+(\d+))?(?=\s*:|\])/i);
+      if(!m)return null;
+      const type=m[2].toLowerCase().replace('chorus','hook');
+      const n=counts[type]=(counts[type]||0)+1;
+      return [instrumental?'':(m[1]||'').trim().toLowerCase(),type,m[3]||n].join('|');
+    });
+  };
   const secs=parseSections(text);
-  if(secs.length!==structure.length||secs.some((s,i)=>!identity(s.header)||identity(s.header)!==identity(structure[i].header)))return text;
+  const got=identities(secs.map(s=>s.header)),want=identities(structure.map(s=>s.header));
+  if(secs.length!==structure.length||got.some((s,i)=>!s||s!==want[i]))return text;
   let i=0;
   return text.split('\n').map(line=>/^\[.*\]$/.test(line.trim())?structure[i++].header:line).join('\n');
 }
+function hasSelectedInstrument(text,name){
+  const positive=text.toLowerCase().split(/[.!?;,\n]|\b(?:with|but)\b/).filter(s=>! /\b(no|without|avoid|remove|omit|exclude)\b/.test(s));
+  return positive.some(s=>s.includes(name.toLowerCase())||(name==='Sample chop'&&/\b(?:chopped (?:instrumental )?samples?|(?:instrumental )?sample[ -]chops?|sample[ -]chopping)\b/.test(s)));
+}
+const NO_VOCAL_CHOPS=/\b(?:zero|no) vocal[ -]chops?\b|\bwithout (?:any )?vocal[ -]chops?\b|\bvocal[ -]chops? (?:are )?(?:absent|excluded)\b/i;
 function hasSelectedDrum(text,name){
   const normalized=text.toLowerCase().replace(/[‐‑–—]/g,'-');
   const positive=normalized.split(/[.!?;,\n]|\b(?:with|but)\b/).filter(s=>! /\b(no|without|avoid|remove|omit|exclude)\b/.test(s)).join(' ');
@@ -1122,8 +1137,8 @@ function validateWritten(spec,section,style,opts){
   (spec.removedPhrases||[]).forEach(p=>{if((section+' '+style).toLowerCase().includes(p.toLowerCase()))errors.push(`삭제하기로 확정한 문구 "${p}"가 다시 들어감`);});
   const low=section.toLowerCase();
   const hooks=secs.filter(s=>s.type==='hook');
-  if(spec.lead&&!low.includes(spec.lead.toLowerCase()))errors.push(`리드 악기 "${spec.lead}"가 섹션 어디에도 없음`);
-  if(spec.background&&!low.includes(spec.background.toLowerCase()))errors.push(`배경 악기 "${spec.background}"가 섹션 어디에도 없음`);
+  if(spec.lead&&!hasSelectedInstrument(section+'\n'+style,spec.lead))errors.push(`리드 악기 "${spec.lead}"가 스타일·섹션에 없음`);
+  if(spec.background&&!hasSelectedInstrument(section+'\n'+style,spec.background))errors.push(`배경 악기 "${spec.background}"가 스타일·섹션에 없음`);
   spec.drums.forEach(d=>{if(!hasSelectedDrum(section+'\n'+style,d))errors.push(`고른 리듬 요소 "${d}"의 소리 특징이 스타일·섹션에 없음`);});
   // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
   {
@@ -1146,11 +1161,10 @@ function validateWritten(spec,section,style,opts){
   }
   // 보컬 규칙
   if(!spec.vocal){
-    const stripped=(section+' '+style).replace(/vocal-?less|without (?:any )?vocals?|non-vocal|no vocals|no vocal samples|zero vocal chops|vocal chops? (?:are )?(?:absent|excluded)|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
+    const stripped=(section+' '+style).replace(new RegExp(NO_VOCAL_CHOPS.source,'gi'),'').replace(/vocal-?less|without (?:any )?vocals?|non-vocal|no vocals|no vocal samples|completely instrumental|purely instrumental|\[instrumental\]|instrumental/gi,'');
     if(/\bvocals?\b|\bsing(?:ing|er)?\b|\blyrics?\b|\bchoir\b|\bvoices?\b|\bchant(?:s|ing|ed)\b|\bad-?libs?\b|\boohs?\b|\bchoral\b|\bwhisper\w*\b|\bhumm?ing\b/i.test(stripped))errors.push('무보컬 곡인데 보컬을 떠올리게 하는 단어(vocal/voice/sing/lyrics/choir/humming/chant/ad-lib)가 있음 — "no vocals", "ZERO vocal chops"만 허용');
-    // 보컬 없음을 고르면 "보컬찹 없음"이 무엇보다 우선 — 스타일과 첫·마지막 훅에 반드시 명시
-    if(!/zero vocal chops/i.test(style))errors.push('무보컬 곡의 스타일에 "ZERO vocal chops"가 반드시 있어야 함');
-    [hooks[0],hooks[hooks.length-1]].filter(Boolean).forEach(s=>{if(!/zero vocal chops/i.test(s.body))errors.push(`${s.header}에 "ZERO vocal chops"가 반드시 있어야 함`);});
+    // 무보컬은 스타일에서 명확히 제외하되 동등한 표현을 허용하고 각 훅의 반복은 요구하지 않는다.
+    if(!NO_VOCAL_CHOPS.test(style))errors.push('무보컬 스타일에 "no vocal chops"처럼 보컬찹 제외를 명시해주세요');
   }else{
     // 보컬이 있는 곡: 무보컬 신호가 하나라도 있으면 Suno가 보컬을 끄거나 결과가 엉킴 (예시 프롬프트가 전부 무보컬이라 AI가 [Instrumental]을 따라 쓰는 경우가 있었음)
     const noVoc=(style+' '+section).match(/\[instrumental\]|\bno vocals?\b|zero vocal chops|no vocal samples|(?:purely|completely) instrumental|\bvocal chops?\b/i);
@@ -1261,14 +1275,14 @@ ${PROMPT_ROLE_GUIDE}
 - 믹스·공간·인간미·전환효과를 모든 구간에 빠짐없이 적지 마. 그 구간의 음악적 역할을 바꾸는 디테일만 선택하고, 이미 충분하면 더 채우지 마. 구간별 maxChars는 간결성 권장값이고 전체 길이 상한은 limits를 따라.
 
 [선택값과 레퍼런스]
-- 명세의 lead/background는 이름 그대로 곡 안에 등장시켜. drums는 스타일 또는 필요한 섹션에 실제 소리로 반영해. Sub-bass punch는 punchy sub-bass, Crisp hi-hats는 crisp hi-hats처럼 자연스럽게 표현해도 돼. bass는 장르에 맞는 저음 참고이며 808을 모든 장르에 강제로 추가하지 마. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
+- 명세의 lead/background는 스타일 또는 섹션에서 실제 소리로 반영해. Sample chop은 chopped instrumental samples처럼 동등한 연주 표현도 가능해. drums는 스타일 또는 필요한 섹션에 실제 소리로 반영해. Sub-bass punch는 punchy sub-bass, Crisp hi-hats는 crisp hi-hats처럼 자연스럽게 표현해도 돼. bass는 장르에 맞는 저음 참고이며 808을 모든 장르에 강제로 추가하지 마. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
 - bpm·key가 있으면 그대로 쓰고, null이면 특정 BPM·Key를 만들지 마. producerSound가 있으면 소리 특징을 스타일에 반영해. 실존 아티스트·프로듀서·곡 이름이나 OO-inspired는 출력하지 마.
 - referenceSong이 있으면 곡 제목과 아티스트를 보고 네가 확실히 아는 사운드·연주·편곡 특성만 분석해서 반영해. 실제 오디오를 들었다고 주장하거나 모르는 세부를 지어내지 마. 제목과 이름은 최종 출력에 쓰지 말고 재현 가능한 소리 언어로 바꿔. BPM과 Key는 referenceSong에서 추측하지 말고 명세 값을 그대로 사용해.
 - brief가 있으면 소리 특징·styleTags·cues를 반영해. 제목만 아는 곡을 실제로 들었다고 주장하지 마. 스타일에 명시한 악기는 섹션에서 실제 역할을 갖게 해.
 - 형용사 단어가 아니라 대상과 적용 구간을 보고 모순을 판단해. 같은 리듬을 지키면서 음색을 바꾸는 것은 모순이 아니야.
 
 [무보컬과 보컬 — 사용자 선택 최우선]
-- vocal이 null이면 보컬·보컬 샘플·보컬찹·위스퍼·허밍·합창·애드립을 넣지 마. 예시보다 이 선택이 우선이야. 스타일에 [Instrumental], no vocals, ZERO vocal chops, no vocal samples를 넣고 첫·마지막 훅에도 ZERO vocal chops를 넣어 기존 무보컬 조건을 지켜. 샘플은 instrumental sample chops로 분명히 해.
+- vocal이 null이면 보컬·보컬 샘플·보컬찹·위스퍼·허밍·합창·애드립을 넣지 마. 예시보다 이 선택이 우선이야. 스타일에 [Instrumental], no vocals, no vocal samples와 no vocal chops 또는 ZERO vocal chops를 명시해. 섹션마다 같은 금지 문구를 반복할 필요는 없어. 샘플은 instrumental sample chops로 분명히 해.
 - vocal이 있으면 [Instrumental]·no vocals·ZERO vocal chops·no vocal samples와 전체 purely/completely instrumental 선언은 넣지 마. 메뉴 이름 대신 실제 전달 방식·음역·처리를 써. Instrumental 헤더가 있는 구간에는 보컬을 넣지 마.
 - 보컬 벌스·후렴·아웃트로는 어떻게 부르는지 설명하되 매번 다른 창법이나 마지막 벨팅은 필수가 아니야. Light ad-libs는 리드 없이 드문 조각만, Full rap feature는 랩 중심, Heavy hooks는 후렴 중심, Sung lead vocal은 노래 중심이야. 요청하지 않은 듀엣을 예시 때문에 만들지 마.
 
@@ -1313,7 +1327,7 @@ ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 �
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure),style:sty[1].trim().replace(/\s*\n\s*/g,' '),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure,!spec.vocal),style:sty[1].trim().replace(/\s*\n\s*/g,' '),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');

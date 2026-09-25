@@ -61,7 +61,17 @@ assert.equal(validate(sectionAtLimit+' ',instrumentalStyle,fullBudget).ok,false)
 assert.equal(validate(section,instrumentalStyle+' Use short dry female whisper chops.').ok,false);
 assert.equal(validate(section,instrumentalStyle+' Add humming.').ok,false);
 assert.equal(validate(section,instrumentalStyle+' Add sung vocals.').ok,false);
-assert.equal(validate(section.replaceAll('Muted guitar','Other instrument')).ok,false);
+assert.equal(validate(section.replaceAll('Muted guitar','Other instrument'),instrumentalStyle.replaceAll('Muted guitar','Other instrument')).ok,false);
+assert.equal(validate(section.replaceAll('ZERO vocal chops.',''),instrumentalStyle.replaceAll('ZERO vocal chops','no vocal chops')).ok,true);
+assert.equal(validate(section,instrumentalStyle.replaceAll('ZERO vocal chops','')).ok,false);
+assert.equal(ctx.hasSelectedInstrument('Chopped instrumental samples answer the synth.','Sample chop'),true);
+assert.equal(ctx.hasSelectedInstrument('Avoid chopped instrumental samples.','Sample chop'),false);
+assert.equal(ctx.hasSelectedInstrument('Soft strings answer the synth.','Sample chop'),false);
+const shortHeaders=section.replace('[Instrumental Hook 1]','[Chorus]').replace('[Instrumental Hook 2]','[Hook]');
+assert.equal(ctx.restoreSectionHeaders(shortHeaders,spec.structure,true),section);
+const wrongNumber=section.replace('[Instrumental Hook 2]','[Hook 3]');
+assert.equal(ctx.restoreSectionHeaders(wrongNumber,spec.structure,true),wrongNumber);
+assert.equal(ctx.restoreSectionHeaders(shortHeaders,spec.structure,false),shortHeaders);
 assert.equal(validate(section.replace('[Intro]','[Outro]')).ok,false);
 const renamed=section.replace('[Instrumental Hook 1]','[Instrumental Hook 1: New subtitle]');
 assert.equal(ctx.restoreSectionHeaders(renamed,spec.structure),section);
