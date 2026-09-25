@@ -1278,6 +1278,9 @@ ${PROMPT_ROLE_GUIDE}
 - section은 선택한 구조와 흐름을 반영해. 앱에서 구간을 구분할 수 있도록 [헤더]를 별도 줄에 쓰고 아래에 필요한 자연어 연출을 ( )로 감싸 적어. 부제나 마디 접두어는 강제하지 않아.
 - style은 자연어 한 문단이며 선택 조건을 의미로 반영해. fixedStyleTags는 참고 정보이지 복사할 필수 문구가 아니야. 무보컬 여부와 장르부터 시작해. 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 설계하고 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션의 세부 설명을 스타일에 반복하지 마. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
+const STYLE_COMPRESSION_GUIDE=`Rewrite only the supplied style as one coherent English paragraph of at most 1000 characters INCLUDING spaces and punctuation, aiming for targetCharacters. This is compression, not composition.
+Preserve the intended genre/mood, vocal condition, supplied BPM/key, recognizable groove or motif, essential instrument roles, space for vocals when making a type beat, and the main arrangement contrast. Respect applied feedback and exclusions. Do not invent instruments, melodies, brighter moods, builds or new facts about a reference.
+Keep audible actions and relationships, not a tag list. Remove repeated adjectives, instrument-by-instrument elaboration and section-by-section narration first. Section context is for consistency only: do not copy it into the style. Maintain the original energy range and do not turn backing parts into solo leads. Keep explicit user constraints over generic defaults. Do not cut a sentence midway. Return only <style>the complete shortened paragraph</style>.`;
 // 토큰 수가 아닌 공백 포함 실제 글자 수를 기준으로 스타일만 압축한다.
 async function fitAiStyle(style,context=''){
   const originalStyle=style.replace(/\s+/g,' ').trim();
@@ -1285,7 +1288,7 @@ async function fitAiStyle(style,context=''){
   for(let attempt=0;text.length>WRITE_LIMITS.style&&attempt<3;attempt++){
     const raw=await callOpenAI(getOpenAIKey(),{
       maxTokens:1800,think:false,
-      staticText:STYLE_BUDGET_GUIDE+'\n'+PROMPT_ROLE_GUIDE+'\n이미 작성한 Suno 스타일 프롬프트를 같은 음악적 의도의 영어 자연어 한 문단으로 압축해. 공백·문장부호 포함 700~900자를 목표로 하고 반드시 1000자 이내. 단어 수나 토큰 수가 아니다. 보컬 유무·선택 BPM/Key·장르·중심 패턴·주요 악기 역할과 꼭 필요한 전개를 보존하고 중복 형용사·반복 설명부터 줄여. 새로운 악기·지시를 추가하지 마. 입력의 targetCharacters에 맞춰 다시 설계해. 직전 길이에서 minimumReduction 이상 줄여야 해. 원문과 조건은 보존할 의미를 확인하는 참고이며 모든 단어를 다시 복사하지 마. 문장을 중간에서 자르지 마. <style>...</style>만 출력해.',
+      staticText:STYLE_COMPRESSION_GUIDE,
       dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,targetCharacters:[850,700,550][attempt],minimumReduction:Math.max(0,text.length-[850,700,550][attempt]),context,originalStyle,style:text})
     });
     text=(raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]||raw).replace(/\s+/g,' ').trim();
@@ -1295,7 +1298,7 @@ async function fitAiStyle(style,context=''){
 }
 async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
   const key=getOpenAIKey();
-  const styleContext=JSON.stringify({selection:spec,appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
+  const styleContext=JSON.stringify({selection:Object.fromEntries(['designMode','genre','mood','vocal','bpm','key','lead','background','drums','bass','groove','texture','density','selectionOrigins'].map(k=>[k,spec[k]])),appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
