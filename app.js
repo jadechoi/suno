@@ -1406,6 +1406,7 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
     <button class="gen-btn" onclick="vocalGenerate('${tabKey}')">✨ Generate Prompts</button>
     ${tabKey==='pop'?`<div id="pop-ai-status" hidden style="font-size:11px;padding:7px 9px;margin-top:8px;border-radius:var(--r-sm);background:var(--surface-3)"></div>`:''}
     <div class="output-boxes" id="${tabKey}-output" style="display:none">
+      ${finalEditorControls(tabKey)}
       ${tabKey==='pop'?`<div class="output-box">
         <div class="output-box-header"><span class="output-box-label">② 가사</span><div style="display:flex;gap:6px"><button class="copy-btn" onclick="popGenerateLyrics()" style="background:var(--accent)">🎤 가사 생성</button><button class="copy-btn" onclick="copyOutput('${tabKey}-lyrics-ta',this)">Copy</button></div></div>
         <textarea class="output-ta" id="${tabKey}-lyrics-ta" rows="12" placeholder="첫 Generate 후 이 버튼을 눌러 가사를 생성하세요. 직접 입력한 가사는 그대로 사용됩니다."></textarea>
@@ -2512,6 +2513,7 @@ function hhGenerate(source,opts){
   container.appendChild(makeOutBlock('③ 스타일 프롬프트',
     `<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span id="hh-style-count" style="font-size:11px;font-family:'Space Mono',monospace;color:${charColor}">${charCount}/1000자</span></div><textarea class="output-ta" id="hh-style-ta" rows="4" readonly style="display:block;width:100%">${escHtml(styleText)}</textarea>${extraChipsHtml}`,
     'hh-style-ta','#14B8A6'));
+  container.insertAdjacentHTML('beforeend',finalEditorControls('hh'));
   {const ex=excludeStyles();
     if(ex)container.appendChild(makeOutBlock('③-2 제외할 요소 (Suno 고급 옵션 → Exclude styles 칸에 붙여넣기)',
       `<textarea class="output-ta" id="hh-exclude-ta" rows="2" readonly style="display:block;width:100%">${escHtml(ex)}</textarea><div style="font-size:11px;color:var(--text-3);margin-top:6px;line-height:1.6">스타일 칸의 "no vocals"만으로는 보컬이 섞일 때가 있어서, Suno의 공식 제외 칸에도 같이 넣으면 더 확실해요.</div>`,'hh-exclude-ta','#EF4444'));}
