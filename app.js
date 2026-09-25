@@ -3010,7 +3010,9 @@ function popStylePrompt(s,genre,mood,bpm){
   const vocal=POP_VOCAL_GUIDE[s.vocalStyle]||'clear expressive lead vocals with controlled emotion';
   const choices=Object.values(s.narrSt).filter(Boolean).map(v=>POP_NARR_EN[v]||v).slice(0,4);
   const concept=s.concept.trim();
-  return `${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'} with a ${mood?.tag||'focused emotional'} mood. ${vocal}. Ground the arrangement in ${core}. Build the identity around ${instr.length?instr.join(', '):'one clear signature melody'}. ${concept?'Shape the lyric and emotional arc around the user’s situation.':''} Keep the verses open and story-focused, let the pre-chorus raise melodic tension, then open into a wide, short and instantly memorable chorus with supporting harmonies and a fuller rhythm section. ${choices.join('; ')}. Preserve the central motif while changing register, backing layers and instrumental density between sections. Use polished modern production, clear vocal presence, controlled low end, clean transients and purposeful stereo width; keep every layer serving the lyric and hook. ${antiAI?'Natural dynamics, human phrasing and subtle imperfections, polished but not sterile.':''}`.replace(/\s+/g,' ').trim();
+  const main=`${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'}, ${mood?.tag||'emotionally focused'}. ${vocal}. Build a signature motif around ${instr.length?instr.join(', '):core}. Keep verses spacious, raise tension before a memorable chorus, then transform the motif in the final chorus. Use clear transients and controlled low end.`;
+  const extras=[concept?'Let the arrangement follow the emotional situation.':'',...choices,antiAI?'Keep natural dynamics and human phrasing.':''];
+  return extras.filter(Boolean).reduce((text,x)=>text.length+x.length+1<=WRITE_LIMITS.style?text+' '+x:text,main);
 }
 function popSectionPrompt(s,bpm){
   const counts={};s.structSegs.forEach(x=>counts[x]=(counts[x]||0)+1);
@@ -3048,19 +3050,29 @@ function popLyricsPrompt(s){
   });
   return out.join('\n\n');
 }
-async function popAiWriteStyle(s,base){
+let popWriteToken=0,popLyricsToken=0,popStylePending=false,popBaseSection='';
+function checkPopBudget(section,style){
+  if(!section.trim()||!style.trim())throw new Error('스타일 또는 섹션이 비어 있어요');
+  if(style.length>WRITE_LIMITS.style)throw new Error(`스타일 ${style.length}자 — 1,000자 이하로 줄여주세요`);
+  if(section.length>WRITE_LIMITS.section)throw new Error(`섹션·가사 합계 ${section.length}자 — 5,000자 이하로 줄여주세요`);
+}
+async function popAiWriteStyle(s,base,token){
   const key=getOpenAIKey();if(!key)return;
   const status=document.getElementById('pop-ai-status');
   if(status){status.hidden=false;status.textContent='🤖 AI가 팝·R&B 스타일 프롬프트를 다듬는 중…';}
   const reference=s.refSong?.trim()||'(없음)';
   const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨.\n\n[레퍼런스 곡]\n${reference}\n레퍼런스가 있으면 곡 제목을 보고 네가 확실히 아는 사운드·편곡 특성만 참고해. 실제 오디오를 들었다고 주장하거나 불확실한 세부를 지어내지 마. 최종 프롬프트에는 실존 곡명·아티스트명과 inspired by 표현을 쓰지 말고, 재현할 수 있는 소리·연주·전개 언어로 바꿔. BPM과 Key는 아래 기본 프롬프트에 적힌 값을 그대로 사용해.\n\n다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
   try{
-    const raw=await callOpenAI(key,{maxTokens:1800,staticText:'팝·R&B 스타일 작성 규칙: 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:3000,staticText:'팝·R&B 스타일 작성 규칙: 스타일은 공백 포함 1000자 이하, 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    if(token!==popWriteToken)return;
     const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim(),sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
-    if(sec)document.getElementById('pop-sect-ta').value=sec;
-    if(sty)document.getElementById('pop-style-ta').value=sty;
+    checkPopBudget(sec||'',sty||'');
+    popBaseSection=sec;
+    document.getElementById('pop-sect-ta').value=sec;
+    document.getElementById('pop-style-ta').value=sty;
     if(status){status.textContent='✅ 스타일·섹션 작성 완료 — 이제 가사 생성을 눌러주세요';status.style.color='var(--success)';}
-  }catch(e){if(status){status.textContent=`⚠️ 스타일 AI 작성 실패 — 기본 프롬프트를 표시했어요 (${e.message})`;status.style.color='var(--danger)';}}
+  }catch(e){if(token===popWriteToken&&status){status.textContent=`⚠️ 스타일 AI 작성 실패 — 기본 프롬프트를 표시했어요 (${e.message})`;status.style.color='var(--danger)';}}
+  finally{if(token===popWriteToken)popStylePending=false;}
 }
 function popSectionKey(header){return (header||'').replace(/^\[/,'').replace(/\]$/,'').replace(/\s+\d+$/,'').toLowerCase();}
 function mergePopLyricsAndSection(section,lyrics){
@@ -3070,27 +3082,30 @@ function mergePopLyricsAndSection(section,lyrics){
     if(/^\[[^\]]+\]$/.test(t)){current={header:t,lines:[]};lyricBlocks.push(current);}
     else if(current&&t)current.lines.push(t);
   });
-  if(!lyricBlocks.length)return section;
-  const used={};let active=null;const out=[];
-  (section||'').split(/\r?\n/).forEach(line=>{
-    const t=line.trim();
-    if(/^\[[^\]]+\]$/.test(t)){
-      active={header:t,key:popSectionKey(t)};out.push(line);
-      const n=(used[active.key]||0);used[active.key]=n+1;
-      const match=lyricBlocks.filter(b=>popSectionKey(b.header)===active.key)[n]||lyricBlocks.find(b=>popSectionKey(b.header)===active.key);
-      if(match?.lines.length)out.push(...match.lines);
-      return;
-    }
-    out.push(line);
-  });
-  return out.join('\n');
+  if(!lyricBlocks.length)throw new Error('가사에 [Verse], [Chorus] 같은 섹션 헤더를 넣어주세요');
+  const used={},matched=new Set();
+  const merged=section.split(/(?=^\[[^\]]+\]$)/m).map(block=>{
+    const lines=block.trim().split(/\r?\n/),header=lines[0];
+    if(!/^\[[^\]]+\]$/.test(header))return block.trim();
+    const key=popSectionKey(header),n=used[key]||0;used[key]=n+1;
+    const match=lyricBlocks.filter(b=>popSectionKey(b.header)===key)[n];
+    if(match)matched.add(match);
+    return [...lines,...(match?.lines||[])].join('\n');
+  }).filter(Boolean).join('\n\n');
+  if(lyricBlocks.some(b=>b.lines.length&&!matched.has(b)))throw new Error('가사 섹션이 현재 곡 구조와 달라요 — 헤더와 반복 횟수를 맞춰주세요');
+  return merged;
 }
 async function popGenerateLyrics(){
-  const s=VTS.pop,style=document.getElementById('pop-style-ta')?.value||'',baseSection=document.getElementById('pop-sect-ta')?.value||'';
+  if(popStylePending){showToast('스타일 작성이 끝난 뒤 가사를 생성해주세요');return;}
+  if(!popBaseSection){showToast('먼저 Generate로 스타일을 만들어주세요');return;}
+  const token=++popLyricsToken,writeToken=popWriteToken;
+  const s=VTS.pop,style=document.getElementById('pop-style-ta')?.value||'',baseSection=popBaseSection;
   const status=document.getElementById('pop-ai-status');
   if(s.userLyrics.trim()){
+    let merged;
+    try{merged=mergePopLyricsAndSection(baseSection,s.userLyrics.trim());checkPopBudget(merged,style);}catch(e){showToast(e.message);return;}
     document.getElementById('pop-lyrics-ta').value=s.userLyrics.trim();
-    document.getElementById('pop-sect-ta').value=mergePopLyricsAndSection(baseSection,s.userLyrics.trim());
+    document.getElementById('pop-sect-ta').value=merged;
     if(status){status.hidden=false;status.textContent='✅ 직접 입력한 가사를 섹션 프롬프트에 합쳤어요';status.style.color='var(--success)';}
     return;
   }
@@ -3103,20 +3118,26 @@ async function popGenerateLyrics(){
   const lyricsGuide=popLyricsPrompt(s);
   const prompt=`너는 팝·R&B 전문 작사가야. 아래 스타일과 섹션 흐름을 보고 Suno의 Lyrics 칸에 넣을 오리지널 영어 가사를 써. 이 가사는 읽는 글이 아니라 실제로 부를 보컬 소스야. 섹션 헤더와 순서를 그대로 지키고, <lyrics> 블록 하나만 출력해. 설명문이나 긴 괄호 지시는 쓰지 마.\n\n작사 원칙:\n- 곡 기획·상황을 중심으로 쓰되, 벌스에서 감정을 직접 설명하지 말고 시간·장소·사물·행동으로 장면을 보여줘.\n- 한 줄을 소리 내어 불렀을 때 자연스럽게 짧게 쓰고, 숨 쉴 자리를 남겨. 음절 수와 반복되는 모음이 멜로디를 막지 않게 해.\n- 코러스는 짧고 발음하기 쉬운 핵심 훅 한 줄을 만들고, 정확히 반복해 기억되게 해. 후렴을 매번 완전히 새로 쓰지 마.\n- 프리코러스는 긴장을 올리고, 브리지는 새로운 관점이나 결과를 보여준 뒤 마지막 코러스로 돌아갈 공간을 남겨.\n- AI 티가 나는 추상적인 감정 선언과 설명적인 긴 문장을 줄이고, 구체적인 이미지와 행동을 우선해. 생성 후 실제로 불릴 수 있는지 소리 내어 읽는다고 생각해.\n- 악기 이벤트는 정말 필요한 순간에만 가사 줄 끝에 하나씩 붙여. 가사 중간에 넣거나 별도 태그 줄을 만들지 말고, 선택한 악기와 어울리는 태그만 사용해.\n\n[스타일]\n${style}\n\n[섹션 흐름]\n${baseSection}\n\n[곡 기획·상황]\n${s.concept.trim()||'선택된 무드와 장르에 맞는 구체적인 상황'}\n\n[작성 참고]\n${lyricsGuide}\n\n<lyrics>...</lyrics>`;
   try{
-    const raw=await callOpenAI(key,{maxTokens:1800,staticText:'PDF의 Suno 가사 원칙을 적용해. 가사는 문장이 아니라 보컬 소스다. 벌스는 장면과 행동, 코러스는 짧고 반복 가능한 훅, 프리코러스는 긴장 상승, 브리지는 새로운 관점으로 쓴다. 음절·호흡·모음 흐름을 고려하고 원곡 가사를 인용하지 않는다. 섹션 헤더 순서를 보존하고 필요한 순간에만 선택 악기의 줄 끝 이벤트 태그를 쓴다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:1800,staticText:`가사는 연출 설명과 합쳐 공백 포함 5000자 이하. 이번 가사 예산은 최대 ${Math.max(0,5000-baseSection.length-100)}자. PDF의 Suno 가사 원칙을 적용해. 가사는 문장이 아니라 보컬 소스다. 벌스는 장면과 행동, 코러스는 짧고 반복 가능한 훅, 프리코러스는 긴장 상승, 브리지는 새로운 관점으로 쓴다. 음절·호흡·모음 흐름을 고려하고 원곡 가사를 인용하지 않는다. 섹션 헤더 순서를 보존하고 필요한 순간에만 선택 악기의 줄 끝 이벤트 태그를 쓴다.`,dynamicText:prompt,think:false});
+    if(token!==popLyricsToken||writeToken!==popWriteToken)return;
     const lyrics=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i)?.[1]?.trim()||raw.trim();
+    const merged=mergePopLyricsAndSection(baseSection,lyrics);
+    checkPopBudget(merged,style);
     document.getElementById('pop-lyrics-ta').value=lyrics;
-    document.getElementById('pop-sect-ta').value=mergePopLyricsAndSection(baseSection,lyrics);
+    document.getElementById('pop-sect-ta').value=merged;
     if(status){status.textContent='✅ 가사 생성 완료 — 섹션 프롬프트에 가사를 합쳤어요';status.style.color='var(--success)';}
-  }catch(e){if(status){status.hidden=false;status.textContent=`⚠️ 가사 생성 실패 (${e.message})`;status.style.color='var(--danger)';}}
+  }catch(e){if(token===popLyricsToken&&writeToken===popWriteToken&&status){status.hidden=false;status.textContent=`⚠️ 가사 생성 실패 — 이전 결과를 유지했어요 (${e.message})`;status.style.color='var(--danger)';}}
 }
 function popGenerate(){
   const s=VTS.pop,genre=POP_GENRES.find(g=>g.tag===s.genre),mood=POP_MOODS.find(m=>m.kr===s.mood),bpm=parseInt(document.getElementById('pop-bpm')?.value)||s.bpm;
   const section=popSectionPrompt(s,bpm),style=popStylePrompt(s,genre,mood,bpm);
+  try{checkPopBudget(section,style);}catch(e){showToast(e.message);return;}
+  const token=++popWriteToken;++popLyricsToken;popBaseSection=section;
+  popStylePending=!!getOpenAIKey();
   const output=document.getElementById('pop-output');if(output)output.style.display='block';
   document.getElementById('pop-sect-ta').value=section;document.getElementById('pop-style-ta').value=style;document.getElementById('pop-lyrics-ta').value=s.userLyrics.trim()||'';
   const status=document.getElementById('pop-ai-status');if(status){status.hidden=true;status.textContent='';status.style.color='';}
-  if(getOpenAIKey())popAiWriteStyle(s,{section,style});
+  if(popStylePending)popAiWriteStyle(s,{section,style},token);
   updateFloatSummary();
 }
 function vocalGenerate(tabKey){

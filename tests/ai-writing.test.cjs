@@ -70,6 +70,9 @@ assert.equal(ctx.restoreSectionHeaders(reordered,spec.structure),reordered);
 assert.equal(ctx.hasSelectedDrum('Use punchy sub-bass under the motif.','Sub-bass punch'),true);
 assert.equal(ctx.hasSelectedDrum('Keep crisp hi hats in the groove.','Crisp hi-hats'),true);
 assert.equal(ctx.hasSelectedDrum('Avoid crisp hi-hats.','Crisp hi-hats'),false);
+assert.equal(ctx.hasSelectedDrum('Use crisp hi-hats with no vocals.','Crisp hi-hats'),true);
+assert.equal(ctx.hasSelectedDrum('No vocals, use punchy sub-bass.','Sub-bass punch'),true);
+assert.equal(ctx.hasSelectedDrum('Use pads without crisp hi-hats.','Crisp hi-hats'),false);
 assert.equal(ctx.hasSelectedDrum('A soft pad floats.','Sub-bass punch'),false);
 assert.equal(validate(section,instrumentalStyle+' Punchy sub-bass and crisp hi hats.',{...spec,drums:['Sub-bass punch','Crisp hi-hats']}).ok,true);
 for(const genre of [6,8,11,12,14,17]){
@@ -131,6 +134,8 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
     callOpenAI=async()=>JSON.stringify({kind:'song',understood:'reference',genre:GENRES[0].en,mood:HH_MOODS[0].kr,drums:[],bass808:null,melodyLead:null,melodyBackground:null,texture:[],density:null,vocal:'Sung lead vocal',vocalStyle:null,vocalChar:null,styleTags:['short syncopated motif'],cues:{hook:'wider hook'}});
     applyBrief=()=>{globalThis.autoApplyIds=_briefProposal.items.filter(x=>x.on).map(x=>x.id);_briefProposal=null;};`);
   assert.equal(await ctx.aiAnalyzeBrief({autoApply:true,expectedText:'Artist - Reference Song'}),true);
+  assert.equal(run(`buildBriefProposal('reference',{genre:GENRES[8].en,bass808:'Heavy'}).v.bass808`),'Heavy');
+  assert.equal(run(`buildBriefProposal('reference',{genre:GENRES[0].en,bass808:'None'}).v.bass808`),'None');
   assert.deepEqual(Array.from(ctx.autoApplyIds),['mood','genre','sound']);
   assert.equal(ctx.autoApplyIds.includes('vocal'),false);
   run(`document.getElementById=()=>null; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);

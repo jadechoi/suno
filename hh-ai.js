@@ -639,7 +639,7 @@ async function aiRecommendMelodyTexture(){
       `장르 기본 저음: ${genreLowEnd(st.genre,GENRE_AUTO[st.genre]?.a808||'None')}`,
       `BPM ${st.bpmSet?st.bpm:'미지정(프롬프트에 쓰지 않음)'} / Key ${st.keySet?KEYS[st.key]:'미지정(프롬프트에 쓰지 않음)'}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 저음 설계, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 808은 트랩·드릴처럼 장르 정체성에 필요한 경우에만 쓰고, 붐뱁·로파이·아프로트랩·컨셔스·하이퍼팝·Westwood에서는 반드시 None을 골라 장르 기본 저음(샘플/라이브 베이스, 로그드럼, 신스 서브)을 유지해. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 저음 악기와 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 저음 설계, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 사용자가 직접 확정한 설정을 우선하고, 그 다음 확실히 아는 레퍼런스 특징, 마지막으로 장르 기본값을 참고해. 808 사용 여부를 장르 이름만으로 금지하거나 강제하지 마. 레퍼런스에 맞으면 808을 쓰고, 아니면 None을 선택해. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 저음 악기와 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -685,7 +685,7 @@ ${ctx}`;
     const tone=HH_MELODY_TONE.includes(parsed.melodyTone)?parsed.melodyTone:null;
     const fx=(parsed.transitionFx||[]).filter(f=>HH_TRANSITION_FX.includes(f)).slice(0,2);
     const groove=HH_GROOVE.includes(parsed.groove)?parsed.groove:null;
-    const lvl808=GENRE_AUTO[st.genre]?.a808==='None'?'None':(HH_808.includes(parsed['808'])?parsed['808']:null);
+    const lvl808=HH_808.includes(parsed['808'])?parsed['808']:null;
     const density=HH_DENSITY.includes(parsed.density)?parsed.density:null;
     const structIdx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
     const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
@@ -731,9 +731,9 @@ ${ctx}`;
       chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
     }
     if(lvl808){
-      st._808=lvl808;st.b808Set=GENRE_AUTO[st.genre]?.a808!=='None';
+      st._808=lvl808;st.b808Set=true;
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
-      if(use808())clearAutoHint('hh-808-hint');else setAutoHint('hh-808-hint',lowEndHint(GENRE_AUTO[st.genre]));
+      clearAutoHint('hh-808-hint');
     }
     if(drums.length){
       st.drums=drums;
@@ -914,7 +914,7 @@ function restoreSectionHeaders(text,structure){
 }
 function hasSelectedDrum(text,name){
   const normalized=text.toLowerCase().replace(/[‐‑–—]/g,'-');
-  const positive=normalized.split(/[.!?;\n]/).filter(s=>! /\b(no|without|avoid|remove|omit|exclude)\b/.test(s)).join(' ');
+  const positive=normalized.split(/[.!?;,\n]|\b(?:with|but)\b/).filter(s=>! /\b(no|without|avoid|remove|omit|exclude)\b/.test(s)).join(' ');
   if(positive.includes(name.toLowerCase()))return true;
   const aliases={
     'Sub-bass punch':/\b(?:punchy|punching|tight|percussive|hard-hitting)\s+(?:\w+\s+){0,2}sub[ -]?bass\b|\bsub[ -]?bass\s+(?:\w+\s+){0,2}(?:punch|impact|attack)\b/,
@@ -1074,7 +1074,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   return {
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:st.keySet?KEYS[st.key]:null,bpm:st.bpmSet?st.bpm:null,
     lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
-    drums:auto?[]:[...st.drums],bass:genreLowEnd(st.genre,use808()?st._808:'None'),bass808:(auto||!use808())?null:st._808,vocal:hasVocal?st.vocal:null,
+    drums:auto?[]:[...st.drums],bass:genreLowEnd(st.genre,use808()?st._808:'None'),bass808:st.b808Set?st._808:null,vocal:hasVocal?st.vocal:null,
     transitionFx:auto?[]:[...(st.transitionFx||[])],groove:auto?null:st.groove,texture:auto?[]:[...st.texture],
     producerReference:(auto||!producerRefActive())?null:(st.refs[0]||null),
     producerSound:(!auto&&producerRefActive()&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
@@ -1537,7 +1537,7 @@ function buildBriefProposal(text,p){
   setInstrumentMenus(GENRES[v.genre]?.family||(st.genre===null?null:GENRES[st.genre].family));   // 아래 검증이 새 장르 계열의 메뉴를 보게 (끝에서 원복)
   v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
   v.drums=(p.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
-  v.bass808=GENRE_AUTO[v.genre]?.a808==='None'?'None':(HH_808.includes(p.bass808)?p.bass808:null);
+  v.bass808=HH_808.includes(p.bass808)?p.bass808:null;
   v.lead=HH_MELODY.includes(p.melodyLead)?p.melodyLead:null;
   v.bg=HH_MELODY.includes(p.melodyBackground)&&p.melodyBackground!==v.lead?p.melodyBackground:null;
   setInstrumentMenus(st.genre===null?null:GENRES[st.genre].family);   // 검증 끝 — 현재 장르 계열로 원복
@@ -1592,7 +1592,7 @@ function applyBrief(){
   if(on('genre')&&st.genre!==v.genre)selectGenre(v.genre);
   else if(on('mood'))onMoodChange();
   if(on('drums')){st.drums=v.drums.filter(d=>HH_DRUMS.includes(d));chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
-  if(on('808')){st._808=v.bass808;st.b808Set=v.bass808!=='None';chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);if(st.b808Set)clearAutoHint('hh-808-hint');else setAutoHint('hh-808-hint',lowEndHint(GENRE_AUTO[st.genre]));}
+  if(on('808')){st._808=v.bass808;st.b808Set=true;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);clearAutoHint('hh-808-hint');}
   if(on('melody')){
     let bg=v.bg;
     if(!HH_MELODY.includes(v.lead))v.lead=null;else if(bg&&!HH_MELODY.includes(bg))bg=null;
