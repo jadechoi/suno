@@ -42,9 +42,9 @@ async function askOpenAIAudio(file,text){
   if(!out.trim())throw new Error('GPT가 빈 분석 결과를 반환했어요 — 다시 시도해주세요');
   return out;
 }
-async function runAudioAnalysis(btn,statusId,job){
+async function runAudioAnalysis(btn,statusId,job,isCurrent=()=>true){
   const label=btn.textContent;btn.disabled=true;btn.textContent='🎧 GPT가 듣는 중…';audioStatus(statusId,'음원 전체를 분석하고 있어요. 잠시 기다려주세요.');
-  try{await job();}catch(e){audioStatus(statusId,'❌ '+e.message,'err');}
+  try{await job();}catch(e){if(isCurrent())audioStatus(statusId,'❌ '+e.message,'err');}
   finally{btn.disabled=false;btn.textContent=label;}
 }
 function refreshOpenAiAudioUi(){
@@ -52,11 +52,13 @@ function refreshOpenAiAudioUi(){
 }
 async function listenOpenAiRun(btn){
   const file=document.getElementById('hh-listen-file')?.files?.[0];
+  const isCurrent=reviewGuard();
   await runAudioAnalysis(btn,'hh-listen-status',async()=>{
     const answer=await askOpenAIAudio(file,listenRequestText()+'\n\n첨부한 음원을 처음부터 끝까지 직접 듣고 평가해줘.');
+    if(!isCurrent()||document.getElementById('hh-listen-file')?.files?.[0]!==file)return;
     const ta=document.getElementById('hh-external-feedback-ta');
     _extFeedbackDraft=answer;if(ta)ta.value=answer;
     audioStatus('hh-listen-status','✅ GPT 평가 완료 — 수정 제안으로 바꾸는 중…','ok');
     await aiParseExternalFeedback();
-  });
+  },isCurrent);
 }

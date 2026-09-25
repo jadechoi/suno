@@ -223,6 +223,21 @@ ${REVIEW_RUBRIC.map(r=>`${r.key} ${p.criteria[r.key]??'-'}`).join(', ')} (총 ${
 직전 채점 이후 바뀐 곳: 섹션 ${changed.join(' | ')||'없음'} / 스타일 ${sty!==p.style?'바뀜':'그대로'}
 채점 규칙: 각 항목은 직전 점수에서 출발해. 그 항목과 관련된 텍스트가 실제로 바뀐 경우에만 근거를 들어 최대 3점까지 올리거나 내려 (직전 지적이 실제로 해결됐으면 크게 올려도 되고, 새 모순·중복·중복·모순·불필요한 분량 증가 같은 악화가 확인되면 내려). 바뀌지 않은 곳에 해당하는 항목은 직전 점수 그대로 — 매번 새로 뽑기하듯 매기지 마.`;
 }
+// 설정·출력이 바뀌거나 새 평가를 시작하면 이전 응답을 버린다.
+let _reviewToken=0;
+function reviewGuard(){
+  const token=++_reviewToken,writeToken=_writeToken;
+  const snapshot=()=>JSON.stringify([hhWriteFingerprints().fpFull,...['hh-style-ta','hh-sect-ta','hh-lyrics-ta'].map(id=>document.getElementById(id)?.value||'')]);
+  const before=snapshot();
+  return ()=>token===_reviewToken&&writeToken===_writeToken&&before===snapshot();
+}
+function promptBudgetWarnings(section,style,lyrics){
+  const total=lyrics?(mergeLyricsAndDirection(lyrics,section)||lyrics):section;
+  const warnings=[];
+  if((style||'').length>1000)warnings.push('스타일 프롬프트가 1000자를 넘어요');
+  if((total||'').length>5000)warnings.push('가사·섹션 프롬프트가 5000자를 넘어요');
+  return warnings.length?warnings:null;
+}
 async function aiProducerReview(){
   const key=getOpenAIKey();
   const btn=document.getElementById('hh-ai-arrange-btn');
@@ -235,6 +250,7 @@ async function aiProducerReview(){
   const occKeys=structOccurrenceKeys();
   const appliedSoFar=(_aiSuggestions||[]).filter(s=>s.applied);
 
+  const isCurrent=reviewGuard();
   if(btn){btn.disabled=true;btn.textContent='🤖 분석 중...';}
   if(statusEl)statusEl.hidden=true;
   try{
@@ -287,6 +303,7 @@ ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}
 
     // 총평과 필요한 핵심 개선만 반환한다. 기존 응답 형식은 유지한다.
     const raw=await callOpenAI(key,{maxTokens:16000,staticText,dynamicText,think:false});
+    if(!isCurrent())return;
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const rawList=(parsed.suggestions||[]).filter(s=>s&&s.text);
     const total=rawList.find(s=>s.category==='총평');
@@ -298,8 +315,10 @@ ${appliedSoFar.length?appliedSoFar.map((s,i)=>`${i+1}. (${s.category}) ${s.text}
     {const tot=_aiSuggestions.find(s=>s.category==='총평'&&!s.applied);recordAiScore(tot?.score,tot?.criteria);noteScored(tot?.criteria,tot?.score);}   // 리뷰 대상이던 텍스트가 아직 화면에 있을 때
     hhGenerate(false,{noScroll:true});
   }catch(e){
-    fail(e.message);
+    if(isCurrent())fail(e.message);
     if(btn){btn.disabled=false;btn.textContent='🤖 AI 프로듀서 리뷰 받기';}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="🤖 AI 프로듀서 리뷰 받기";}
   }
 }
 // 조언의 대상·시점·유지 조건을 보존한다. 같은 구간·카테고리의 새 조언만 교체한다.
@@ -332,24 +351,32 @@ function selectAllAiSuggestions(flag){
 function updateAiApplyBtn(){
   const btn=document.getElementById('hh-ai-apply-btn');
   if(!btn)return;
-  const n=(_aiSuggestions||[]).filter(s=>s.selected&&!s.applied&&aiSuggestionActionable(s)).length;
+  const n=(_aiSuggestions||[]).filter(s=>s.selected&&!s.applied&&!s.pending&&aiSuggestionActionable(s)).length;
   btn.textContent=`✅ 선택 적용 (${n})`;
-  btn.disabled=!n;
+  btn.disabled=!n||_writeState==='pending';
   btn.style.opacity=n?'1':'.5';
   btn.style.cursor=n?'pointer':'default';
 }
-function applySelectedAiSuggestions(){
-  const picked=(_aiSuggestions||[]).filter(s=>s.selected&&!s.applied&&aiSuggestionActionable(s));
+async function applySelectedAiSuggestions(){
+  if(_writeState==='pending')return;
+  const picked=(_aiSuggestions||[]).filter(s=>s.selected&&!s.applied&&!s.pending&&aiSuggestionActionable(s));
   if(!picked.length)return;
   // 무드 변경은 멜로디·808·드럼 룰 재추천을 다시 돌리니, 같이 고른 다른 조언(멜로디 리드 등)이 덮이지 않게 가장 먼저
   picked.sort((x,y)=>!!y.mood-!!x.mood);
-  picked.forEach(applyAiSuggestionCore);
+  picked.forEach(s=>{if(!s.settingsUpdated){applyAiSuggestionCore(s);s.settingsUpdated=true;}s.pending=true;});
   // 피드백 적용은 예외 — 적용하자마자 고쳐 쓴 프롬프트를 보는 게 목적이라 바로 재생성 (다른 AI 추천·분석은 Generate를 눌러야 반영)
-  hhGenerate(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`,{noScroll:true});
+  await hhGenerate(`AI 리뷰 ${picked.length}개 적용: ${[...new Set(picked.map(s=>s.category))].join('·')}`,{noScroll:true});
+  const fp=hhWriteFingerprints().fpFull;
+  if(_writePromise)await _writePromise;
+  const success=!!(_hhWritten?.meta?.ok&&_hhWritten.fpFull===fp);
+  picked.forEach(s=>{s.pending=false;s.applied=success;s.selected=!success;});
+  if(hhWriteFingerprints().fpFull===fp){
+    hhGenerate(false,{noScroll:true});
+    if(!success)showToast('피드백 작성이 완료되지 않았어요 — 선택 적용으로 다시 시도하세요');
+  }
+
 }
 function applyAiSuggestionCore(sug){
-  sug.applied=true;
-  sug.selected=false;
   if(sug.mood){
     st.mood=sug.mood;
     moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',onMoodChange);
@@ -451,6 +478,7 @@ async function aiParseExternalFeedback(){
   const uniqueSegs=[...new Set(st.structSegs)].filter(s=>s==='hook'||s==='verse'||s==='bridge');
   const occKeys=structOccurrenceKeys();
 
+  const isCurrent=reviewGuard();
   if(btn){btn.disabled=true;btn.textContent='🤖 분석 중...';}
   if(statusEl)statusEl.hidden=true;
   try{
@@ -481,6 +509,7 @@ ${feedback}`;
 
     // 외부 피드백도 추가할 내용이 없으면 액션 없는 총평만 허용한다.
     const raw=await callOpenAI(key,{maxTokens:16000,staticText,dynamicText,think:false});
+    if(!isCurrent())return;
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const rawList=(parsed.suggestions||[]).filter(s=>s&&s.text);
     const total=rawList.find(s=>s.category==='총평');
@@ -492,7 +521,7 @@ ${feedback}`;
     _extFeedbackDraft='';   // 다시 그려도 방금 처리한 피드백이 칸에 되살아나지 않게
     hhGenerate(false,{noScroll:true});
   }catch(e){
-    fail(e.message);
+    if(isCurrent())fail(e.message);
   }finally{
     if(btn){btn.disabled=false;btn.textContent='🎧 반영 제안 받기';}
   }
@@ -508,6 +537,7 @@ async function aiVerifyAppliedSuggestions(){
   const applied=(_aiSuggestions||[]).filter(s=>s.applied);
   if(!applied.length){fail('적용된 조언이 없습니다');return;}
 
+  const isCurrent=reviewGuard();
   if(btn){btn.disabled=true;btn.textContent='🔍 검증 중...';}
   if(statusEl)statusEl.hidden=true;
   try{
@@ -536,6 +566,7 @@ ${sectText}
 ${styleText}`;
 
     const raw=await callOpenAI(key,{maxTokens:2000,staticText,dynamicText,think:false});
+    if(!isCurrent())return;
     const parsed=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     const checks=parsed.checks||[];
     let matched=0;
@@ -560,8 +591,10 @@ ${styleText}`;
     }
     hhGenerate(false,{noScroll:true});
   }catch(e){
-    fail(e.message);
+    if(isCurrent())fail(e.message);
     if(btn){btn.disabled=false;btn.textContent='🔍 적용 검증';}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="🔍 적용 검증";}
   }
 }
 let _polishOriginal=null;
@@ -1198,6 +1231,7 @@ ${PROMPT_ROLE_GUIDE}
 - 믹스·공간·인간미·전환효과를 모든 구간에 빠짐없이 적지 마. 그 구간의 음악적 역할을 바꾸는 디테일만 선택하고, 이미 충분하면 더 채우지 마. 구간별 maxChars는 간결성 권장값이고 전체 길이 상한은 limits를 따라.
 
 [선택값과 레퍼런스]
+- 레퍼런스가 없으면 선택한 장르·무드·악기·그루브를 중심으로 일관된 새 곡을 설계해. 레퍼런스가 있으면 분석된 반주의 정체성을 유지하되 사용자가 직접 변경한 조건을 우선해.
 - selectionOrigins가 ai-reference인 필드는 AI가 메뉴에 매핑한 참고값이지 사용자가 확정한 조건이 아니야. 반주 분석과 다르면 분석을 우선해. 사용자의 보컬 조건과 지정 BPM/Key는 유지해. instrumentalProfile의 실제 장르·그루브·베이스·편성을 메뉴 이름보다 우선하고, 목록 밖의 특징도 자연어로 표현해. 무보컬로 바뀌어도 반주·구조는 유지하고 보컬 빈자리를 채우려고 새 기타나 신스 리드를 추가하지 마. 기존 cues에 보컬이 섞여 있으면 보컬 부분만 제외하고 반주 정보는 보존해.
 - 명세의 lead/background는 스타일 또는 섹션에서 실제 소리로 반영해. Sample chop은 chopped instrumental samples처럼 동등한 연주 표현도 가능해. drums는 스타일 또는 필요한 섹션에 실제 소리로 반영해. Sub-bass punch는 punchy sub-bass, Crisp hi-hats는 crisp hi-hats처럼 자연스럽게 표현해도 돼. bass는 장르에 맞는 저음 참고이며 808을 모든 장르에 강제로 추가하지 마. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
 - bpm·key가 있으면 그대로 쓰고, null이면 특정 BPM·Key를 만들지 마. producerSound가 있으면 소리 특징을 스타일에 반영해. 실존 아티스트·프로듀서·곡 이름이나 OO-inspired는 출력하지 마.
@@ -1308,7 +1342,7 @@ function updatePromptHistoryTexts(id,section,style,lyrics){
   if(!id)return;
   const list=loadPromptHistory();const e=list.find(x=>x.id===id);
   if(!e)return;
-  e.section=section;e.style=style;e.aiWritten=true;if(lyrics)e.lyrics=lyrics;
+  e.section=section;e.style=style;e.aiWritten=true;e.lyrics=lyrics||'';e.warn=promptBudgetWarnings(section,style,lyrics);
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}
   renderPromptHistory();
 }

@@ -839,7 +839,7 @@ function renderHhGenres(){
   let fam=document.getElementById('hh-genre-family');
   if(fam)fam.remove();
   GENRES.forEach((g,i)=>{
-    if(g.family!=='hiphop')return;
+    if(g.family!=='hiphop'&&i!==st.genre)return;
     const el=document.createElement('div');
     el.className='chip'+(st.genre===i?' selected':'');
     el.textContent=g.kr;
@@ -852,7 +852,7 @@ function renderHhGenres(){
   if(feel){
     const g=st.genre!==null?GENRES[st.genre]:null;
     feel.hidden=!g;
-    if(g)feel.textContent=`${g.kr} — ${GENRE_FEEL[st.genre]} (${g.bpm} BPM)`;
+    if(g)feel.textContent=`${g.kr} — ${GENRE_FEEL[st.genre]||g.sound||g.tag} (${g.bpm} BPM)`;
   }
   renderGenreGuideResult();
 }
@@ -902,13 +902,10 @@ function onMoodChange(){
 
 // 장르 계열이 바뀌면 악기 메뉴도 그 계열 것으로 — 새 메뉴에 없는 선택(힙합 악기 → 일렉 등)은 버림
 // 기타류가 자연스러운 경우(트랩 메탈·팝 계열·기타 계열 악기 선택) — 아니면 무보컬 프롬프트에 "NO guitars"를 붙이고 Exclude에도 넣음
-function guitarsAllowed(){
-  return st.genre===18||GENRES[st.genre]?.family==='pop'||st.melody.some(m=>/guitar|banjo|ukulele|pedal steel/i.test(m));
-}
 // Suno 고급 옵션의 Exclude styles에 넣을 값 — 스타일 칸의 "no ..."(부정 표현)는 무시되기도 해서, 공식 제외 칸이 더 확실함 (무보컬 곡만)
 function excludeStyles(){
   if(st.vocal&&st.vocal!=='No Vocal')return '';
-  return ['vocals','vocal chops','vocal samples','singing','choir','humming','spoken word',...(guitarsAllowed()?[]:['guitars'])].join(', ');
+  return ['vocals','vocal chops','vocal samples','singing','choir','humming','spoken word'].join(', ');
 }
 function syncInstrumentMenus(){
   setInstrumentMenus(st.genre===null?null:GENRES[st.genre].family);
@@ -1408,7 +1405,7 @@ function buildVocalTab(tabKey,genres,artists,genrePresets,moods,instrs,vocalStyl
       ${finalEditorControls(tabKey)}
       ${tabKey==='pop'?`<div class="output-box">
         <div class="output-box-header"><span class="output-box-label">② 가사</span><div style="display:flex;gap:6px"><button class="copy-btn" onclick="popGenerateLyrics()" style="background:var(--accent)">🎤 가사 생성</button><button class="copy-btn" onclick="copyOutput('${tabKey}-lyrics-ta',this)">Copy</button></div></div>
-        <textarea class="output-ta" id="${tabKey}-lyrics-ta" rows="12" placeholder="첫 Generate 후 이 버튼을 눌러 가사를 생성하세요. 직접 입력한 가사는 그대로 사용됩니다."></textarea>
+        <textarea class="output-ta" id="${tabKey}-lyrics-ta" oninput="if('${tabKey}'==='pop')popEditLyrics(this.value)" rows="12" placeholder="첫 Generate 후 이 버튼을 눌러 가사를 생성하세요. 직접 입력한 가사는 그대로 사용됩니다."></textarea>
       </div>`:''}
       <div class="output-box">
         <div class="output-box-header">
@@ -2323,8 +2320,7 @@ function hhGenerate(source,opts){
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
   // 레퍼런스 곡만 고르고 장르를 고르지 않았다면, Generate 전에 곡명 GPT 분석을 끝내고 추천값을 채운 뒤 생성한다.
   if(!opts?._afterRefAuto&&refSong&&st.brief?.text!==refSong&&getOpenAIKey()){
-    autoAnalyzeReference(refSong).then(ok=>{if(ok&&(document.getElementById('hh-ref-song')?.value||'').trim()===refSong)hhGenerate(source,{...(opts||{}),_afterRefAuto:true});});
-    return;
+    return autoAnalyzeReference(refSong).then(ok=>{if(ok&&(document.getElementById('hh-ref-song')?.value||'').trim()===refSong)return hhGenerate(source,{...(opts||{}),_afterRefAuto:true});});
   }
   const moodIdx=HH_MOODS.findIndex(m=>m.kr===st.mood);
   const mood=moodIdx>=0?HH_MOODS[moodIdx]:null;
@@ -2436,7 +2432,7 @@ function hhGenerate(source,opts){
   if(!hhHasVocal){
     tags.push('[Instrumental]');
     // 금지어는 스타일에 한 번 묶어서(예시 프롬프트 패턴) — 안 쓸 악기도 같이("NO guitars": 트랩 메탈·기타 선택 때는 제외)
-    tags.push(`no vocals & ZERO vocal chops & no vocal samples${guitarsAllowed()?'':' & NO guitars'}`);
+    tags.push(`no vocals & ZERO vocal chops & no vocal samples`);
   }
   // 색깔 수식어는 장르 단어 바로 앞에 붙임("commercial hyperpop") — 멀리 떨어진 별도 태그보다 장르에 확실히 걸림
   const commMod=st.commercial&&COMMERCIAL_TAG[st.commercial];
@@ -2848,7 +2844,7 @@ function restorePromptHistoryEntry(id){
   // AI가 작성한 기록이면 그 텍스트를 이 상태의 캐시로 — 복원할 때마다 AI를 다시 부르지 않고 저장돼 있던 그 텍스트가 그대로 나옴
   if(entry.aiWritten&&entry.section&&entry.style){
     const f=hhWriteFingerprints();
-    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,lyrics:entry.lyrics||'',meta:{ok:true,mode:'restored'},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
+    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,lyrics:entry.lyrics||'',meta:{ok:true,mode:'restored',warn:promptBudgetWarnings(entry.section,entry.style,entry.lyrics)},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
   }else _hhWritten=null;
   hhGenerate(`기록에서 복원: ${entry.label||entry.genre}`);
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});
@@ -3116,6 +3112,19 @@ function mergePopLyricsAndSection(section,lyrics){
   }).filter(Boolean).join('\n\n');
   if(lyricBlocks.some(b=>b.lines.length&&!matched.has(b)))throw new Error('가사 섹션이 현재 곡 구조와 달라요 — 헤더와 반복 횟수를 맞춰주세요');
   return merged;
+}
+function popEditLyrics(lyrics){
+  ++popLyricsToken;
+  VTS.pop.userLyrics=lyrics;
+  const input=document.getElementById('pop-user-lyrics');if(input)input.value=lyrics;
+  const status=document.getElementById('pop-ai-status');
+  try{
+    if(popStylePending||!popBaseSection)throw new Error('스타일 작성이 끝난 뒤 가사를 합칠 수 있어요');
+    const merged=lyrics.trim()?mergePopLyricsAndSection(popBaseSection,lyrics):popBaseSection;
+    checkPopBudget(merged,document.getElementById('pop-style-ta')?.value||'');
+    document.getElementById('pop-sect-ta').value=merged;
+    if(status){status.hidden=false;status.textContent='✅ 편집한 가사를 섹션 프롬프트에 반영했어요';status.style.color='var(--success)';}
+  }catch(e){if(status){status.hidden=false;status.textContent='⚠️ 편집 내용 미반영 — '+e.message;status.style.color='var(--danger)';}}
 }
 async function popGenerateLyrics(){
   if(popStylePending){showToast('스타일 작성이 끝난 뒤 가사를 생성해주세요');return;}

@@ -28,7 +28,14 @@ assert.throws(()=>ctx.mergePopLyricsAndSection(base,'[Bridge]\nUnmatched lyric')
   await ctx.popGenerateLyrics();
   assert.doesNotMatch(nodes['pop-sect-ta'].value,/Old/);
   assert.match(nodes['pop-sect-ta'].value,/\(Soft piano\.\)\nNew verse/);
+  ctx.popEditLyrics('[Verse]\nEdited verse\n[Chorus]\nEdited hook');
+  assert.match(nodes['pop-sect-ta'].value,/Edited verse/);
+  assert.doesNotMatch(nodes['pop-sect-ta'].value,/New verse/);
   const previous=nodes['pop-sect-ta'].value;
+  ctx.popEditLyrics('[Bridge]\nWrong section');
+  assert.equal(nodes['pop-sect-ta'].value,previous);
+  assert.match(nodes['pop-ai-status'].textContent,/미반영/);
+  run("VTS.pop.userLyrics='';");
   ctx.callOpenAI=async()=>'<lyrics>[Verse]\n'+'x'.repeat(5001)+'</lyrics>';
   await ctx.popGenerateLyrics();assert.equal(nodes['pop-sect-ta'].value,previous);
   let resolve;

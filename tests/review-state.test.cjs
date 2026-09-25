@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes={};const ctx=vm.createContext({console,document:{getElementById:id=>nodes[id]??={value:'',style:{}}},showToast:()=>{}});
+const run=s=>vm.runInContext(s,ctx);run(fs.readFileSync('hh-data.js','utf8'));run(fs.readFileSync('hh-ai.js','utf8'));
+run(`const st={vocal:'No Vocal'};let fingerprint='a';hhWriteFingerprints=()=>({fpFull:fingerprint});`);
+let guard=ctx.reviewGuard();assert.equal(guard(),true);nodes['hh-style-ta'].value='Edited';assert.equal(guard(),false);
+guard=ctx.reviewGuard();ctx.reviewGuard();assert.equal(guard(),false);
+guard=ctx.reviewGuard();run('++_writeToken');assert.equal(guard(),false);
+assert.equal(ctx.promptBudgetWarnings('short','short',''),null);
+assert.match(ctx.promptBudgetWarnings('x'.repeat(5001),'x'.repeat(1001),'').join(' '),/1000.*5000/);
+const app=fs.readFileSync('app.js','utf8');run(app.slice(app.indexOf('function excludeStyles(){'),app.indexOf('function syncInstrumentMenus(){')));assert.doesNotMatch(ctx.excludeStyles(),/guitars/);
+run(`let updates=0;applyAiSuggestionCore=()=>{updates++};let succeed=false;hhGenerate=source=>{if(source!==false){_writePromise=Promise.resolve().then(()=>{_hhWritten=succeed?{fpFull:'a',meta:{ok:true}}:null;});}};_aiSuggestions=[{selected:true,tag:['test']}];`);
+(async()=>{await ctx.applySelectedAiSuggestions();assert.equal(run('_aiSuggestions[0].applied'),false);assert.equal(run('_aiSuggestions[0].selected'),true);run('succeed=true');await ctx.applySelectedAiSuggestions();assert.equal(run('_aiSuggestions[0].applied'),true);assert.equal(run('updates'),1);console.log('PASS: review snapshots, feedback retry without duplicate changes, exclusions and restored budgets.');})().catch(e=>{console.error(e);process.exitCode=1;});
