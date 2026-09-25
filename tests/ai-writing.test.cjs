@@ -144,6 +144,9 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   assert.equal(result.style,instrumentalStyle);
   assert.equal(result.section,section);
   assert.match(ctx.request.staticText,/자연어 한 문단/);
+  assert.ok(ctx.request.staticText.includes(run('PROMPT_ROLE_GUIDE')));
+  assert.match(ctx.request.staticText,/역할을 채우려고 악기를 추가하지 마/);
+  assert.match(ctx.request.staticText,/구간별 maxChars는 간결성 권장값/);
   assert.match(ctx.request.staticText,/라틴 팝/);
   assert.match(ctx.request.staticText,/위스퍼/);
   assert.match(ctx.request.staticText,/\[섹션 디렉팅\]/);
@@ -151,5 +154,8 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   assert.doesNotMatch(ctx.request.staticText,/완결된 서술 문장은 금지|태그는 12개 이하|2,800~3,800/);
   assert.doesNotMatch(run('RUBRIC_TEXT()'),/서술 문장 없음|구당 8단어 이하/);
   assert.equal(validate(result.section,result.style).ok,true);
+  await ctx.writeOnce({mode:'edit',spec:{...spec,mutableHeaders:[]},prev:result});
+  assert.ok(ctx.request.staticText.includes(run('PROMPT_ROLE_GUIDE')));
+  assert.match(ctx.request.dynamicText,/고쳐쓰기/);
   console.log('PASS: natural-language writing, intact feedback, constraints and request assembly (offline fixtures).');
 })().catch(e=>{console.error(e);process.exitCode=1;});

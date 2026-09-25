@@ -38,5 +38,11 @@ assert.throws(()=>ctx.mergePopLyricsAndSection(base,'[Bridge]\nUnmatched lyric')
   await pending;assert.equal(nodes['pop-style-ta'].value,'Soulful pop.');
   run('popStylePending=true;');ctx.callOpenAI=()=>{throw new Error('Must not request lyrics during style writing');};
   await ctx.popGenerateLyrics();assert.equal(nodes['pop-sect-ta'].value,previous);
+  run('popStylePending=false;');
+  let request;
+  ctx.callOpenAI=async(key,r)=>{request=r;return '<section>'+base+'</section><style>Soulful pop with a steady pulse and short bass answers.</style>';};
+  await ctx.popAiWriteStyle(run('VTS.pop'),{section:base,style:'Soulful pop.'},run('popWriteToken'));
+  assert.ok(request.staticText.includes(run('PROMPT_ROLE_GUIDE')));
+  assert.match(nodes['pop-style-ta'].value,/short bass answers/);
   console.log('PASS: pop budgets, repeated lyrics, unmatched headers, stale responses and pending guard.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

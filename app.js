@@ -3063,7 +3063,7 @@ async function popAiWriteStyle(s,base,token){
   const reference=s.refSong?.trim()||'(없음)';
   const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨.\n\n[레퍼런스 곡]\n${reference}\n레퍼런스가 있으면 곡 제목을 보고 네가 확실히 아는 사운드·편곡 특성만 참고해. 실제 오디오를 들었다고 주장하거나 불확실한 세부를 지어내지 마. 최종 프롬프트에는 실존 곡명·아티스트명과 inspired by 표현을 쓰지 말고, 재현할 수 있는 소리·연주·전개 언어로 바꿔. BPM과 Key는 아래 기본 프롬프트에 적힌 값을 그대로 사용해.\n\n다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
   try{
-    const raw=await callOpenAI(key,{maxTokens:3000,staticText:'팝·R&B 스타일 작성 규칙: 스타일은 공백 포함 1000자 이하, 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
+    const raw=await callOpenAI(key,{maxTokens:3000,staticText:PROMPT_ROLE_GUIDE+'\n팝·R&B 스타일 작성 규칙: 스타일은 공백 포함 1000자 이하, 섹션은 5000자 이하. 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 사용자 선택 > 확실한 레퍼런스 특징 > 장르 기본 추천 순으로 반영한다. 기본 추천에 없다는 이유로 808이나 다른 악기를 금지하지 않는다. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
     if(token!==popWriteToken)return;
     const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim(),sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();
     checkPopBudget(sec||'',sty||'');
