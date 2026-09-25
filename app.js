@@ -50,7 +50,8 @@ function chipGrid(container,items,state,key,maxSel,onChange){
     const val=typeof item==='string'?item:(item.kr||item.en||item.name||item);
     const el=document.createElement('div');
     el.className='chip';
-    el.textContent=val;
+    el.textContent=CLUB_INSTRUMENTS[val]?.kr||val;
+    if(CLUB_INSTRUMENTS[val])el.title=val+' — '+CLUB_INSTRUMENTS[val].hook;
     const selected=Array.isArray(state[key])?state[key].includes(val):state[key]===val;
     if(selected)el.classList.add('selected');
     el.onclick=()=>{
@@ -245,6 +246,8 @@ const GENRE_AUTO=[
 
 function genreLowEnd(i=st.genre,level=st._808){
   const auto=GENRE_AUTO[i];
+  const selectedBass=(st.melody||[]).find(m=>MELODY_REGISTER[m]==='low'&&/bass/i.test(m));
+  if(selectedBass&&(level==='None'||(auto?.a808==='None'&&!st.b808Set)))return selectedBass;
   if(!auto)return 'genre-appropriate bass';
   if(level!=='None'&&(auto.a808!=='None'||st.b808Set))return auto.a808==='None'?`${level} 808 bass`:`${level} ${auto.bass}`;
   return auto.a808==='None'?auto.bass:'restrained rounded synth bass';
@@ -260,7 +263,7 @@ const TRANSITION_FX_TAG={
 };
 
 // 스윙/그루브 느낌(리듬 타이밍) — 장르 고르면 GENRE_AUTO.groove로 자동 선택, 직접 바꿀 수도 있음
-const HH_GROOVE=['타이트 그리드','살짝 스윙','헤비 스윙','레이드백 포켓','푸시드 포켓'];
+const HH_GROOVE=['타이트 그리드','살짝 스윙','헤비 스윙','레이드백 포켓','푸시드 포켓','정박 킥·엇박 베이스','브레이크비트·싱코페이션'];
 // 훅 2 이후에 그루브가 어떻게 달라지는지 — 스타일 태그엔 스윙이 있는데 훅 섹션엔 언급이 없어서 훅이 그리드형으로 밋밋해질 위험 지적
 // Anti-AI가 켜져 있으면 'tight quantized grid, straight rhythm'이 요구하는 인간적 불완전함과 정면충돌(리뷰 지적) — 그리드는 유지하되 사람 손 타이밍을 명시
 const grooveText=g=>(antiAI&&g==='타이트 그리드')?'tight groove with subtle human micro-timing':(GROOVE_TAG[g]||'');
@@ -272,6 +275,8 @@ const GROOVE_VARY2={
   '푸시드 포켓':'hats rushing slightly ahead',
 };
 const TEXTURE_SECTION={
+  'Saturated bass / clean drums':{hook:'saturated bass harmonics with clean drum transients',verse:'retain bass grit without adding layers'},
+  'Dry upfront club mix':{hook:'dry upfront drums and short effect tails',verse:'close dry mix with space between hits'},
   'Sidechain pump':{hook:'sidechain pumping on bass and pads',verse:'pump eased off'},
   'Bass-heavy':{hook:'sub-heavy low end',verse:'sub weight kept underneath'},
   'Punchy mix':{hook:'punchy transients'},
@@ -289,6 +294,8 @@ const GROOVE_VARY={
   '푸시드 포켓':'kick pushing further ahead of the beat',
 };
 const GROOVE_TAG={
+  '정박 킥·엇박 베이스':'straight four-on-the-floor kick with syncopated bass and deliberate rests',
+  '브레이크비트·싱코페이션':'syncopated chopped drum breaks with stable underlying pulse',
   '타이트 그리드':'tight quantized grid, straight rhythm',
   '살짝 스윙':'subtle swing groove',
   '헤비 스윙':'heavy swung groove, human MPC-style feel',
@@ -629,6 +636,15 @@ for(const p of RHYTHM_POP_PROFILES){
   GENRE_DRUMS_TIPS[p.index]=p.drums.join(' + ');
   GENRE_TEXTURE_TIPS[p.index]='Polished production + Stereo wide';
 }
+Object.assign(MOOD_TEXTURE_FIT,{'차갑고·도발적':['Dry upfront club mix','Saturated bass / clean drums'],'장난스럽고·탄력적':['Punchy mix','Dry upfront club mix']});
+for(const p of CLUB_PROFILES){
+  GENRE_MELODY_TIPS[p.index]=p.melody.join(' + ');
+  GENRE_DRUMS_TIPS[p.index]=p.drums.join(' + ');
+  GENRE_TEXTURE_TIPS[p.index]=p.texture.join(' + ');
+  GENRE_MELODY_TONE[p.index]=p.tone;
+  GENRE_GROOVE_TIPS[p.index]=p.groove;
+  GENRE_AUTO[p.index]={a808:'None',bass:p.melody.find(m=>/bass/i.test(m))||'rounded synth bass',aDrums:p.drums,fx:['순간 정적'],groove:p.groove};
+}
 function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
   const scores={};
   options.forEach(o=>scores[o]=0);
@@ -642,7 +658,7 @@ function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
 
 // 텍스처 추천이 서로 모순되는 쌍을 고를 수 있었음 — 장르 표(Trap Soul: Heavy reverb + Dry intimate)와 무드 표(감각적·슬픈·로맨틱·긴장감: Dry intimate + Heavy reverb)가
 // 스스로 상반된 쌍을 내놔서 스타일 태그에 "dry intimate & heavy reverb"가 같이 들어갔음 (측정: 640조합 중 다수). 상위부터 채우되 이미 고른 것과 충돌하는 건 건너뜀
-const TEXTURE_CLASH=[['Dry intimate','Heavy reverb'],['Dry intimate','Stereo wide'],['Pristine digital','Lo-fi grain'],['Pristine digital','Vintage tape'],['Pristine digital','Raw sound'],['Polished production','Raw sound'],['Polished production','Lo-fi grain']];
+const TEXTURE_CLASH=[['Dry upfront club mix','Heavy reverb'],['Dry intimate','Heavy reverb'],['Dry intimate','Stereo wide'],['Pristine digital','Lo-fi grain'],['Pristine digital','Vintage tape'],['Pristine digital','Raw sound'],['Polished production','Raw sound'],['Polished production','Lo-fi grain']];
 const texturesClash=(x,y)=>TEXTURE_CLASH.some(([p,q])=>(p===x&&q===y)||(p===y&&q===x));
 function pickCompatibleTextures(ranked,n=2){
   const chosen=[];
@@ -674,7 +690,10 @@ function recommendMelodyTexture(){
     return;
   }
   const rankedMelody=scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null);
-  let [lead,bg]=rankedMelody;
+  const club=CLUB_PROFILES.find(p=>p.index===st.genre);
+  // 장르만 고른 클럽 기본 추천은 베이스 훅과 응답 악기의 역할을 유지한다.
+  const palette=club?.melody||rankedMelody;
+  let [lead,bg]=palette;
   // 둘 다 저역 지속음이면 상위 후보 중 대역이 다른 악기로 배경을 교체 (예: Dark synth + Ambient pad → 밝은 플럭/벨 계열)
   bg=complementBg(lead,bg,rankedMelody);
   if(GENRE_LEAD[st.genre]&&GENRE_LEAD[st.genre]===bg)[lead,bg]=[bg,lead];
@@ -884,7 +903,7 @@ function renderGenreGuide(){
 function renderGenreGuideResult(){
   const res=document.getElementById('hh-guide-result');
   if(!res)return;
-  const ids=_guideMood?(MOOD_GENRE_GUIDE[_guideMood]||[]).filter(gi=>GENRES[gi]?.family==='hiphop'):[];
+  const ids=_guideMood?(MOOD_GENRE_GUIDE[_guideMood]||[]).filter(gi=>GENRES[gi]):[];
   res.hidden=!ids.length;
   res.innerHTML='';
   ids.forEach((gi,rank)=>{
@@ -3019,7 +3038,7 @@ const TAB_GENRE_CORE={
   },
 };
 const TAB_INSTR_SOUND={
-  elec:{'신스 리드':'featured synth lead','서브 베이스':'controlled sub-bass','패드':'atmospheric pads','아르페지에이터':'rhythmic arpeggiator','보코더':'vocoder texture','퍼커션':'layered percussion','하이햇':'detailed hi-hats','킥':'focused club kick','보컬 촙':'short vocal chops','리버브 기타':'reverb guitar texture','스트링스':'electronic string layers','피아노':'processed piano'},
+  elec:{...Object.fromEntries(Object.values(CLUB_INSTRUMENTS).map(d=>[d.kr,d.hook])),'신스 리드':'featured synth lead','서브 베이스':'controlled sub-bass','패드':'atmospheric pads','아르페지에이터':'rhythmic arpeggiator','보코더':'vocoder texture','퍼커션':'layered percussion','하이햇':'detailed hi-hats','킥':'focused club kick','보컬 촙':'short vocal chops','리버브 기타':'reverb guitar texture','스트링스':'electronic string layers','피아노':'processed piano'},
   rock:{'일렉 기타':'electric guitar','어쿠스틱 기타':'acoustic guitar','베이스 기타':'bass guitar','드럼':'live drums','키보드/신스':'keyboard and synth','피아노':'piano','리드 기타':'lead guitar','리듬 기타':'rhythm guitar','보컬 하모니':'vocal harmonies','페달 스틸':'pedal steel','현악기':'strings','관악기':'winds'},
 };
 

@@ -677,7 +677,7 @@ async function aiRecommendMelodyTexture(){
       `장르 기본 저음: ${genreLowEnd(st.genre,GENRE_AUTO[st.genre]?.a808||'None')}`,
       `BPM ${st.bpmSet?st.bpm:'미지정(프롬프트에 쓰지 않음)'} / Key ${st.keySet?KEYS[st.key]:'미지정(프롬프트에 쓰지 않음)'}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 저음 설계, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 사용자가 직접 확정한 설정을 우선하고, 그 다음 확실히 아는 레퍼런스 특징, 마지막으로 장르 기본값을 참고해. 808 사용 여부를 장르 이름만으로 금지하거나 강제하지 마. 레퍼런스에 맞으면 808을 쓰고, 아니면 None을 선택해. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 저음 악기와 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 중심 악기 1개(베이스 훅도 가능), 필요한 경우에만 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 저음 설계, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 사용자가 직접 확정한 설정을 우선하고, 그 다음 확실히 아는 레퍼런스 특징, 마지막으로 장르 기본값을 참고해. 808 사용 여부를 장르 이름만으로 금지하거나 강제하지 마. 레퍼런스에 맞으면 808을 쓰고, 아니면 None을 선택해. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 베이스 리프 하나가 중심인 미니멀 곡이면 melodyLead에 그 베이스를 고르고 melodyBackground는 null로 둘 수 있어. 없는 기타·패드를 추가해서 두 칸을 채우지 마. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 저음 악기와 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -728,7 +728,6 @@ ${ctx}`;
     const structIdx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
     const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
 
-    if(bg&&HH_MELODY.includes(bg)&&lead!==bg)bg=complementBg(lead,bg,scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null));   // AI가 둘 다 지속음을 골라도 마스킹 방지
     st.melody=bg?[lead,bg]:[lead];
     // computeMelodyRoles가 내부적으로 같은 조건식을 한번 더 걸어서 뒤집기 때문에, 이 값을 그 조건식과 동일하게 주면
     // 최종적으로 항상 arr[0](AI가 lead라고 답한 악기)이 리드로 확정됨 — AI의 판단을 고정 역할표가 덮어쓰지 않게 하는 장치
@@ -1158,6 +1157,7 @@ function buildWriteSpec(prev){
     producerReference:(auto||!producerRefActive())?null:(st.refs[0]||null),
     producerSound:(!auto&&producerRefActive()&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
+    genrePalette:auto?{instruments:[...(g?.instr||[])],drums:GENRE_AUTO[st.genre]?.aDrums||[],groove:GENRE_AUTO[st.genre]?.groove||null}:null,
     selectionOrigins:referenceSelectionOrigins(),
     brief:effectiveBrief()?{instrumentalProfile:st.brief.instrumentalProfile||{},understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
@@ -1231,6 +1231,7 @@ ${PROMPT_ROLE_GUIDE}
 - 믹스·공간·인간미·전환효과를 모든 구간에 빠짐없이 적지 마. 그 구간의 음악적 역할을 바꾸는 디테일만 선택하고, 이미 충분하면 더 채우지 마. 구간별 maxChars는 간결성 권장값이고 전체 길이 상한은 limits를 따라.
 
 [선택값과 레퍼런스]
+- 베이스 리프가 곡의 중심이면 베이스 자체를 훅으로 디렉팅해. lead와 bass가 같은 악기면 하나의 파트이며 다른 베이스를 겹치지 마. 무보컬이어도 속삭임·보컬 촙을 넣거나 빈자리를 별도 리드로 메우지 마.
 - 레퍼런스가 없으면 선택한 장르·무드·악기·그루브를 중심으로 일관된 새 곡을 설계해. 레퍼런스가 있으면 분석된 반주의 정체성을 유지하되 사용자가 직접 변경한 조건을 우선해.
 - selectionOrigins가 ai-reference인 필드는 AI가 메뉴에 매핑한 참고값이지 사용자가 확정한 조건이 아니야. 반주 분석과 다르면 분석을 우선해. 사용자의 보컬 조건과 지정 BPM/Key는 유지해. instrumentalProfile의 실제 장르·그루브·베이스·편성을 메뉴 이름보다 우선하고, 목록 밖의 특징도 자연어로 표현해. 무보컬로 바뀌어도 반주·구조는 유지하고 보컬 빈자리를 채우려고 새 기타나 신스 리드를 추가하지 마. 기존 cues에 보컬이 섞여 있으면 보컬 부분만 제외하고 반주 정보는 보존해.
 - 명세의 lead/background는 스타일 또는 섹션에서 실제 소리로 반영해. Sample chop은 chopped instrumental samples처럼 동등한 연주 표현도 가능해. drums는 스타일 또는 필요한 섹션에 실제 소리로 반영해. Sub-bass punch는 punchy sub-bass, Crisp hi-hats는 crisp hi-hats처럼 자연스럽게 표현해도 돼. bass는 장르에 맞는 저음 참고이며 808을 모든 장르에 강제로 추가하지 마. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
@@ -1457,6 +1458,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 규칙:
 - 곡명이면 kind="song": 제목과 아티스트를 보고 네가 확실히 아는 실제 사운드(드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 반영해. 실제 오디오를 들었다고 주장하지 말고, 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤 입력의 다른 단서로만 골라.
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
+- 아티스트의 대표 장르로 곡을 단정하지 마. 하이퍼팝·일렉트로클래시·일렉트로 하우스·UK 개러지는 해당 곡의 리듬과 소리로 구분해. 베이스 리프가 훅이면 그 베이스를 melodyLead로 고를 수 있고, 별도 기타·신스 멜로디를 만들 필요는 없어.
 - 선택지에 구체적인 장르가 있으면 일반 pop 대신 해당 장르를 골라. drums는 핵심 킥·스네어 패턴을 먼저, 셰이커·클랩 같은 보조 타악기는 그 다음에 골라. 멜로디 배경은 필수가 아니며 근거 없이 Ambient pad를 추가하지 마. 쿠아트로·나일론 기타·일반 어쿠스틱 기타를 구별하고 확신 없는 악기 재질이나 주법을 단정하지 마.
 - 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy를 영어 자연어로 설명해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
 - 그다음 화면 표시용 genre는 전체 장르 목록에서 가장 가까운 en을 고르되 적절한 항목이 없으면 null. 원곡을 힙합으로 변환하지 마. 다른 선택 필드도 맞는 항목만 고르고 없으면 null 또는 빈 배열. 메뉴 매핑 때문에 원곡의 반주 분석을 바꾸지 마.

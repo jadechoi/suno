@@ -935,3 +935,47 @@ for(const [name,reg,hook] of [['Nylon-string guitar','mid','warm fingerpicked rh
   MELODY_REGISTER[name]=reg;INSTR_HUMAN[name]='subtle picking dynamics';
 }
 setInstrumentMenus(null);
+
+// 클럽 제작용 선택지. 실시간 인기 순위가 아니라 서로 다른 소리를 구분하는 팔레트.
+const CLUB_PROFILES=[
+  {tag:'electroclash',kr:'일렉트로클래시',en:'Electroclash',bpm:128,bpmR:[115,135],drums:['Four-on-the-floor kick','Dry drum-machine clap'],melody:['Distorted mono synth bass','Metallic synth stab'],texture:['Saturated bass / clean drums','Dry upfront club mix'],tone:'디스토티드·그릿',groove:'정박 킥·엇박 베이스',feel:'거칠고 짧은 신스 베이스 리프와 건조한 드럼. 차갑고 도발적인 작은 클럽 느낌'},
+  {tag:'electro house',kr:'일렉트로 하우스',en:'Electro House',bpm:128,bpmR:[122,132],drums:['Four-on-the-floor kick','Clap on 2 & 4'],melody:['Distorted mono synth bass','Chord stabs'],texture:['Saturated bass / clean drums','Sidechain pump'],tone:'디스토티드·그릿',groove:'정박 킥·엇박 베이스',feel:'단단한 4박자 킥과 거친 베이스 리프가 주고받는 힘 있는 전자 클럽 사운드'},
+  {tag:'bassline',kr:'베이스라인 / UK 베이스',en:'Bassline',bpm:138,bpmR:[130,145],drums:['Swung four-on-the-floor kick','Clap on 2 & 4'],melody:['Rubbery FM bass','Metallic synth stab'],texture:['Punchy mix','Dry upfront club mix'],tone:'브라이트·클린',groove:'살짝 스윙',feel:'통통 튀고 구부러지는 베이스가 멜로디 역할을 하는 빠르고 장난스러운 클럽 리듬'},
+  {tag:'jungle',kr:'정글',en:'Jungle',bpm:165,bpmR:[155,175],drums:['Chopped jungle break','Ghost-note snares'],melody:['Reese bass','Chord stabs'],texture:['Vintage tape','Punchy mix'],tone:'빈티지·러프',groove:'브레이크비트·싱코페이션',feel:'잘게 잘라 재배치한 드럼 브레이크와 깊은 저음. 빠르지만 드럼 사이에 탄력과 여백이 있는 느낌'},
+  {tag:'uk garage',melody:['Organ bass','Chord stabs'],drums:['Two-step garage shuffle','Crisp hi-hats'],texture:['Punchy mix','Dry upfront club mix'],tone:'웜·아날로그',groove:'살짝 스윙'},
+  {tag:'afro house',melody:['Marimba','Synth bass'],drums:['Four-on-the-floor kick','Interlocking percussion'],texture:['Punchy mix','Stereo wide'],tone:'웜·아날로그',groove:'정박 킥·엇박 베이스'},
+  {tag:'amapiano',melody:['Log drum bass','Rhodes keys'],drums:['Shaker groove','Rimshot snare'],texture:['Bass-heavy','Punchy mix'],tone:'웜·아날로그',groove:'레이드백 포켓'},
+  {tag:'tech house',melody:['Rubbery FM bass','Metallic synth stab'],drums:['Four-on-the-floor kick','Offbeat open hats'],texture:['Dry upfront club mix','Punchy mix'],tone:'브라이트·클린',groove:'정박 킥·엇박 베이스'},
+];
+for(const p of CLUB_PROFILES){
+  p.index=GENRES.findIndex(g=>g.tag===p.tag);
+  if(p.index<0){
+    p.index=GENRES.length;
+    GENRES.push({kr:p.kr,en:p.en,tag:p.tag,family:'elec',bpm:p.bpm,bpmR:p.bpmR,instr:[...p.melody,...p.drums],vocal:'optional',pts:['recognizable repeating groove','interlocking instrumental phrases'],sound:p.tag+' club groove',energy:'high',drum:p.drums[0]});
+    GENRE_FEEL.push(p.feel);GENRE_HOOK_NAME.push(p.en+' Groove');GENRE_FUSION.push([p.tag,p.tag+' groove']);
+  }
+  if(!ELEC_GENRES.some(g=>g.tag===p.tag))ELEC_GENRES.push({kr:GENRES[p.index].kr,tag:p.tag});
+  for(const name of p.drums)if(!MENU_BY_FAMILY.elec.drums.includes(name))MENU_BY_FAMILY.elec.drums.push(name);
+}
+const CLUB_INSTRUMENTS={
+  'Distorted mono synth bass':{kr:'디스토션 모노 베이스',reg:'low',role:'lead',hook:'short distorted bass riff with deliberate rests'},
+  'Rubbery FM bass':{kr:'탄력적인 FM 베이스',reg:'low',role:'lead',hook:'elastic syncopated bass replies with short pitch bends'},
+  'Organ bass':{kr:'오르간 베이스',reg:'low',role:'lead',hook:'rounded organ-bass pattern with bouncing offbeat notes'},
+  'Log drum bass':{kr:'로그드럼 베이스',reg:'low',role:'lead',hook:'pitched log-drum bass answering the percussion gaps'},
+  'Metallic synth stab':{kr:'메탈릭 신스 스탭',reg:'high',role:'background',hook:'short metallic accents only in the bass gaps'},
+};
+for(const [name,d] of Object.entries(CLUB_INSTRUMENTS)){
+  for(const family of ['elec','pop'])MENU_BY_FAMILY[family].melody.push(name);
+  NEW_MELODY[name]={role:d.role,reg:d.reg,human:'subtle accent variation without changing the rhythmic grid',art:{intro:'expose a fragment of the central pattern',hook:d.hook,verse:'keep the same pattern with fewer accents',bridge:'briefly strip back the pattern before its return',outro:'return to the stripped central pattern'}};
+  MELODY_REGISTER[name]=d.reg;INSTR_HUMAN[name]=NEW_MELODY[name].human;
+  ELEC_INSTR.push(d.kr);POP_INSTR.push(d.kr);POP_INSTR_SOUND[d.kr]=d.hook;
+}
+HH_TEXTURE.push('Saturated bass / clean drums','Dry upfront club mix');
+for(const mood of [{kr:'차갑고·도발적',tag:'cold chic provocative'},{kr:'장난스럽고·탄력적',tag:'playful elastic bouncy'}]){
+  HH_MOODS.push(mood);ELEC_MOODS.push(mood);POP_MOODS.push(mood);
+  MOOD_GENRE_GUIDE[mood.kr]=CLUB_PROFILES.filter(p=>['electroclash','electro house','bassline','uk garage','tech house'].includes(p.tag)).map(p=>p.index);
+}
+setInstrumentMenus(null);
+
+MOOD_HEADER.push({energy:'Cool',climax:'Cool Groove Return',verse:'Dry'},{energy:'Bouncy',climax:'Playful Groove Return',verse:'Light'});
+MOOD_APPEAL.push({lead:'cool rhythmic',style:'cold confident club groove'},{lead:'playful rhythmic',style:'elastic playful bounce'});

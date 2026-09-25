@@ -7,7 +7,7 @@ assert.equal(run(`GENRES[${p.v.genre}].tag`),'reggaeton');
 assert.equal(p.v.drums[0],'Dembow kick & snare');assert.equal(p.v.lead,'Puerto Rican cuatro');assert.equal(p.v.bg,'Nylon-string guitar');
 assert.equal(run('GENRES[0].tag'),'trap');assert.equal(run('GENRES[44].tag'),'j-pop');
 const app=fs.readFileSync('app.js','utf8');
-run('const GENRE_MELODY_TIPS={},GENRE_DRUMS_TIPS={},GENRE_TEXTURE_TIPS={};');
+run('const GENRE_MELODY_TIPS={},GENRE_DRUMS_TIPS={},GENRE_TEXTURE_TIPS={},GENRE_MELODY_TONE={},GENRE_GROOVE_TIPS={},MOOD_TEXTURE_FIT={},GENRE_AUTO=[];');
 const start=app.indexOf('for(const p of RHYTHM_POP_PROFILES)');run(app.slice(start,app.indexOf('// 텍스처 추천',start)));
 for(const profile of run('RHYTHM_POP_PROFILES')){
  ctx.setInstrumentMenus('pop');ctx.profile=profile;
