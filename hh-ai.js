@@ -1443,7 +1443,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 규칙:
 - 곡명이면 kind="song": 제목과 아티스트를 보고 네가 확실히 아는 실제 사운드(드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 반영해. 실제 오디오를 들었다고 주장하지 말고, 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤 입력의 다른 단서로만 골라.
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
-- genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle은 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 장르는 힙합·팝/R&B·일렉트로닉/클럽 계열이 다 있어 — 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해. drums·melodyLead·melodyBackground는 **고른 장르가 속한 계열의 목록에서만** 골라 (계열마다 목록이 달라). bass808은 힙합 계열일 때만 쓰고 나머지 계열이면 null.
+- 지금은 힙합 비트 탭이므로 genre는 아래 힙합 장르 중 가장 가까운 하나를 en 이름 그대로 반드시 골라. 레퍼런스 원곡이 팝·R&B·일렉트로닉이어도 그 사운드를 비트로 옮기기 가장 좋은 힙합 장르를 고르고, 원곡의 다른 색깔은 styleTags·cues로 보완해. mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle도 아래 [선택지]에서 글자 그대로 골라.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). [선택지]에 없는 악기를 새로 주장하지 마.
 - cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
@@ -1456,7 +1456,7 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 function briefOptionsText(){
   return `[선택지]
 장르(en — 느낌):
-${GENRES.map((g,i)=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
+${GENRES.map((g,i)=>({g,i})).filter(x=>x.g.family==='hiphop').map(({g,i})=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
 무드: ${HH_MOODS.map(m=>m.kr).join(' | ')}
 ${Object.entries(MENU_BY_FAMILY).map(([f,m])=>`[${f}] 드럼: ${m.drums.join(' | ')}\n[${f}] 멜로디 악기: ${m.melody.join(' | ')}`).join('\n')}
 808(힙합 계열만): ${HH_808.join(' | ')}
@@ -1465,17 +1465,22 @@ ${Object.entries(MENU_BY_FAMILY).map(([f,m])=>`[${f}] 드럼: ${m.drums.join(' |
 보컬: ${HH_VOCAL.join(' | ')}
 보컬 스타일: ${HH_VOCAL_STYLE.join(' | ')}
 보컬 질감(vocalChar): ${HH_VOCAL_CHAR.join(' | ')}
-프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}
-Key: ${KEYS.join(' | ')}`;
+프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}`;
 }
-async function aiAnalyzeBrief(){
+function briefAutoApply(id,before){
+  if(id==='genre'||id==='sound')return true;
+  const field={mood:'mood',drums:'drums','808':'b808Set',melody:'melody',texture:'texture',density:'density'}[id];
+  return field?!before[field]:false;   // 보컬과 이미 고른 값은 자동 분석이 덮어쓰지 않는다.
+}
+async function aiAnalyzeBrief(opts={}){
   const key=getOpenAIKey();
   const text=(document.getElementById('hh-brief')?.value||'').trim();
   const btn=document.getElementById('hh-brief-btn');
   const statusEl=document.getElementById('hh-brief-status');
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
-  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return;}
-  if(!text){fail('곡명이나 만들고 싶은 느낌을 한 줄 적어주세요');return;}
+  if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return false;}
+  if(!text){fail('곡명이나 만들고 싶은 느낌을 한 줄 적어주세요');return false;}
+  const before={genre:st.genre,mood:st.mood,drums:st.drums.length,melody:st.melody.length,texture:st.texture.length,density:st.density,b808Set:st.b808Set};
   btn.disabled=true;btn.textContent='🤖 분석 중...';
   if(statusEl)statusEl.hidden=true;
   try{
@@ -1489,9 +1494,16 @@ ${briefOptionsText()}`;
     const raw=await callOpenAI(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText,think:false});
     const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     _briefProposal=buildBriefProposal(text,p);
-    renderBriefResult();
+    const current=(document.getElementById('hh-brief')?.value||'').trim();
+    if(opts.expectedText&&current!==opts.expectedText){_briefProposal=null;return false;}
+    if(opts.autoApply&&st.genre===before.genre){
+      _briefProposal.items.forEach(it=>it.on=briefAutoApply(it.id,before));
+      applyBrief();
+    }else renderBriefResult();
+    return true;
   }catch(e){
     fail(e.message);
+    return false;
   }finally{
     btn.disabled=false;btn.textContent='🤖 AI로 분석·추천';
   }
@@ -1501,7 +1513,8 @@ function buildBriefProposal(text,p){
   const names=HH_REF.map(r=>r.kr.toLowerCase());
   const clean=(s,max)=>{const t=String(s||'').replace(/[,\n]+/g,' ').replace(/\s+/g,' ').trim().slice(0,max);return t&&!names.some(n=>t.toLowerCase().includes(n))?t:'';};
   const v={};
-  v.genre=GENRES.findIndex(g=>g.en===p.genre||g.tag===p.genre);
+  const genreIdx=GENRES.findIndex(g=>g.en===p.genre||g.tag===p.genre);
+  v.genre=GENRES[genreIdx]?.family==='hiphop'?genreIdx:-1;
   setInstrumentMenus(GENRES[v.genre]?.family||(st.genre===null?null:GENRES[st.genre].family));   // 아래 검증이 새 장르 계열의 메뉴를 보게 (끝에서 원복)
   v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
   v.drums=(p.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
@@ -1627,6 +1640,14 @@ function syncProducerLock(){
   const ab=document.getElementById('hh-ref-ai-block');if(ab)ab.style.display=lock?'none':'';
 }
 let _refCandidate=null;
+let _refAutoText='',_refAutoPromise=null;
+function autoAnalyzeReference(label){
+  if(!label||!getOpenAIKey()||st.genre!==null||(st.brief?.kind==='song'&&st.brief.text===label))return Promise.resolve(false);
+  if(_refAutoPromise&&_refAutoText===label)return _refAutoPromise;
+  _refAutoText=label;
+  _refAutoPromise=aiAnalyzeBrief({autoApply:true,expectedText:label}).finally(()=>{_refAutoText='';_refAutoPromise=null;});
+  return _refAutoPromise;
+}
 function setRefSongFromPicker(label,cand){
   if(!label)return;
   const r=document.getElementById('hh-ref-song');if(r)r.value=label;
@@ -1635,10 +1656,12 @@ function setRefSongFromPicker(label,cand){
   const s=document.getElementById('hh-brief-status');
   if(s){
     s.hidden=false;s.style.color='var(--text-1)';
-    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. Generate를 누르면 GPT가 곡명으로 무드·악기·편곡 특징을 반영합니다. 먼저 추천값을 보고 고르려면 <b>AI로 분석·추천</b>을 누르세요.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터는 BPM·Key만 사용: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">BPM·Key 적용</button></div>`:''}`;
+    const aiText=getOpenAIKey()?'GPT가 곡명으로 장르·무드·악기·편곡 특징을 자동 분석합니다. 완료 후 원하는 항목만 바꾸고 Generate를 누르세요.':'OpenAI API Key를 저장하면 GPT가 곡명으로 장르·무드·악기·편곡 특징을 분석합니다.';
+    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. ${aiText}${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터는 BPM·Key만 사용: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">BPM·Key 적용</button></div>`:''}`;
   }
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   markPending('참고 곡 선택');
+  autoAnalyzeReference(label);
 }
 function applyRefCandidate(){
   const c=_refCandidate;if(!c)return;

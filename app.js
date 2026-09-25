@@ -2313,6 +2313,11 @@ function hhGenerate(source,opts){
   const keyStr=KEYS[st.key]||'A minor';
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
+  // 레퍼런스 곡만 고르고 장르를 고르지 않았다면, Generate 전에 곡명 GPT 분석을 끝내고 추천값을 채운 뒤 생성한다.
+  if(!opts?._afterRefAuto&&st.genre===null&&refSong&&getOpenAIKey()){
+    autoAnalyzeReference(refSong).then(()=>hhGenerate(source,{...(opts||{}),_afterRefAuto:true}));
+    return;
+  }
   const moodIdx=HH_MOODS.findIndex(m=>m.kr===st.mood);
   const mood=moodIdx>=0?HH_MOODS[moodIdx]:null;
 

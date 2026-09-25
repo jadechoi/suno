@@ -17,6 +17,10 @@ assert.match(run('WRITE_STATIC'),/referenceSong이 있으면 곡 제목과 아�
 assert.match(run('WRITE_STATIC'),/BPM과 Key는 referenceSong에서 추측하지 말고/);
 run(`Object.assign(st,{genre:null,mood:null,commercial:null,_mtAutoManaged:false,drums:[],_808:'Balanced',b808Set:false,groove:null,texture:[],transitionFx:[],era:null,region:null,density:null,brief:null,length:null,structSegs:['intro','hook','outro'],bpmSet:false,keySet:false,narrAI:{},removedPhrases:[]}); globalThis.antiAI=true;`);
 assert.match(run('aiSelectionCtx()'),/장르: 미선택/);
+assert.equal(run(`briefAutoApply('genre',{genre:null})`),true);
+assert.equal(run(`briefAutoApply('mood',{mood:null})`),true);
+assert.equal(run(`briefAutoApply('mood',{mood:'칠·그루비'})`),false);
+assert.equal(run(`briefAutoApply('vocal',{vocal:null})`),false); // 레퍼런스 원곡에 보컬이 있어도 힙합 탭 기본 무보컬 유지
 assert.equal(run(`audioFileFormat({name:'track.mp3',type:'audio/mpeg'})`),'mp3');
 assert.equal(run(`audioFileFormat({name:'track.wav',type:'audio/wav'})`),'wav');
 assert.equal(run(`audioFileFormat({name:'track.m4a',type:'audio/mp4'})`),'');
@@ -92,6 +96,17 @@ assert.equal(checkEvents(koreanLyrics,eventStyle,{lyrics:{...eventSpec.lyrics,la
 ctx.fixture={section,style:instrumentalStyle};
 run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}); getOpenAIKey=()=> 'fixture-only'; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
 (async()=>{
+  ctx.nodes={'hh-brief':{value:'Artist - Reference Song'},'hh-brief-btn':{disabled:false,textContent:''},'hh-brief-status':{hidden:false,style:{},textContent:''}};
+  run(`document.getElementById=id=>nodes[id]||null;
+    getOpenAIKey=()=> 'fixture-only'; setInstrumentMenus=()=>{}; pickCompatibleTextures=x=>x; globalThis.HH_VOCAL_STYLE=[]; globalThis.HH_VOCAL_CHAR=[];
+    Object.assign(st,{genre:null,mood:null,drums:[],melody:[],texture:[],density:null,b808Set:false});
+    callOpenAI=async()=>JSON.stringify({kind:'song',understood:'reference',genre:GENRES[0].en,mood:HH_MOODS[0].kr,drums:[],bass808:null,melodyLead:null,melodyBackground:null,texture:[],density:null,vocal:'Sung lead vocal',vocalStyle:null,vocalChar:null,styleTags:['short syncopated motif'],cues:{hook:'wider hook'}});
+    applyBrief=()=>{globalThis.autoApplyIds=_briefProposal.items.filter(x=>x.on).map(x=>x.id);_briefProposal=null;};`);
+  assert.equal(await ctx.aiAnalyzeBrief({autoApply:true,expectedText:'Artist - Reference Song'}),true);
+  assert.deepEqual(Array.from(ctx.autoApplyIds),['mood','genre','sound']);
+  assert.equal(ctx.autoApplyIds.includes('vocal'),false);
+  run(`document.getElementById=()=>null; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
+
   const result=await ctx.writeOnce({mode:'create',spec});
   assert.equal(result.style,instrumentalStyle);
   assert.equal(result.section,section);
