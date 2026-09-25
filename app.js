@@ -2,6 +2,7 @@
 // STATE
 // ============================================================
 const st={
+  referenceSelections:null,
   genre:null,key:7,bpm:140,
   _808:'Balanced',drums:[],melody:[],melodyTone:null,mood:null,vocal:'No Vocal',vocalChar:null,vocalStyle:null,
   refs:[],texture:[],era:null,region:null,density:null,length:null,commercial:null,
@@ -60,6 +61,7 @@ function chipGrid(container,items,state,key,maxSel,onChange){
       } else {
         state[key]=state[key]===val?null:val;
       }
+      if(state.referenceSelections)delete state.referenceSelections[key];
       chipGrid(container,items,state,key,maxSel,onChange);
       if(onChange)onChange(val,i);
     };
@@ -73,7 +75,7 @@ function moodGrid(container,moods,state,key,onChange){
     const el=document.createElement('div');
     el.className='mood-card'+(state[key]===m.kr?' selected':'');
     el.innerHTML=`<div class="mood-card-name">${m.kr}</div><div class="mood-card-tag">${m.tag}</div>`;
-    el.onclick=()=>{state[key]=state[key]===m.kr?null:m.kr;moodGrid(container,moods,state,key,onChange);if(onChange)onChange();};
+    el.onclick=()=>{if(state.referenceSelections)delete state.referenceSelections[key];state[key]=state[key]===m.kr?null:m.kr;moodGrid(container,moods,state,key,onChange);if(onChange)onChange();};
     container.appendChild(el);
   });
 }
@@ -83,7 +85,7 @@ function moodGrid(container,moods,state,key,onChange){
 // ============================================================
 // 보컬 칩을 누를 때마다(어느 경로로 그려진 칩이든) 같은 처리 — 가사 칸이 바로 나타나고 사라지게
 function on808Change(){st.b808Set=true;onRhythmManualChange();}
-function onVocalChange(){recommendVocalChar();onStructSignalChange();syncLyricBox();}
+function onVocalChange(){recommendVocalChar();syncLyricBox();}
 let _lyricLangTouched=false,_lyricLangForced=false;   // 사용자가 직접 언어를 고르면 장르 선택이 언어를 바꾸지 않음
 function syncLyricBox(){
   const box=document.getElementById('hh-lyric-box');if(!box)return;
@@ -2915,6 +2917,7 @@ function renderPromptHistory(){
 
 function hhReset(){
   invalidateAiWrite();
+  st.referenceSelections=null;
   _hhWritten=null;_hhDraft=null;
   _aiSuggestions=null;
   st.genre=null;st.key=7;st.bpm=140;st.bpmSet=false;st.keySet=false;

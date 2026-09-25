@@ -164,6 +164,8 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const refProducers=(st.refs.length&&producerRefActive())?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   return [
+    st.brief?.instrumentalProfile?`레퍼런스 반주 분석: ${JSON.stringify(st.brief.instrumentalProfile)}`:null,
+    st.referenceSelections?`출처: ${JSON.stringify(referenceSelectionOrigins())}. ai-reference는 AI가 추천한 참고값이며 사용자 확정 조건이 아님. 실제 레퍼런스 반주 특징을 우선하고 메뉴와 맞지 않으면 자유롭게 표현.`:null,
     g?`장르: ${g.kr} (${g.sound})`:'장르: 미선택 — 레퍼런스 곡과 나머지 설정에서 가장 가까운 사운드를 판단',
     mood?`무드: ${mood.kr}`:null,
     st.commercial?`색깔: ${st.commercial}`:null,
@@ -1121,7 +1123,8 @@ function buildWriteSpec(prev){
     producerReference:(auto||!producerRefActive())?null:(st.refs[0]||null),
     producerSound:(!auto&&producerRefActive()&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
-    brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
+    selectionOrigins:referenceSelectionOrigins(),
+    brief:effectiveBrief()?{instrumentalProfile:st.brief.instrumentalProfile||{},understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,
     limits:{sectionTotal:secLimit,lyricsCombined:WRITE_LIMITS.section,style:WRITE_LIMITS.style},
@@ -1191,6 +1194,7 @@ ${PROMPT_ROLE_GUIDE}
 - 믹스·공간·인간미·전환효과를 모든 구간에 빠짐없이 적지 마. 그 구간의 음악적 역할을 바꾸는 디테일만 선택하고, 이미 충분하면 더 채우지 마. 구간별 maxChars는 간결성 권장값이고 전체 길이 상한은 limits를 따라.
 
 [선택값과 레퍼런스]
+- selectionOrigins가 ai-reference인 필드는 AI가 메뉴에 매핑한 참고값이지 사용자가 확정한 조건이 아니야. 반주 분석과 다르면 분석을 우선해. 사용자의 보컬 조건과 지정 BPM/Key는 유지해. instrumentalProfile의 실제 장르·그루브·베이스·편성을 메뉴 이름보다 우선하고, 목록 밖의 특징도 자연어로 표현해. 무보컬로 바뀌어도 반주·구조는 유지하고 보컬 빈자리를 채우려고 새 기타나 신스 리드를 추가하지 마. 기존 cues에 보컬이 섞여 있으면 보컬 부분만 제외하고 반주 정보는 보존해.
 - 명세의 lead/background는 스타일 또는 섹션에서 실제 소리로 반영해. Sample chop은 chopped instrumental samples처럼 동등한 연주 표현도 가능해. drums는 스타일 또는 필요한 섹션에 실제 소리로 반영해. Sub-bass punch는 punchy sub-bass, Crisp hi-hats는 crisp hi-hats처럼 자연스럽게 표현해도 돼. bass는 장르에 맞는 저음 참고이며 808을 모든 장르에 강제로 추가하지 마. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
 - bpm·key가 있으면 그대로 쓰고, null이면 특정 BPM·Key를 만들지 마. producerSound가 있으면 소리 특징을 스타일에 반영해. 실존 아티스트·프로듀서·곡 이름이나 OO-inspired는 출력하지 마.
 - referenceSong이 있으면 곡 제목과 아티스트를 보고 네가 확실히 아는 사운드·연주·편곡 특성만 분석해서 반영해. 실제 오디오를 들었다고 주장하거나 모르는 세부를 지어내지 마. 제목과 이름은 최종 출력에 쓰지 말고 재현 가능한 소리 언어로 바꿔. BPM과 Key는 referenceSong에서 추측하지 말고 명세 값을 그대로 사용해.
@@ -1249,7 +1253,7 @@ ${directives}
 삭제 확정 문구(어떤 형태로도 다시 쓰지 말 것): ${(st.removedPhrases||[]).join(' | ')||'(없음)'}
 ${_writeFix?`\n[개선 요청 — 이 결과가 추가 검사에서 지적받은 항목이야. 아래를 해소하도록 고쳐 써. 지적과 무관한 섹션·가사는 [이전 결과] 그대로 유지하고, 지적된 부분만 구체적인 소리 표현으로 바꿔. 새 지적을 만들지 않도록 다른 규칙도 그대로 지켜]\n${_writeFix.map((x,i)=>`${i+1}. ${x}`).join('\n')}`:''}
 
-[의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, 그 외에 적힌 값(BPM·Key·보컬, 그리고 확정된 악기·드럼)은 사용자가 정한 것이니 그대로 지켜]
+[의도 — 사용자가 고르거나 곡 분석으로 정해진 것. 장르 기본값이 아니라 이 의도를 따라 써. "장르 기본 추천"으로 표시된 건 자동으로 채워진 참고값일 뿐이고, BPM·Key·보컬은 유지해. 악기·드럼 등은 selectionOrigins를 확인해: ai-reference는 레퍼런스 분석보다 우선하지 않는 자동 추천이고 current-selection은 현재 선택이므로 존중해]
 ${aiSelectionCtx({soft:true})}
 ${spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
 ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n[직전 실패 결과 — 위 오류를 바로잡되 선택과 작성 스타일은 유지]\n${failed?JSON.stringify(failed):'(없음)'}\n`:''}`;
@@ -1401,11 +1405,12 @@ function hhAiRewrite(){
 // ============================================================
 let _briefProposal=null;
 // 무보컬을 골랐는데 브리프 문구에 보컬 묘사("whispered vocals")가 있으면 Suno가 보컬을 넣을 수 있어서 그런 문구는 뺌
-function effectiveBrief(){
-  const b=st.brief;
-  if(!b||(st.vocal&&st.vocal!=='No Vocal'))return b;
-  const bad=/\b(vocals?|voices?|sing(?:ing|er)?|lyrics?|choir|whisper\w*|ad-?libs?|chant\w*|rap\w*|hushed|breathy)\b/i;
-  return {...b,styleTags:(b.styleTags||[]).filter(t=>!bad.test(t)),cues:Object.fromEntries(Object.entries(b.cues||{}).filter(([,c])=>!bad.test(c)))};
+// 보컬을 제거해도 같은 문장의 리듬·베이스 정보는 잃지 않는다.
+// 작성기가 보컬 조건을 우선 적용하고 instrumentalProfile의 반주 특징을 보존한다.
+function effectiveBrief(){return st.brief||null;}
+const REFERENCE_FIELDS=['genre','mood','drums','_808','melody','texture','density','groove','transitionFx','melodyTone','structSegs'];
+function referenceSelectionOrigins(){
+  return Object.fromEntries(REFERENCE_FIELDS.map(k=>[k,st.referenceSelections&&Object.prototype.hasOwnProperty.call(st.referenceSelections,k)&&JSON.stringify(st[k])===JSON.stringify(st.referenceSelections[k])?'ai-reference':'current-selection']));
 }
 function briefCtxLine(){return st.brief?`원하는 곡의 느낌: "${st.brief.text}" — ${st.brief.understood} / 소리 특징: ${(st.brief.styleTags||[]).join(' & ')}`:null;}
 const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는 프로듀서야. 사용자는 Suno AI로 곡을 만들려고 하고, (a) 참고할 곡명("아티스트 - 제목") 또는 (b) 만들고 싶은 느낌·상황("신나고 춤추고 싶어지는 곡")을 한 줄로 적었어. 이걸 프롬프트 빌더의 선택 항목으로 번역해줘.
@@ -1413,20 +1418,21 @@ const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는
 규칙:
 - 곡명이면 kind="song": 제목과 아티스트를 보고 네가 확실히 아는 실제 사운드(드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 반영해. 실제 오디오를 들었다고 주장하지 말고, 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤 입력의 다른 단서로만 골라.
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
-- 지금은 힙합 비트 탭이므로 genre는 아래 힙합 장르 중 가장 가까운 하나를 en 이름 그대로 반드시 골라. 레퍼런스 원곡이 팝·R&B·일렉트로닉이어도 그 사운드를 비트로 옮기기 가장 좋은 힙합 장르를 고르고, 원곡의 다른 색깔은 styleTags·cues로 보완해. mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle도 아래 [선택지]에서 글자 그대로 골라.
-- styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). [선택지]에 없는 악기를 새로 주장하지 마.
+- 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy를 영어 자연어로 설명해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
+- 그다음 화면 표시용 genre는 전체 장르 목록에서 가장 가까운 en을 고르되 적절한 항목이 없으면 null. 원곡을 힙합으로 변환하지 마. 다른 선택 필드도 맞는 항목만 고르고 없으면 null 또는 빈 배열. 메뉴 매핑 때문에 원곡의 반주 분석을 바꾸지 마.
+- styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). 메뉴에 없는 악기도 확실히 아는 원곡 특징이면 instrumentalProfile에 설명할 수 있어.
 - cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
 - vocalChar: 보컬 녹음 질감 목록 중 하나(속삭임·친밀한 곡은 드라이/클로즈 계열).
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
 - BPM과 Key는 분석하지 마 — 참고 곡을 고르면 프로그램이 Spotify에서 채우고, 아니면 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
-{"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+{"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
 // 분석 프롬프트에 붙는 선택지 목록 (텍스트 분석·GPT 오디오 분석 공용)
 function briefOptionsText(){
   return `[선택지]
 장르(en — 느낌):
-${GENRES.map((g,i)=>({g,i})).filter(x=>x.g.family==='hiphop').map(({g,i})=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
+${GENRES.map((g,i)=>({g,i})).map(({g,i})=>`- ${g.en} — ${GENRE_FEEL[i]||g.sound}`).join('\n')}
 무드: ${HH_MOODS.map(m=>m.kr).join(' | ')}
 ${Object.entries(MENU_BY_FAMILY).map(([f,m])=>`[${f}] 드럼: ${m.drums.join(' | ')}\n[${f}] 멜로디 악기: ${m.melody.join(' | ')}`).join('\n')}
 808(힙합 계열만): ${HH_808.join(' | ')}
@@ -1484,7 +1490,7 @@ function buildBriefProposal(text,p){
   const clean=(s,max)=>{const t=String(s||'').replace(/[,\n]+/g,' ').replace(/\s+/g,' ').trim().slice(0,max);return t&&!names.some(n=>t.toLowerCase().includes(n))?t:'';};
   const v={};
   const genreIdx=GENRES.findIndex(g=>g.en===p.genre||g.tag===p.genre);
-  v.genre=GENRES[genreIdx]?.family==='hiphop'?genreIdx:-1;
+  v.genre=genreIdx;
   setInstrumentMenus(GENRES[v.genre]?.family||(st.genre===null?null:GENRES[st.genre].family));   // 아래 검증이 새 장르 계열의 메뉴를 보게 (끝에서 원복)
   v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
   v.drums=(p.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
@@ -1499,6 +1505,7 @@ function buildBriefProposal(text,p){
   v.vocalChar=HH_VOCAL_CHAR.includes(p.vocalChar)?p.vocalChar:null;
   v.producer=HH_REF.find(r=>r.kr===p.producer)?.kr||null;
   const styleTags=(Array.isArray(p.styleTags)?p.styleTags:[]).map(t=>clean(t,70)).filter(Boolean).slice(0,2);
+  const instrumentalProfile=Object.fromEntries(['genre','groove','bass','instruments','arrangement','energy'].map(k=>[k,clean(p.instrumentalProfile?.[k],400)]).filter(([,v])=>v));
   const cues={};
   ['intro','hook','verse','bridge','outro'].forEach(k=>{const c=clean(p.cues?.[k],110);if(c)cues[k]=c;});
   const items=[];
@@ -1513,9 +1520,9 @@ function buildBriefProposal(text,p){
   add('density','밀도',v.density,v.density);
   add('vocal','보컬',v.vocal,[v.vocal,v.vocalStyle,v.vocalChar].filter(Boolean).join(' · '));
   if('producer' in p&&p.kind!=='song')add('producer','프로듀서',true,v.producer||'없음 — 어울리는 프로듀서가 없어 소리 특징 키워드로 대신해요');
-  add('sound','소리 특징',styleTags.length||Object.keys(cues).length,[...styleTags,...Object.values(cues)].join(' / '));
+  add('sound','소리 특징',styleTags.length||Object.keys(cues).length||Object.keys(instrumentalProfile).length,[...Object.values(instrumentalProfile),...styleTags,...Object.values(cues)].join(' / '));
   if(!items.length)throw new Error('AI가 목록에 있는 값을 반환하지 못했습니다');
-  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,items};
+  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,instrumentalProfile,items};
 }
 function renderBriefResult(){
   const box=document.getElementById('hh-brief-result');
@@ -1536,6 +1543,7 @@ function updateBriefApplyBtn(){
 function applyBrief(){
   const P=_briefProposal;
   if(!P)return;
+  const beforeSelections=Object.fromEntries(REFERENCE_FIELDS.map(k=>[k,JSON.stringify(st[k]??null)]));
   const on=id=>P.items.some(i=>i.id===id&&i.on);
   const v=P.v;
   _aiSuggestions=null;
@@ -1570,7 +1578,8 @@ function applyBrief(){
     onStructSignalChange();
   }
   if(on('producer')){st.refs=v.producer?[v.producer]:[];renderProducerRef();clearAutoHint('hh-ref-hint');}
-  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai'}:null;
+  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai',instrumentalProfile:P.instrumentalProfile||{}}:null;
+  st.referenceSelections=P.kind==='song'?Object.fromEntries(REFERENCE_FIELDS.filter(k=>beforeSelections[k]!==JSON.stringify(st[k]??null)||on(({_808:'808',structSegs:'structure',melodyTone:'melody'}[k]||k))).map(k=>[k,JSON.parse(JSON.stringify(st[k]??null))])):null;
   if(P.kind==='song'){const r=document.getElementById('hh-ref-song');if(r)r.value=P.text;}
   _briefProposal=null;
   const box=document.getElementById('hh-brief-result');if(box)box.hidden=true;
