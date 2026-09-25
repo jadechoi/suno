@@ -1239,6 +1239,7 @@ const WRITE_STATIC=`너는 장르 전문 프로듀서이자 Suno 프롬프트 �
 [선택값과 레퍼런스]
 - 명세의 lead/background/drums가 있으면 이름 그대로 곡 안에 등장시켜. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
 - bpm·key가 있으면 그대로 쓰고, null이면 특정 BPM·Key를 만들지 마. producerSound가 있으면 소리 특징을 스타일에 반영해. 실존 아티스트·프로듀서·곡 이름이나 OO-inspired는 출력하지 마.
+- referenceSong이 있으면 곡 제목과 아티스트를 보고 네가 확실히 아는 사운드·연주·편곡 특성만 분석해서 반영해. 실제 오디오를 들었다고 주장하거나 모르는 세부를 지어내지 마. 제목과 이름은 최종 출력에 쓰지 말고 재현 가능한 소리 언어로 바꿔. BPM과 Key는 referenceSong에서 추측하지 말고 명세 값을 그대로 사용해.
 - brief가 있으면 소리 특징·styleTags·cues를 반영해. 제목만 아는 곡을 실제로 들었다고 주장하지 마. 스타일에 명시한 악기는 섹션에서 실제 역할을 갖게 해.
 - 형용사 단어가 아니라 대상과 적용 구간을 보고 모순을 판단해. 같은 리듬을 지키면서 음색을 바꾸는 것은 모순이 아니야.
 
@@ -1440,9 +1441,9 @@ function briefCtxLine(){return st.brief?`원하는 곡의 느낌: "${st.brief.te
 const BRIEF_STATIC=`너는 음악을 잘 모르는 사람의 말도 알아듣는 프로듀서야. 사용자는 Suno AI로 곡을 만들려고 하고, (a) 참고할 곡명("아티스트 - 제목") 또는 (b) 만들고 싶은 느낌·상황("신나고 춤추고 싶어지는 곡")을 한 줄로 적었어. 이걸 프롬프트 빌더의 선택 항목으로 번역해줘.
 
 규칙:
-- 곡명이면 kind="song": 그 곡의 실제 사운드(템포, 드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 아는 대로 반영해. 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤, 입력의 다른 단서로만 골라.
+- 곡명이면 kind="song": 제목과 아티스트를 보고 네가 확실히 아는 실제 사운드(드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 반영해. 실제 오디오를 들었다고 주장하지 말고, 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤 입력의 다른 단서로만 골라.
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
-- genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle/key는 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 장르는 힙합·팝/R&B·일렉트로닉/클럽 계열이 다 있어 — 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해. drums·melodyLead·melodyBackground는 **고른 장르가 속한 계열의 목록에서만** 골라 (계열마다 목록이 달라). bass808은 힙합 계열일 때만 쓰고 나머지 계열이면 null.
+- genre/mood/drums/bass808/melodyLead/melodyBackground/texture/density/vocal/vocalStyle은 아래 [선택지]에서 글자 그대로 골라 (장르는 en 이름). 장르는 힙합·팝/R&B·일렉트로닉/클럽 계열이 다 있어 — 소리가 가장 가까운 장르를 고르고, 안 맞는 부분은 styleTags·cues로 보완해. drums·melodyLead·melodyBackground는 **고른 장르가 속한 계열의 목록에서만** 골라 (계열마다 목록이 달라). bass808은 힙합 계열일 때만 쓰고 나머지 계열이면 null.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). [선택지]에 없는 악기를 새로 주장하지 마.
 - cues: intro/hook/verse/bridge/outro 각각 그 곡(느낌)의 그 부분 특징을 서로 다른 단어로 (예: "sparse verse with a low pulsing sub and close dry vocals"). 같은 단어를 여러 섹션에 반복하지 마.
 - producer: [선택지]의 프로듀서 레퍼런스 중 이 곡/느낌의 소리에 실제로 어울리는 1명 — 어울리는 사람이 없으면(예: 팝·클럽 곡) 억지로 고르지 말고 null. 이 필드만 목록의 이름을 그대로 쓰고, cues·styleTags에는 이름 금지.
@@ -1610,17 +1611,6 @@ function clearBrief(){
   markPending('소리 특징 해제');
 }
 
-// 레퍼런스 곡 칸에 곡명만 있고 분석이 안 된 상태를 알려줌 (곡이 프롬프트에 전혀 반영되지 않기 때문)
-function refSongNeedsDna(){
-  const s=(document.getElementById('hh-ref-song')?.value||'').trim();
-  return !!s&&!(st.brief&&st.brief.kind==='song'&&st.brief.text===s);
-}
-function analyzeRefSongFromBanner(){
-  const s=(document.getElementById('hh-ref-song')?.value||'').trim();
-  const b=document.getElementById('hh-brief');if(b)b.value=s;
-  document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
-  if(getOpenAIKey())aiAnalyzeBrief();
-}
 // ============================================================
 // 아티스트·핫한 곡 선택기 → 입력칸 (예전 "아티스트 타입비트" 탭을 ✨ 박스 안으로 합침)
 // ============================================================
@@ -1641,12 +1631,11 @@ function setRefSongFromPicker(label,cand){
   if(!label)return;
   const r=document.getElementById('hh-ref-song');if(r)r.value=label;
   const b=document.getElementById('hh-brief');if(b)b.value=label;
-  if(cand&&cand.genre!==undefined&&cand.genre!==null&&st.genre!==cand.genre)selectGenre(cand.genre);   // 곡 데이터에 달린 장르 태그만 반영
   _refCandidate=(cand&&(cand.bpm||cand.key!==undefined&&cand.key!==null))?{bpm:cand.bpm||null,key:(cand.key!==undefined&&cand.key!==null)?cand.key:null}:null;
   const s=document.getElementById('hh-brief-status');
   if(s){
     s.hidden=false;s.style.color='var(--text-1)';
-    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. <b>AI로 분석·추천</b>을 누르면 곡명과 현재 설정을 바탕으로 소리 특징을 추천합니다.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터의 BPM·Key 참고값: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">참고값 적용</button></div>`:''}`;
+    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. Generate를 누르면 GPT가 곡명으로 무드·악기·편곡 특징을 반영합니다. 먼저 추천값을 보고 고르려면 <b>AI로 분석·추천</b>을 누르세요.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터는 BPM·Key만 사용: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">BPM·Key 적용</button></div>`:''}`;
   }
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   markPending('참고 곡 선택');

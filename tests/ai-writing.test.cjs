@@ -9,6 +9,12 @@ for (const file of ['hh-data.js', 'hh-ai.js', 'hh-openai-audio.js']) {
 }
 vm.runInContext(`const st={extraTags:[],vocal:'No Vocal',melody:['Muted guitar','Synth pluck'],refs:[]};`,ctx);
 const run = code => vm.runInContext(code,ctx);
+const appSource=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const spotifySource=fs.readFileSync(path.join(__dirname,'..','hh-spotify.js'),'utf8');
+assert.doesNotMatch(appSource,/refAf/);
+assert.doesNotMatch(spotifySource,/af\.(?:energy|valence|danceability)|spMoodFromFeatures|sp808FromEnergy|spDrumsFromFeatures/);
+assert.match(run('WRITE_STATIC'),/referenceSong이 있으면 곡 제목과 아티스트를 보고/);
+assert.match(run('WRITE_STATIC'),/BPM과 Key는 referenceSong에서 추측하지 말고/);
 assert.equal(run(`audioFileFormat({name:'track.mp3',type:'audio/mpeg'})`),'mp3');
 assert.equal(run(`audioFileFormat({name:'track.wav',type:'audio/wav'})`),'wav');
 assert.equal(run(`audioFileFormat({name:'track.m4a',type:'audio/mp4'})`),'');

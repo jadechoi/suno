@@ -12,14 +12,14 @@ const st={
   // 보컬 곡에서 AI가 쓰는 가사의 방향(비우면 무드에 맞게)과 언어
   bpmSet:false,keySet:false, // BPM·Key는 기본값이 없음 — 사용자가 직접 정했거나 레퍼런스 곡에서 가져왔을 때만 true (false면 프롬프트에 안 씀)
   brief:null, // AI가 곡명/느낌 입력에서 뽑은 소리 특징 {text,kind,understood,styleTags,cues} — 규칙 엔진·작성기·리뷰가 함께 씀
-  _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},refAf:null,
+  _appliedAdvTipGenre:null,_appliedArrangeTipGenre:null,sectionArrangeExtras:{},sectionArrangeOccurrence:{},
   _mtAutoManaged:true, // 멜로디·텍스처가 아직 자동 추천 상태인지 — 사용자가 직접 칩 클릭하면 false로 바뀌어 이후 자동 갱신이 덮어쓰지 않음
   _structAutoManaged:true, // 구조(STRUCTURE BUILDER)가 아직 자동 추천 상태인지 — 프리셋 클릭·세그먼트 추가/삭제하면 false
 };
 
 // Vocal tab states
 const VTS={
-  pop:{genre:null,bpm:120,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',userLyrics:'',refSong:'',refAf:null,narrSt:{},structSegs:['intro','verse','prechorus','chorus','verse','prechorus','chorus','bridge','chorus','outro'],structIdx:null},
+  pop:{genre:null,bpm:120,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',userLyrics:'',refSong:'',narrSt:{},structSegs:['intro','verse','prechorus','chorus','verse','prechorus','chorus','bridge','chorus','outro'],structIdx:null},
   elec:{genre:null,bpm:128,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',narrSt:{},structSegs:['intro','build','drop','breakdown','drop','outro'],structIdx:null},
   rock:{genre:null,bpm:120,key:7,mood:null,instruments:[],vocalStyle:null,concept:'',narrSt:{},structSegs:['intro','verse','chorus','chorus','outro'],structIdx:null},
 };
@@ -983,14 +983,14 @@ function suggestionChip(text,onClick){
 
 // 예전엔 큐레이션 목록에서 "아티스트 이름"만 뽑아 그 아티스트의 최신 인기곡을 가져왔는데, 그러면 곡 자체(장르에 맞게 골라둔 것)는 버려지고
 // 여러 장르에 걸쳐 활동하는 아티스트(Drake가 4개 장르 목록에 있음)는 어느 장르에서든 같은 곡이 나왔음 → 목록의 곡을 그대로 보여주고,
-// Spotify는 클릭했을 때만 그 곡을 찾아서 Key·BPM·무드에 씀 (장르 선택 때마다 나가던 검색·API 호출도 사라짐)
+// Spotify/RapidAPI는 클릭한 곡의 Key·BPM만 제공하고, 나머지 사운드 특징은 GPT가 곡명으로 분석한다.
 function renderGenreRefSuggestions(genreIdx){
   const sg=document.getElementById('hh-ref-suggestions');
   if(!sg)return;
   sg.innerHTML='';
   const label=document.createElement('div');
   label.style.cssText='width:100%;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:2px';
-  label.textContent='추천 레퍼런스 곡 · 클릭 시 곡 이름 입력 (Spotify 연결 시 Key·BPM·무드도 자동 적용)';
+  label.textContent='추천 레퍼런스 곡 · Spotify/RapidAPI는 Key·BPM, GPT는 곡명으로 사운드 분석';
   sg.appendChild(label);
   (HH_GENRE_SONGS[genreIdx]||[]).forEach(song=>{
     sg.appendChild(suggestionChip(song,e=>{
@@ -1004,8 +1004,7 @@ function renderGenreRefSuggestions(genreIdx){
   });
 }
 async function pickRefSong(song){
-  const refEl=document.getElementById('hh-ref-song');
-  if(refEl)refEl.value=song;
+  setRefSongFromPicker(song,null);
   const tok=await getSpotifyToken();
   if(!tok)return;                                   // 미연결이면 텍스트만
   const statusEl=document.getElementById('sp-search-status');
@@ -1131,11 +1130,13 @@ function onStructSignalChange(){if(st._structAutoManaged)recommendStructure();}
 
 function applyArtistSong(tabKey,song,artist){
   if(tabKey==='hh'){
-    // 곡을 누르면 장르 기본값을 채우는 대신 입력칸에 곡만 넣음 — 소리는 GPT 분석으로, BPM·Key는 곡에서 가져오거나 사용자가 정함
-    setRefSongFromPicker(artist&&song.title?`${artist.name} - ${song.title}`:(song.title||''),{bpm:song.bpm,key:song.key,genre:song.genre});
+    // 곡명은 GPT가 소리 특징을 분석하고, 곡 데이터는 BPM·Key만 제공한다.
+    setRefSongFromPicker(artist&&song.title?`${artist.name} - ${song.title}`:(song.title||''),{bpm:song.bpm,key:song.key});
   } else {
     const s=VTS[tabKey];
-    if(song.tag){
+    if(tabKey==='pop'){
+      s.refSong=artist&&song.title?`${artist.name} - ${song.title}`:(song.title||'');
+    } else if(song.tag){
       const valid=(tabKey==='pop'?POP_GENRES:tabKey==='elec'?ELEC_GENRES:ROCK_GENRES).some(g=>g.tag===song.tag);
       s.genre=valid?song.tag:(tabKey==='pop'?(song.tag.includes('r&b')?'alt r&b':song.tag.includes('synth')?'synthpop':'indie pop'):song.tag);
     }
@@ -1144,7 +1145,6 @@ function applyArtistSong(tabKey,song,artist){
     document.getElementById(`${tabKey}-bpm`).value=s.bpm;
     document.getElementById(`${tabKey}-key`).value=s.key;
     renderVocalGenres(tabKey);
-    if(tabKey==='pop')applyPopAuto(tabKey);
     showToast(`🎵 <b>${artist?.name||''} — ${song.title||''}</b><br>${s.bpm}BPM 적용됨`);
     updateFloatSummary();
   }
@@ -2320,12 +2320,6 @@ function hhGenerate(source,opts){
   container.style.display='flex';
   container.innerHTML='';
 
-  if(refSongNeedsDna()){
-    const bn=document.createElement('div');
-    bn.style.cssText='padding:10px 12px;border-radius:var(--r);border:1px solid #F59E0B;background:rgba(245,158,11,.1);font-size:12px;color:var(--text-1);line-height:1.7';
-    bn.innerHTML=`🎵 레퍼런스 곡 <b>${escHtml(refSong)}</b>은 아직 프롬프트에 <b>반영되지 않았어요</b> — 지금은 고른 장르의 기본값으로만 만들어져요.<div style="margin-top:6px"><button onclick="analyzeRefSongFromBanner()" style="padding:5px 12px;border-radius:14px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:700;cursor:pointer">🤖 곡명으로 GPT 분석</button></div>`;
-    container.appendChild(bn);
-  }
   // ① 선택 내용 요약
   const summaryRows=[];
   if(refSong)summaryRows.push(['🎵 레퍼런스 곡',refSong]);
@@ -2960,8 +2954,7 @@ function popStylePrompt(s,genre,mood,bpm){
   const vocal=POP_VOCAL_GUIDE[s.vocalStyle]||'clear expressive lead vocals with controlled emotion';
   const choices=Object.values(s.narrSt).filter(Boolean).map(v=>POP_NARR_EN[v]||v).slice(0,4);
   const concept=s.concept.trim();
-  const ref=s.refAf?`Use the selected reference as a contemporary production anchor with ${s.refAf.danceability>0.7?'a danceable pocket':'a relaxed pocket'}, ${s.refAf.energy>0.7?'forward energy':'controlled energy'} and ${s.refAf.valence>0.6?'bright melodic color':'bittersweet melodic color'}.`:'';
-  return `${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'} with a ${mood?.tag||'focused emotional'} mood. ${vocal}. ${ref} Build the identity around ${instr.length?instr.join(', '):'a clear signature melody, warm bass and tight drums'}. ${concept?'Shape the lyric and emotional arc around the user’s situation.':''} Keep the verses open and story-focused, let the pre-chorus raise melodic tension, then open into a wide, short and instantly memorable chorus with supporting harmonies and a fuller rhythm section. ${choices.join('; ')}. Preserve the central motif while changing register, backing layers and instrumental density between sections. Use polished modern production, clear vocal presence, controlled low end, clean transients and purposeful stereo width; keep every layer serving the lyric and hook. ${antiAI?'Natural dynamics, human phrasing and subtle imperfections, polished but not sterile.':''}`.replace(/\s+/g,' ').trim();
+  return `${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'} with a ${mood?.tag||'focused emotional'} mood. ${vocal}. Build the identity around ${instr.length?instr.join(', '):'a clear signature melody, warm bass and tight drums'}. ${concept?'Shape the lyric and emotional arc around the user’s situation.':''} Keep the verses open and story-focused, let the pre-chorus raise melodic tension, then open into a wide, short and instantly memorable chorus with supporting harmonies and a fuller rhythm section. ${choices.join('; ')}. Preserve the central motif while changing register, backing layers and instrumental density between sections. Use polished modern production, clear vocal presence, controlled low end, clean transients and purposeful stereo width; keep every layer serving the lyric and hook. ${antiAI?'Natural dynamics, human phrasing and subtle imperfections, polished but not sterile.':''}`.replace(/\s+/g,' ').trim();
 }
 function popSectionPrompt(s,bpm){
   const counts={};s.structSegs.forEach(x=>counts[x]=(counts[x]||0)+1);
@@ -3003,7 +2996,8 @@ async function popAiWriteStyle(s,base){
   const key=getOpenAIKey();if(!key)return;
   const status=document.getElementById('pop-ai-status');
   if(status){status.hidden=false;status.textContent='🤖 AI가 팝·R&B 스타일 프롬프트를 다듬는 중…';}
-  const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨. 다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
+  const reference=s.refSong?.trim()||'(없음)';
+  const prompt=`너는 팝·R&B 전문 프로듀서이자 Suno 프롬프트 작가야. 아래 기본 프롬프트를 바탕으로 자연스럽고 연결된 영어 스타일 문단과 섹션별 연출을 써. 곡 기획·상황은 가사가 보여줄 장면과 감정의 방향에 반영하되, 가사를 직접 쓰지는 마. 스타일은 장르·BPM·보컬·핵심 악기·벌스/프리코러스/코러스 전개·프로덕션을 포함하고, 하나의 중심 모티프나 악기 간 주고받기를 정해 곡 전체의 정체성으로 삼아. 섹션은 스타일을 반복하지 말고 그 구간에서 실제로 바뀌거나 유지할 소리만 간결하게 써. 스타일은 태그 나열이 아닌 자연스러운 한 문단으로, 섹션은 필요한 연주 지시만 남겨.\n\n[레퍼런스 곡]\n${reference}\n레퍼런스가 있으면 곡 제목을 보고 네가 확실히 아는 사운드·편곡 특성만 참고해. 실제 오디오를 들었다고 주장하거나 불확실한 세부를 지어내지 마. 최종 프롬프트에는 실존 곡명·아티스트명과 inspired by 표현을 쓰지 말고, 재현할 수 있는 소리·연주·전개 언어로 바꿔. BPM과 Key는 아래 기본 프롬프트에 적힌 값을 그대로 사용해.\n\n다른 설명 없이 아래 형식만 출력해.\n\n[섹션]\n${base.section}\n\n[스타일]\n${base.style}\n\n<style>...</style><section>...</section>`;
   try{
     const raw=await callOpenAI(key,{maxTokens:1800,staticText:'팝·R&B 스타일 작성 규칙: 자연어 스타일 문단, 중심 모티프와 악기 상호작용, 구간별 변화, 곡 기획·상황과 맞는 감정 흐름, 가사는 쓰지 않음. 모든 구간을 과도하게 설명하지 않는다.',dynamicText:prompt,think:false});
     const sec=raw.match(/<section>([\s\S]*?)<\/section>/i)?.[1]?.trim(),sty=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]?.replace(/\s*\n\s*/g,' ').trim();

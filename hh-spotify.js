@@ -236,7 +236,16 @@ async function spotifySearch(q){
 async function getAudioFeatures(trackId){
   return getAudioFeaturesViaRapidAPI(trackId);
 }
-let _spAudioFeaturesStatus=0;
+// 레퍼런스 곡 데이터에서 쓰는 값은 BPM·Key뿐이다. 무드·악기·편곡은 GPT가 곡명으로 판단한다.
+function applyAudioTempoAndKey(af,target,bpmId,keyId){
+  if(!af)return null;
+  const bpm=Number.isFinite(Number(af.tempo))?Math.min(220,Math.max(60,Math.round(Number(af.tempo)))):null;
+  const keyIdx=af.key!==null&&af.key!==undefined?SP_KEY_MAP[`${af.key},${af.mode??0}`]:null;
+  if(bpm){target.bpm=bpm;const el=document.getElementById(bpmId);if(el)el.value=bpm;}
+  if(keyIdx!=null){target.key=keyIdx;const el=document.getElementById(keyId);if(el)el.value=keyIdx;}
+  if(target===st){if(bpm)st.bpmSet=true;if(keyIdx!=null)st.keySet=true;}
+  return{bpm,keyIdx};
+}
 
 // ---- RapidAPI fallback (Musicae → SoundNet) ----
 function getRapidApiKey(){
@@ -282,48 +291,12 @@ async function getAudioFeaturesViaRapidAPI(trackId){
         return{
           tempo:d.tempo??d.bpm,
           key:d.key??null,   // 모르면 null — 기본값(A)을 지어내지 않음
-          mode:d.mode??0,
-          energy:d.energy??0.7,
-          valence:d.valence??0.5,
-          danceability:d.danceability??0.75,
-          loudness:d.loudness??-8
+          mode:d.mode??0
         };
       }
     } else console.warn('SoundNet HTTP',r.status);
   }catch(e){console.warn('SoundNet error',e);}
   return null;
-}
-
-let _spAudioFeaturesBlocked=false;
-
-function spMoodFromFeatures(energy,valence,danceability){
-  if(energy>0.72&&valence<0.33)return'어둡고 위압적';
-  if(energy>0.68&&valence>0.65)return'에너제틱·하입';
-  if(energy>0.65&&valence<0.52)return'분노·공격적';
-  if(energy<0.38&&valence<0.4)return'내성적·사색';
-  if(energy<0.48&&danceability>0.65)return'칠·그루비';
-  if(valence>0.58&&danceability>0.72)return'감각적·관능적';
-  if(valence>0.5&&energy>0.4)return'사이키델릭·몽환';
-  return'멜로딕·감성';
-}
-function sp808FromEnergy(energy){
-  if(energy<0.25)return'None';
-  if(energy<0.45)return'Minimal';
-  if(energy<0.65)return'Balanced';
-  if(energy<0.82)return'Heavy';
-  return'Dominant';
-}
-// 에너지·댄서빌리티로 리듬 밀도(1번째)와 보조 레이어(2번째)를 따로 판단 — 장르 고정값이 아니라 그 곡 실제 특성 기반
-function spDrumsFromFeatures(energy,danceability){
-  const picks=[];
-  if(energy>0.75&&danceability>0.6)picks.push('Trap rolls');
-  else if(energy>0.6&&danceability>0.6)picks.push('Rolling triplets');
-  else if(energy<0.4)picks.push('Boom Bap kick');
-  else picks.push('Crisp hi-hats');
-  if(energy>0.8&&danceability<0.5)picks.push('Glitchy breaks');
-  else if(energy>0.55)picks.push('Sub-bass punch');
-  else if(!picks.includes('Crisp hi-hats'))picks.push('Crisp hi-hats');
-  return[...new Set(picks)].slice(0,2);
 }
 
 let _spSearchTimer=null;
@@ -403,59 +376,24 @@ function hideSpotifyDropdown(){
 
 async function applySpotifyTrack(trackId,label){
   hideSpotifyDropdown();
-  const inp=document.getElementById('hh-ref-song');
-  if(inp)inp.value=label;
-  {const bi=document.getElementById('hh-brief');if(bi)bi.value=label;}
+  setRefSongFromPicker(label,null);
   const statusEl=document.getElementById('sp-search-status');
-  if(statusEl){statusEl.textContent='⚙️ 오디오 피처 분석 중...';statusEl.hidden=false;}
+  if(statusEl){statusEl.textContent='⚙️ Spotify 곡에서 BPM·Key 조회 중...';statusEl.hidden=false;}
   const af=await getAudioFeatures(trackId);
   if(!af){
-    const code=_spAudioFeaturesStatus;
-    let msg='';
-    if(code===403){
-      msg='❌ HTTP 403 — Spotify가 2024년 11월부터 일반 앱의 BPM/Key API를 차단했습니다. Developer Dashboard → 앱 → Extended quota mode 신청 필요';
-    } else if(code===401){
-      msg='❌ HTTP 401 — 토큰 만료. Spotify 연동 패널에서 재연결하세요';
-    } else {
-      msg=`❌ Audio Features 조회 실패 (HTTP ${code||'?'}) — F12 콘솔에서 상세 오류를 확인하세요`;
-    }
+    const msg=getRapidApiKey()
+      ?'❌ BPM·Key 조회 실패 — RapidAPI 응답과 구독 상태를 확인하세요. 곡명은 GPT 분석용으로 남겨뒀습니다'
+      :'❌ RapidAPI Key가 없어 BPM·Key를 가져오지 못했습니다. 곡명은 GPT 분석용으로 남겨뒀습니다';
     if(statusEl){statusEl.textContent=msg;statusEl.hidden=false;}
     return;
   }
-  st.refAf=af; // store for arrange direction generation
-  // Key
-  const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
-  if(keyIdx!=null){st.key=keyIdx;st.keySet=true;document.getElementById('hh-key').value=keyIdx;}
-  // BPM (일부 곡은 실제의 2배로 인식 — 에너지 낮으면 절반)
-  let bpm=Math.round(af.tempo);
-  if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
-  if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  if(Number.isFinite(bpm)&&bpm>0){st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;document.getElementById('hh-bpm').value=st.bpm;}
-  // 808
-  const level=af._808||sp808FromEnergy(af.energy);
-  st._808=level;
-  // 드럼 — 장르 고정값(GENRE_AUTO) 대신 이 곡의 실제 에너지·댄서빌리티로 판단
-  const drums=spDrumsFromFeatures(af.energy,af.danceability);
-  st.drums=drums;
-  // Mood
-  const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
-  st.mood=moodKr;
-  moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
-  if(st._mtAutoManaged)recommendMelodyTexture();
-  if(st._structAutoManaged)recommendStructure();
-  // recommendMelodyTexture가 808/드럼도 장르+무드 룰로 다시 뽑아서 곡에서 직접 읽은 값을 덮어쓰므로, 곡 값을 그 뒤에 확정
-  st._808=level;
-  st.drums=drums;
-  chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
-  setAutoHint('hh-808-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+level);
-  chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
-  setAutoHint('hh-drums-hint',(_spAudioFeaturesBlocked?'장르 기반: ':'Spotify: ')+drums.join(', '));
+  applyAudioTempoAndKey(af,st,'hh-bpm','hh-key');
   if(statusEl){
     const keyStr=KEYS[st.key]||'?';
-    const sfx=_spAudioFeaturesBlocked?' (장르 기반 추정)':'';
-    statusEl.textContent=`✅ Key: ${keyStr} · BPM: ${st.bpm} · 무드: ${moodKr} · 808: ${level} · 드럼: ${drums.join(', ')}${sfx}`;
+    statusEl.textContent=`✅ Key: ${keyStr} · BPM: ${st.bpm} 적용 · 무드·악기·편곡은 GPT가 곡명으로 분석합니다`;
     statusEl.hidden=false;
   }
+  updateFloatSummary();
 }
 
 
@@ -505,18 +443,14 @@ async function fetchPopHot100(force=false){
 async function applyPopHot100Song(song){
   const s=VTS.pop,label=`${song.artist} - ${song.name}`,status=document.getElementById('pop-hot100-status');
   s.refSong=label;
-  if(status)status.textContent=`🎧 ${label} 분석 중…`;
+  if(status)status.textContent=`🎧 ${label}의 BPM·Key 조회 중…`;
   const tok=await getSpotifyToken();
   if(!tok){if(status)status.textContent=`✅ #${song.position} ${label} 선택됨 · Spotify 연결 시 BPM·Key도 가져옵니다`;updateFloatSummary();return;}
   const track=await resolveTrackByArtistAndTitle(song.artist,song.name,tok);
   const af=track?await getAudioFeatures(track.id):null;
   if(af){
-    s.refAf=af;
-    if(Number.isFinite(af.tempo)){s.bpm=Math.min(220,Math.max(60,Math.round(af.tempo)));const bpmEl=document.getElementById('pop-bpm');if(bpmEl)bpmEl.value=s.bpm;}
-    const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
-    if(keyIdx!=null){s.key=keyIdx;const keyEl=document.getElementById('pop-key');if(keyEl)keyEl.value=keyIdx;}
-    s.mood=spMoodFromFeatures(af.energy,af.valence,af.danceability);moodGrid(document.getElementById('pop-mood-grid'),POP_MOODS,s,'mood',null);
-    if(status)status.textContent=`✅ #${song.position} ${label} · ${s.bpm} BPM · ${KEYS[s.key]} · ${s.mood}`;
+    applyAudioTempoAndKey(af,s,'pop-bpm','pop-key');
+    if(status)status.textContent=`✅ #${song.position} ${label} · ${s.bpm} BPM · ${KEYS[s.key]} 적용 · Generate 시 GPT가 곡명으로 사운드를 참고합니다`;
   }else if(status)status.textContent=`✅ #${song.position} ${label} 선택됨 · BPM·Key 분석 실패, 직접 입력할 수 있어요`;
   updateFloatSummary();
 }
@@ -634,64 +568,24 @@ async function resolveTrackByArtistAndTitle(artist,title,tok){
 
 async function applySpotifyTrackSong(artistId,artistName,genres,trackId,trackName){
   const statusEl=document.getElementById('trending-status');
-  setRefSongFromPicker(`${artistName} - ${trackName}`,null);   // 오디오 피처를 못 가져와도 곡은 입력칸에 들어감
-  if(statusEl){statusEl.textContent=`🎧 ${artistName} — ${trackName} 분석 중…`;statusEl.hidden=false;}
-  const tok=await getSpotifyToken();
-  if(!tok)return;
+  const label=`${artistName} - ${trackName}`;
+  setRefSongFromPicker(label,null);   // 오디오 피처를 못 가져와도 GPT가 분석할 곡명은 남긴다.
+  if(statusEl){statusEl.textContent=`🎧 ${label}의 BPM·Key 조회 중…`;statusEl.hidden=false;}
   const af=await getAudioFeatures(trackId);
   if(!af){
-    const code=_spAudioFeaturesStatus;
-    let msg=code===403
-      ?`❌ HTTP 403 — Spotify가 2024년 11월부터 일반 앱의 BPM/Key API를 차단했습니다. Extended quota mode 신청 필요`
-      :`❌ Audio Features 조회 실패 (HTTP ${code||'?'})`;
+    const msg=getRapidApiKey()
+      ?'❌ BPM·Key 조회 실패 — RapidAPI 응답과 구독 상태를 확인하세요. 곡명은 GPT 분석용으로 남겨뒀습니다'
+      :'❌ RapidAPI Key가 없어 BPM·Key를 가져오지 못했습니다. 곡명은 GPT 분석용으로 남겨뒀습니다';
     if(statusEl){statusEl.textContent=msg;statusEl.hidden=false;}
     return;
   }
-  st.refAf=af; // store for arrange direction generation
-  // Key
-  const keyIdx=SP_KEY_MAP[`${af.key},${af.mode}`];
-  if(keyIdx!=null){st.key=keyIdx;st.keySet=true;document.getElementById('hh-key').value=keyIdx;}
-  // BPM
-  let bpm=Math.round(af.tempo);
-  if(bpm>170&&af.energy<0.55)bpm=Math.round(bpm/2);
-  if(bpm<70&&af.energy>0.6)bpm=bpm*2;
-  if(Number.isFinite(bpm)&&bpm>0){st.bpm=Math.min(220,Math.max(60,bpm));st.bpmSet=true;document.getElementById('hh-bpm').value=st.bpm;}
-  // 808
-  const level=sp808FromEnergy(af.energy);
-  st._808=level;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
-  setAutoHint('hh-808-hint','Spotify: '+level);
-  // Mood
-  const moodKr=spMoodFromFeatures(af.energy,af.valence,af.danceability);
-  st.mood=moodKr;moodGrid(document.getElementById('hh-mood'),HH_MOODS,st,'mood',null);
-  // 장르
-  const genreIdx=detectGenreFromSpotify(genres);
-  if(genreIdx!==null){
-    st.genre=genreIdx;renderHhGenres();syncInstrumentMenus();
-    const auto=GENRE_AUTO[genreIdx];
-    if(auto){
-      st._808=auto.a808;st.drums=[...auto.aDrums];st.transitionFx=[...auto.fx];st.groove=auto.groove;
-      chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
-      chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,null);
-      chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,null);
-      chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,null);
-      setAutoHint('hh-808-hint','808: '+auto.a808);
-      setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
-      setAutoHint('hh-fx-hint',auto.fx.join(', '));
-      setAutoHint('hh-groove-hint',auto.groove);
-    }
-    recommendMelodyTexture();
-    recommendProducerRef();
-    recommendStructure();
-  }
-  // 레퍼런스 곡
-  const refEl=document.getElementById('hh-ref-song');
-  if(refEl)refEl.value=`${artistName} - ${trackName}`;
+  applyAudioTempoAndKey(af,st,'hh-bpm','hh-key');
   const keyStr=KEYS[st.key]||'?';
   if(statusEl){
-    statusEl.textContent=`✅ ${artistName} — ${trackName} · Key: ${keyStr} · ${st.bpm}BPM · 무드: ${moodKr} · 808: ${level}`;
+    statusEl.textContent=`✅ ${label} · Key: ${keyStr} · ${st.bpm} BPM 적용 · 무드·악기·편곡은 GPT가 곡명으로 분석합니다`;
     statusEl.hidden=false;
   }
-  showToast(`🎧 <b>${artistName} — ${trackName}</b><br>Key: ${keyStr} · ${st.bpm}BPM · ${moodKr} 적용됨`);
+  showToast(`🎧 <b>${label}</b><br>Spotify/RapidAPI: Key ${keyStr} · ${st.bpm} BPM`);
   updateFloatSummary();
 }
 
