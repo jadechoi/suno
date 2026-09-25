@@ -142,8 +142,7 @@
       <textarea id="hh-brief" rows="2" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-1);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:8px 10px;resize:vertical" placeholder="예) 신나고 춤추고 싶어지는 곡 · 비 오는 밤 혼자 듣는 몽환적인 곡 · Charli xcx - Guess featuring Billie Eilish" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
         <button id="hh-brief-btn" onclick="aiAnalyzeBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🤖 AI로 분석·추천</button>
-        <button onclick="openAiAudioFromMain(this)" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--surface-3);color:var(--accent-text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🎧 GPT로 음원 분석</button>
-        <span style="font-size:11px;color:var(--text-3)">곡명이나 느낌은 첫 버튼으로, 실제 소리는 MP3/WAV를 올려 GPT에게 들려주세요. 결과를 확인하고 원하는 것만 적용합니다.</span>
+        <span style="font-size:11px;color:var(--text-3)">장르를 몰라도 돼요. 곡명이나 원하는 느낌을 적으면 GPT가 장르·무드·악기 구성을 추천합니다.</span>
       </div>
       <details id="hh-picker" style="margin-top:10px">
         <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎤 아티스트·요즘 핫한 곡에서 고르기</summary>
@@ -164,10 +163,6 @@
 
         <div id="hh-artists-typeBeat"><span style="font-size:11px;color:var(--text-3)">상단 🔥 실시간 트렌딩 새로고침 후 Billboard 차트 아티스트가 자동으로 구성됩니다</span></div>
         </div>
-      </details>
-      <details id="hh-brief-audio" style="margin-top:10px">
-        <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-text)">🎧 더 정확하게: GPT가 실제 음원을 듣고 분석하기 (MP3/WAV)</summary>
-        <div id="hh-openai-audio" style="margin-top:8px"></div>
       </details>
       <div id="hh-brief-status" hidden style="font-size:11px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-3);margin-top:8px"></div>
       <div id="hh-brief-result" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2)"></div>

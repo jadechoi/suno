@@ -1610,37 +1610,10 @@ function clearBrief(){
   markPending('소리 특징 해제');
 }
 
-// ============================================================
-// 곡을 실제로 듣는 GPT에게 분석시키기 — 곡명 추측 대신 첨부한 오디오에서 들리는 소리를 근거로 결과 JSON을 받는다.
-// ============================================================
-function audioBriefRequestText(){
-  const title=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim();
-  return `내가 Suno AI로 비슷한 느낌의 곡을 만들고 싶어서 고른 참고 곡을 분석해줘.${title?`\n참고 곡: ${title}`:''}
-- 첨부된 오디오를 처음부터 끝까지 직접 듣고 실제로 들리는 소리만 근거로 분석해줘.
-- BPM과 Key는 분석하지 않아도 돼. 정확히 판단하기 어려운 요소는 지어내지 말고 understood에 "확실하지 않음"이라고 적어.
-kind는 항상 "song"으로 써.
-
-${BRIEF_STATIC}
-
-${briefOptionsText()}`;
-}
-// GPT가 준 답(JSON 포함 텍스트)을 AI 분석과 같은 추천 카드로 바꾼다.
-function applyBriefFromRaw(raw){
-  const a=raw.indexOf('{'),b=raw.lastIndexOf('}');
-  if(a<0||b<a)return false;
-  try{
-    const p=JSON.parse(raw.slice(a,b+1));
-    const label=(document.getElementById('hh-ref-song')?.value||document.getElementById('hh-brief')?.value||'').trim()||'(오디오 분석)';
-    _briefProposal=buildBriefProposal(label,{...p,kind:'song'});_briefProposal.source='audio';
-    const statusEl=document.getElementById('hh-brief-status');if(statusEl)statusEl.hidden=true;
-    renderBriefResult();
-    return true;
-  }catch(e){return false;}
-}
 // 레퍼런스 곡 칸에 곡명만 있고 분석이 안 된 상태를 알려줌 (곡이 프롬프트에 전혀 반영되지 않기 때문)
 function refSongNeedsDna(){
   const s=(document.getElementById('hh-ref-song')?.value||'').trim();
-  return !!s&&!(st.brief&&st.brief.kind==='song'&&(st.brief.text===s||st.brief.source==='audio'));
+  return !!s&&!(st.brief&&st.brief.kind==='song'&&st.brief.text===s);
 }
 function analyzeRefSongFromBanner(){
   const s=(document.getElementById('hh-ref-song')?.value||'').trim();
@@ -1648,11 +1621,6 @@ function analyzeRefSongFromBanner(){
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   if(getOpenAIKey())aiAnalyzeBrief();
 }
-function openAudioBrief(){
-  const d=document.getElementById('hh-brief-audio');if(d)d.open=true;
-  document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
 // ============================================================
 // 아티스트·핫한 곡 선택기 → 입력칸 (예전 "아티스트 타입비트" 탭을 ✨ 박스 안으로 합침)
 // ============================================================
@@ -1678,7 +1646,7 @@ function setRefSongFromPicker(label,cand){
   const s=document.getElementById('hh-brief-status');
   if(s){
     s.hidden=false;s.style.color='var(--text-1)';
-    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. 곡명 기준은 <b>AI로 분석·추천</b>, 실제 소리는 <b>GPT로 음원 분석</b>을 사용하세요.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터의 BPM·Key 참고값: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">참고값 적용</button></div>`:''}`;
+    s.innerHTML=`🎵 <b>${escHtml(label)}</b>을(를) 넣었어요. <b>AI로 분석·추천</b>을 누르면 곡명과 현재 설정을 바탕으로 소리 특징을 추천합니다.${_refCandidate?`<div style="margin-top:6px;color:var(--text-2)">곡 데이터의 BPM·Key 참고값: ${[_refCandidate.bpm?_refCandidate.bpm+' BPM':'',_refCandidate.key!==null?KEYS[_refCandidate.key]:''].filter(Boolean).join(' · ')} (정확하지 않을 수 있어요) <button onclick="applyRefCandidate()" style="margin-left:6px;padding:2px 10px;border-radius:12px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:11px;cursor:pointer">참고값 적용</button></div>`:''}`;
   }
   document.getElementById('hh-brief-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   markPending('참고 곡 선택');

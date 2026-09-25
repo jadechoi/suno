@@ -1,4 +1,4 @@
-// GPT 오디오 분석 — 같은 OpenAI 키로 MP3/WAV를 직접 듣고 레퍼런스 분석과 완성곡 평가를 처리한다.
+// GPT 오디오 분석 — Suno로 생성한 MP3/WAV를 직접 듣고 완성곡을 평가한다.
 const OPENAI_AUDIO_MODEL='gpt-audio-1.5';
 const OPENAI_AUDIO_MAX_FILE=15*1024*1024;
 
@@ -47,30 +47,8 @@ async function runAudioAnalysis(btn,statusId,job){
   try{await job();}catch(e){audioStatus(statusId,'❌ '+e.message,'err');}
   finally{btn.disabled=false;btn.textContent=label;}
 }
-function renderOpenAiAudio(){
-  const box=document.getElementById('hh-openai-audio');if(!box)return;
-  const connected=!!getOpenAIKey();
-  box.innerHTML=`<div style="font-size:11px;color:${connected?'var(--success)':'var(--text-3)'};margin-bottom:8px">${connected?'✅ OpenAI 연결됨 · GPT가 실제 음원을 듣고 분석합니다':'상단 AI 추천에서 OpenAI API Key를 먼저 저장하세요'}</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="hh-audio-file" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" style="font-size:11px;color:var(--text-2);max-width:250px">
-  <button onclick="openAiAnalyzeBrief(this)" ${connected?'':'disabled'} style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent-text);font-size:12px;font-weight:700;cursor:pointer;opacity:${connected?1:.5}">🎧 이 음원 분석</button></div>
-  <div style="font-size:10px;color:var(--text-3);margin-top:5px">MP3/WAV · 최대 15MB · BPM과 Key는 Spotify 분석값을 우선 사용합니다.</div>`;
-}
 function refreshOpenAiAudioUi(){
-  renderOpenAiAudio();
   const body=document.getElementById('hh-listen-body');if(body)body.innerHTML=listenHtml();
-}
-function openAiAudioFromMain(){
-  const details=document.getElementById('hh-brief-audio');if(details)details.open=true;
-  details?.scrollIntoView({behavior:'smooth',block:'center'});
-  if(!getOpenAIKey())audioStatus('hh-brief-status','❌ 상단 AI 추천에서 OpenAI API Key를 먼저 저장해주세요','err');
-}
-async function openAiAnalyzeBrief(btn){
-  const file=document.getElementById('hh-audio-file')?.files?.[0];
-  await runAudioAnalysis(btn,'hh-brief-status',async()=>{
-    const raw=await askOpenAIAudio(file,audioBriefRequestText());
-    if(!applyBriefFromRaw(raw))throw new Error('GPT 분석 결과를 적용 가능한 형식으로 읽지 못했어요 — 다시 시도해주세요');
-    audioStatus('hh-brief-status','✅ 음원 분석 완료 — 아래 추천 카드에서 적용할 항목을 확인하세요','ok');
-  });
 }
 async function listenOpenAiRun(btn){
   const file=document.getElementById('hh-listen-file')?.files?.[0];
@@ -82,5 +60,3 @@ async function listenOpenAiRun(btn){
     await aiParseExternalFeedback();
   });
 }
-
-renderOpenAiAudio();
