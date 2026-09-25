@@ -138,6 +138,18 @@ assert.equal(checkEvents(eventLyrics.replace('tonight','today'),eventStyle,{prev
 const koreanLyrics='[Chorus 1]\n오늘도 여기서 널 기다려 [synth stab]\n조금만 천천히 걸어줘\n아침이 올 때까지\n우리 둘 여기 있어\n[Chorus 2]\n오늘도 여기서 널 기다려 [guitar riff]\n조금만 천천히 걸어줘\n아침이 올 때까지\n우리 둘 여기 있어';
 assert.equal(checkEvents(koreanLyrics,eventStyle,{lyrics:{...eventSpec.lyrics,lang:'한국어'}}).ok,true);
 
+
+// Equivalent formatting and explicit exclusions must not trigger a fallback.
+const decorated=section.replace('[Intro]','**[Intro]**').replace('[Instrumental Hook 1]\n','[Chorus 1 — Drop] ').replace('[Instrumental Hook 2]','[Chorus 2 — Peak]');
+assert.equal(ctx.restoreSectionHeaders(decorated,spec.structure,true),section);
+assert.equal(validate(section,instrumentalStyle+' No vocal textures or backing voices.').ok,true);
+assert.equal(validate(section,instrumentalStyle+' Without any vocal layers, add vocals.').ok,false);
+assert.equal(validate(section,instrumentalStyle+' No vocal textures, then add a vocal layer.').ok,false);
+assert.equal(ctx.hasSelectedDrum('Punchy 808 hits support the motif.','Sub-bass punch'),true);
+assert.equal(ctx.hasSelectedDrum('Low-end impact under the hook.','Sub-bass punch'),true);
+assert.equal(ctx.hasSelectedDrum('Avoid punchy 808 hits.','Sub-bass punch'),false);
+assert.equal(ctx.hasSelectedDrum('Sustained soft bass.','Sub-bass punch'),false);
+
 // Exercise real request assembly / XML extraction with a fake transport, never a real key.
 ctx.fixture={section,style:instrumentalStyle};
 run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}); getOpenAIKey=()=> 'fixture-only'; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
@@ -172,5 +184,8 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   await ctx.writeOnce({mode:'edit',spec:{...spec,mutableHeaders:[]},prev:result});
   assert.ok(ctx.request.staticText.includes(run('PROMPT_ROLE_GUIDE')));
   assert.match(ctx.request.dynamicText,/고쳐쓰기/);
+  await ctx.writeOnce({mode:'create',spec,errors:['missing bass'],failed:{section:'FAILED_SECTION',style:'FAILED_STYLE'}});
+  assert.match(ctx.request.dynamicText,/FAILED_SECTION/);
+  assert.match(ctx.request.dynamicText,/FAILED_STYLE/);
   console.log('PASS: natural-language writing, intact feedback, constraints and request assembly (offline fixtures).');
 })().catch(e=>{console.error(e);process.exitCode=1;});
