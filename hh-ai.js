@@ -170,6 +170,7 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   return [
     REFERENCE_DEVELOPMENT_GUIDE,
     `작성 목적: ${musicDesignMode()}`,
+    st.brief?.uncertainFields?.length?`분석에서 확신이 낮아 제외한 항목: ${st.brief.uncertainFields.join(', ')} — 추측으로 복원하지 마`:null,
     st.brief?.instrumentalProfile?`레퍼런스 반주 분석: ${JSON.stringify(st.brief.instrumentalProfile)}`:null,
     st.referenceSelections?`출처: ${JSON.stringify(referenceSelectionOrigins())}. ai-reference는 AI가 추천한 참고값이며 사용자 확정 조건이 아님. 실제 레퍼런스 반주 특징을 우선하고 메뉴와 맞지 않으면 자유롭게 표현.`:null,
     g?`장르: ${g.kr} (${g.sound})`:'장르: 미선택 — 레퍼런스 곡과 나머지 설정에서 가장 가까운 사운드를 판단',
@@ -1175,7 +1176,7 @@ function buildWriteSpec(prev){
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
     genrePalette:auto?{instruments:[...(g?.instr||[])],drums:GENRE_AUTO[st.genre]?.aDrums||[],groove:GENRE_AUTO[st.genre]?.groove||null}:null,
     selectionOrigins:referenceSelectionOrigins(),
-    brief:effectiveBrief()?{instrumentalProfile:st.brief.instrumentalProfile||{},understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
+    brief:effectiveBrief()?{analysisBasis:'title-based model knowledge, not audio-verified',uncertainFields:st.brief.uncertainFields||[],instrumentalProfile:st.brief.instrumentalProfile||{},understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,
     limits:{sectionTotal:secLimit,lyricsCombined:WRITE_LIMITS.section,style:WRITE_LIMITS.style},
@@ -1479,6 +1480,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기·연주 관계·전개를 새로 추천해. 원곡을 분석하는 척하지 마. instrumentalProfile과 cues는 이 경우 제안하는 새 곡 설계이며 레퍼런스의 사실이 아니야.
 - 아티스트의 대표 장르로 곡을 단정하지 마. 하이퍼팝·일렉트로클래시·일렉트로 하우스·UK 개러지는 해당 곡의 리듬과 소리로 구분해. 베이스 리프가 훅이면 그 베이스를 melodyLead로 고를 수 있고, 별도 기타·신스 멜로디를 만들 필요는 없어.
 - 선택지에 구체적인 장르가 있으면 일반 pop 대신 해당 장르를 골라. drums는 핵심 킥·스네어 패턴을 먼저, 셰이커·클랩 같은 보조 타악기는 그 다음에 골라. 멜로디 배경은 필수가 아니며 근거 없이 Ambient pad를 추가하지 마. 쿠아트로·나일론 기타·일반 어쿠스틱 기타를 구별하고 확신 없는 악기 재질이나 주법을 단정하지 마.
+- 곡명 분석은 음원 검증이 아니라 모델 지식이다. uncertainFields 배열에 확신 없는 필드 경로를 적고 해당 값은 null 또는 빈 값으로 둬. 예: ["melodyBackground","instrumentalProfile.instruments","cues.bridge"]. 앱은 이 필드를 추천·작성에서 제외한다. 다른 필드의 설명·styleTags·cues에도 같은 추측을 우회해서 넣지 마. 세부 일부만 확실하면 확실한 내용만 남기고 모르는 내용을 채우지 마. 새 편곡 아이디어는 원곡 특징에 포함하지 마. kind=vibe에는 이 제외 규칙을 적용하지 않고 창작 제안을 허용해.
 - 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy를 영어 자연어로 설명해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
 - 그다음 화면 표시용 genre는 전체 장르 목록에서 가장 가까운 en을 고르되 적절한 항목이 없으면 null. 원곡을 힙합으로 변환하지 마. 다른 선택 필드도 맞는 항목만 고르고 없으면 null 또는 빈 배열. 메뉴 매핑 때문에 원곡의 반주 분석을 바꾸지 마.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). 메뉴에 없는 악기도 확실히 아는 원곡 특징이면 instrumentalProfile에 설명할 수 있어.
@@ -1488,7 +1490,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
 - BPM과 Key는 분석하지 마 — 참고 곡을 고르면 프로그램이 Spotify에서 채우고, 아니면 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
-{"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+{"uncertainFields":[],"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
 // 분석 프롬프트에 붙는 선택지 목록 (텍스트 분석·GPT 오디오 분석 공용)
 function briefOptionsText(){
   return `[선택지]
@@ -1551,7 +1553,23 @@ ${briefOptionsText()}`;
   }
 }
 // AI 응답을 메뉴 값으로 검증 — 목록에 없는 값은 버리고, 이름이 섞인 소리 키워드는 걸러냄
+function filterReferenceUncertainty(p){
+  if(p.kind!=='song')return p;
+  const out={...p,instrumentalProfile:{...p.instrumentalProfile},cues:{...p.cues}};
+  // Model-reported uncertainty is not verification. Drop uncertain claims before menu mapping.
+  const fields=['genre','mood','drums','bass808','melodyLead','melodyBackground','texture','density','styleTags'];
+  const profile=['genre','groove','bass','instruments','arrangement','energy'];
+  const cues=['intro','hook','verse','bridge','outro'];
+  const allowed=[...fields,...profile.map(k=>'instrumentalProfile.'+k),...cues.map(k=>'cues.'+k)];
+  out.uncertainFields=[...new Set((Array.isArray(p.uncertainFields)?p.uncertainFields:[]).filter(k=>allowed.includes(k)))];
+  for(const path of out.uncertainFields){
+    const [group,key]=path.split('.');
+    if(key)delete out[group][key];else out[group]=['drums','texture','styleTags'].includes(group)?[]:null;
+  }
+  return out;
+}
 function buildBriefProposal(text,p){
+  p=filterReferenceUncertainty(p);
   const names=HH_REF.map(r=>r.kr.toLowerCase());
   const clean=(s,max)=>{const t=String(s||'').replace(/[,\n]+/g,' ').replace(/\s+/g,' ').trim().slice(0,max);return t&&!names.some(n=>t.toLowerCase().includes(n))?t:'';};
   const v={};
@@ -1588,7 +1606,7 @@ function buildBriefProposal(text,p){
   if('producer' in p&&p.kind!=='song')add('producer','프로듀서',true,v.producer||'없음 — 어울리는 프로듀서가 없어 소리 특징 키워드로 대신해요');
   add('sound','소리 특징',styleTags.length||Object.keys(cues).length||Object.keys(instrumentalProfile).length,[...Object.values(instrumentalProfile),...styleTags,...Object.values(cues)].join(' / '));
   if(!items.length)throw new Error('AI가 목록에 있는 값을 반환하지 못했습니다');
-  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,instrumentalProfile,items};
+  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,instrumentalProfile,uncertainFields:p.uncertainFields||[],items};
 }
 function renderBriefResult(){
   const box=document.getElementById('hh-brief-result');
@@ -1596,8 +1614,9 @@ function renderBriefResult(){
   if(!box)return;
   if(!P){box.hidden=true;return;}
   box.hidden=false;
+  const uncertainty=P.uncertainFields?.length?`<div style="font-size:12px;color:var(--text-2)">제목 기반 분석 · 확신이 낮아 제외한 항목: ${escHtml(P.uncertainFields.join(', '))}</div>`:'';
   const rows=P.items.map((it,i)=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer"><input type="checkbox" ${it.on?'checked':''} onchange="toggleBriefItem(${i},this.checked)" style="margin-top:2px"><span style="width:84px;color:var(--text-3);flex-shrink:0">${it.label}</span><span style="color:var(--text-1)">${escHtml(it.text)}</span></label>`).join('');
-  box.innerHTML=`<div style="font-size:12px;color:var(--text-1);margin-bottom:8px">🧠 ${escHtml(P.understood)}${P.reason?` <span style="color:var(--text-3)">· ${escHtml(P.reason)}</span>`:''}</div>${rows}<div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="hh-brief-apply" onclick="applyBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer"></button></div>`;
+  box.innerHTML=`<div style="font-size:12px;color:var(--text-1);margin-bottom:8px">🧠 ${escHtml(P.understood)}${P.reason?` <span style="color:var(--text-3)">· ${escHtml(P.reason)}</span>`:''}</div>${uncertainty}${rows}<div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="hh-brief-apply" onclick="applyBrief()" style="padding:7px 16px;border-radius:20px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer"></button></div>`;
   updateBriefApplyBtn();
 }
 function toggleBriefItem(i,on){if(_briefProposal?.items[i])_briefProposal.items[i].on=!!on;updateBriefApplyBtn();}
@@ -1648,7 +1667,7 @@ function applyBrief(opts={}){
   Object.assign(st,manual);
   if(Object.prototype.hasOwnProperty.call(manual,'_808'))st.b808Set=wasBassSet;
   if(opts.preserveManual)renderHhChips();
-  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai',instrumentalProfile:P.instrumentalProfile||{}}:null;
+  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai',instrumentalProfile:P.instrumentalProfile||{},uncertainFields:P.uncertainFields||[]}:null;
   st.referenceSelections=P.kind==='song'?Object.fromEntries(REFERENCE_FIELDS.filter(k=>beforeSelections[k]!==JSON.stringify(st[k]??null)||on(({_808:'808',structSegs:'structure',melodyTone:'melody'}[k]||k))).map(k=>[k,JSON.parse(JSON.stringify(st[k]??null))])):null;
   if(P.kind==='song'){const r=document.getElementById('hh-ref-song');if(r)r.value=P.text;}
   _briefProposal=null;

@@ -19,3 +19,16 @@ let structures=0;ctx.recommendVocalChar=()=>{};ctx.syncLyricBox=()=>{};ctx.onStr
 ctx.onVocalChange();assert.equal(structures,0);
 assert.match(run('WRITE_STATIC'),/ai-reference/);
 console.log('PASS: independent reference profile, non-hiphop mapping, provenance and vocal-only changes.');
+
+const uncertain={kind:'song',genre:'Reggaeton',melodyBackground:'Strings',instrumentalProfile:{groove:'steady dembow',instruments:'guessed strings'},cues:{bridge:'orchestral rise'},uncertainFields:['melodyBackground','instrumentalProfile.instruments','cues.bridge','__proto__.bad']};
+const filtered=ctx.filterReferenceUncertainty(uncertain);
+assert.equal(filtered.melodyBackground,null);
+assert.equal(filtered.instrumentalProfile.instruments,undefined);
+assert.equal(filtered.instrumentalProfile.groove,'steady dembow');
+assert.equal(filtered.cues.bridge,undefined);
+assert.equal(filtered.uncertainFields.length,3);
+assert.equal(uncertain.melodyBackground,'Strings');
+assert.equal(ctx.filterReferenceUncertainty({...uncertain,kind:'vibe'}).melodyBackground,'Strings');
+const proposal=ctx.buildBriefProposal('Reference',uncertain);
+assert.equal(proposal.v.bg,null);
+assert.equal(proposal.uncertainFields.length,3);
