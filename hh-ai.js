@@ -1067,7 +1067,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   const secs=parseSections(draftSect);
   const ul=hasVocal&&(st.userLyrics||'').trim()?fitUserLyrics(st.userLyrics,lyricHeaders(secs)):null;   // 사용자가 붙여넣은 가사(구조에 배치된 것)
   const userLy=ul&&ul.placed?ul.text:null;
-  const secLimit=hasVocal?(userLy?Math.max(1200,Math.min(WRITE_LIMITS.sectionVocal,4900-userLy.length-400)):WRITE_LIMITS.sectionVocal):WRITE_LIMITS.section;   // 보컬 곡은 Lyrics 칸(5000자)을 연출 설명과 가사가 나눠 씀 — 사용자 가사가 길면 연출 몫을 줄임
+  const secLimit=WRITE_LIMITS.section;   // 실제 연출+가사 병합 결과의 5000자 상한은 검증 단계에서 확인
   const sectionCaps={intro:180,hook:280,verse:220,bridge:220,outro:160};
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:sectionCaps[s.type]||220}));
   const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',st.keySet?`Key of ${KEYS[st.key]}`:null,st.bpmSet?`${st.bpm} BPM`:null,(g?g.tag:null)].filter(Boolean);
@@ -1082,7 +1082,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
     brief:effectiveBrief()?{understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,
-    limits:{sectionTotal:Math.min(secLimit,hasVocal?2000:2400),style:WRITE_LIMITS.style},
+    limits:{sectionTotal:secLimit,lyricsCombined:WRITE_LIMITS.section,style:WRITE_LIMITS.style},
     removedPhrases:[...(st.removedPhrases||[])],
     prevLength:prev?prev.section.length:null,
     mutableHeaders:prev?editScopeFor(prev,structure.map(s=>s.header)):null,   // null이면 새로 쓰기(전체 자유)
@@ -1103,7 +1103,7 @@ function validateWritten(spec,section,style,opts){
     const sp=spec.structure[i];
     if(!/^\(.*\)$/.test(s.body))errors.push(`${s.header} 본문이 한 덩어리 괄호 "( … )"가 아님`);
     if(sp.bars&&!s.body.startsWith(`(${sp.bars} Bars: `))errors.push(`${s.header} 본문은 "(${sp.bars} Bars: "로 시작해야 함`);
-    if(s.body.length>sp.maxChars*1.4)errors.push(`${s.header} 너무 김(${s.body.length}자, 권장 ≤${sp.maxChars}자)`);
+    // 구간별 maxChars는 간결한 작성 가이드. 하드 제한은 전체 5000자이다.
   });
   if(section.length>spec.limits.sectionTotal)errors.push(`${spec.lyrics?'연출 설명':'섹션 프롬프트'} 총 ${section.length}자 — ${spec.limits.sectionTotal}자 이하여야 함`);
   // 고쳐쓰기에서 조언을 반영할 때 이전보다 길어지면 라운드마다 부풀어서 'Suno 파싱 적합'이 깎임 — 낡은/겹치는 문구를 빼서 총량을 유지
@@ -1178,7 +1178,7 @@ function validateWritten(spec,section,style,opts){
       if(!provided)errors.push(...validateLyricEvents(secsL,style));
       const sungText=secsL.map(s=>s.lines.map(lyricWords).join('\n')).join('\n');
       if(!provided&&ly.length>1800)errors.push(`가사가 ${ly.length}자 — 1,800자 이하로 (연출 설명과 합쳐 Lyrics 칸 5,000자 안에 들어가야 함)`);
-      {const merged=mergeLyricsAndDirection(ly,section);if(merged&&merged.length>4950)errors.push(`연출 설명과 합친 Lyrics 칸 텍스트가 ${merged.length}자 — 4,950자 이하로 (연출 설명이나 가사를 줄일 것)`);}
+      {const merged=mergeLyricsAndDirection(ly,section);if(merged&&merged.length>WRITE_LIMITS.section)errors.push(`연출 설명과 합친 Lyrics 칸 텍스트가 ${merged.length}자 — 5,000자 이하로 (연출 설명이나 가사를 줄일 것)`);}
       const want=spec.lyrics.headers;
       if(stray||secsL.length!==want.length||secsL.some((s,i)=>s.header!==want[i]))errors.push(`가사 헤더/순서가 명세와 다름(헤더 앞에 다른 줄이 있어도 안 됨). 정확히 이 순서·문구: ${want.join(' | ')}`);
       else if(!provided)secsL.forEach(s=>{
@@ -1275,7 +1275,7 @@ const WRITE_STATIC=`너는 장르 전문 프로듀서이자 Suno 프롬프트 �
 - 새 AI 가사를 쓸 때는 필요한 순간에만 줄 끝 악기 태그를 넣어. 예: Stay with me tonight [guitar riff]. 가사 중간·태그만 있는 별도 줄·한 줄에 여러 태그는 금지. 두 줄당 하나 이하, 구간당 최대 두 개이며 모든 구간에 넣을 필요는 없어. 보컬 프레이즈가 짧게 끝나는 쉼에 배치해.
 - 허용 이벤트: ${Object.keys(LYRIC_EVENTS).map(t=>'['+t+']').join(', ')}. 스타일에 긍정적으로 포함된 악기만 써. 원하지 않는 악기를 태그 때문에 추가하지 마. 지속 편성·페이드·믹스 처리는 <section>에 쓰고 실제 가사로 부를 문장에는 악기 설명을 넣지 마.
 - 사용자 제공 가사와 고쳐쓰기의 이전 가사는 태그까지 그대로 유지해. 새 이벤트 추가는 새 AI 가사 작성에만 적용해. 무보컬에는 가사나 줄 끝 태그를 생성하지 마. 짧은 (ooh)는 가능하나 기존 노래 가사를 인용하지 마.
-- 새 가사는 1800자 이하. 연출과 합친 Lyrics는 4950자 이하이며 명세 limits가 더 작으면 그 값을 따라.
+- 새 가사는 1800자 이하. 연출과 합친 Lyrics는 5000자 이하. 구간별 maxChars는 간결하게 쓰기 위한 권장값이며 전체 길이 상한과 구분해.
 
 [출력 계약 — 앱의 편집·병합 형식]
 - 무보컬은 <section>…</section><style>…</style>, 보컬이면 <lyrics>…</lyrics>를 맨 앞에 추가. 다른 설명 없이 출력해.

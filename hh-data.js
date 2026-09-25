@@ -713,7 +713,7 @@ const ROCK_SEG_PALETTE=['intro','verse','chorus','bridge','solo','outro'];
 
 // ===== AI 작성기 · 리뷰 루브릭 상수 =====
 // 섹션 박스(Suno 가사칸) 한도 5000자, 스타일 박스 1000자 — 여유를 두고 4900/950으로 (AI가 이 안에서 씀)
-const WRITE_LIMITS={section:4900,sectionVocal:3300,style:950};   // 앱 출력 예산. 쉼표 수는 품질 기준이 아니다.
+const WRITE_LIMITS={section:5000,sectionVocal:5000,style:1000};   // 보컬은 연출+가사 합계 5000자. 상한까지 채울 필요는 없다.
 // 리뷰 채점 루브릭 — 예전엔 "냉정하게, 후하게 주지 말고, 약점 위주"라 첫 리뷰가 55·58·58·58·59로 상수에 가까웠음(바닥 효과). 항목별 0~10점(앵커 제시)을 받고 합계는 코드가 가중합으로 계산
 const REVIEW_RUBRIC=[
   {key:'arc',label:'구조·전개 아크',w:15,def:'곡의 중심 아이디어가 의도에 맞게 제시·변형·비움·회수되는가. 지속 상승을 모든 곡에 강요하지 않음'},
