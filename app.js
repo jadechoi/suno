@@ -120,7 +120,7 @@ function applyUiMode(){
     const num=s.querySelector('.section-num')?.textContent.trim();
     const isTrend=/^📊/.test(s.querySelector('.section-title')?.textContent.trim()||'');
     const detail=HH_DETAIL_NUMS.includes(num)||isTrend;
-    const hide808=num==='05'&&!(st.genre===null||GENRES[st.genre]?.family==='hiphop');   // 808은 힙합·트랩 저음 — 다른 계열에서는 섹션 자체를 숨김
+    const hide808=num==='05'&&GENRES[st.genre]?.family!=='hiphop';
     s.style.display=((simple&&detail)||hide808)?'none':'';
   });
   const on='background:var(--accent);color:#fff',off='background:var(--surface-2);color:var(--text-2)';
@@ -219,27 +219,35 @@ const HH_GENRE_SONGS=[
 // 장르별 808·드럼 자동 추천 (프로덕션 가이드 리서치 기반)
 // Sources: emastered.com, attackmagazine.com, beatkey.app, melodigging.com, orphiq.com, routenote, wikipedia/phonk/plugg
 const GENRE_AUTO=[
-  {a808:'Heavy',    aDrums:['Trap rolls','Crisp hi-hats'],           fx:['임팩트/크래시','라이저'],       groove:'타이트 그리드'}, // 0 Trap      — hi-hats "most defining feature", 808 heavy support (emastered)
-  {a808:'Dominant', aDrums:['Trap rolls','Sub-bass punch'],          fx:['리버스 심벌','순간 정적'],       groove:'타이트 그리드'}, // 1 Dark Trap  — distorted dominant 808, dense trap rolls
-  {a808:'Balanced', aDrums:['Trap rolls','Crisp hi-hats'],           fx:['라이저','필터 스윕다운'],        groove:'살짝 스윙'},    // 2 Melodic Trap — softer trap pattern, emotional focus
-  {a808:'Heavy',    aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['순간 정적','필터 스윕다운'],     groove:'타이트 그리드'}, // 3 NY Drill  — hard-hitting, sliding 808, rolling hi-hat triplets
-  {a808:'Heavy',    aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['스네어 롤','임팩트/크래시'],     groove:'타이트 그리드'}, // 4 UK Drill  — "sharper hi-hat triplets", sliding 808 basslines (attackmagazine)
-  {a808:'Heavy',    aDrums:['Memphis cowbell chop','Sub-bass punch'], fx:['테이프 스탑','필터 스윕다운'],   groove:'헤비 스윙'},    // 5 Phonk     — TR-808 cowbell+boom bap roots, distorted 808 (wikipedia)
-  {a808:'Minimal',  aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['테이프 스탑','스네어 롤'],       groove:'헤비 스윙'},    // 6 Boom Bap  — "swung drums off the grid", sampled breakbeats, no 808 (orphiq)
-  {a808:'Balanced', aDrums:['Crisp hi-hats'],                        fx:['화이트노이즈 스윕','순간 정적'], groove:'살짝 스윙'},    // 7 Cloud Rap — "808s present but not overpowering", minimal drums (routenote)
-  {a808:'Minimal',  aDrums:['Boom Bap kick'],                        fx:['테이프 스탑','순간 정적'],       groove:'레이드백 포켓'}, // 8 Lo-fi     — warm analog, dusty boom bap drums, minimal bass
-  {a808:'Balanced', aDrums:['Jersey bounce kick','Crisp hi-hats'],  fx:['임팩트/크래시','스네어 롤'],     groove:'푸시드 포켓'},  // 9 Jersey Club — syncopated ghost kicks + eighth-note hats, sidechained 808 (beatkey)
-  {a808:'Dominant', aDrums:['Trap rolls','Glitchy breaks'],          fx:['필터 스윕다운','임팩트/크래시'], groove:'타이트 그리드'}, // 10 Rage/Plugg — "heavy distorted sliding 808", 1/16–1/32 hi-hat rolls (melodigging)
-  {a808:'Balanced', aDrums:['Afro log drum','Shaker groove','Rolling triplets'],    fx:['스네어 롤','임팩트/크래시'],     groove:'살짝 스윙'},    // 11 Afrotrap  — afro rolling percussion, balanced bass
-  {a808:'None',     aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['순간 정적','테이프 스탑'],       groove:'헤비 스윙'},    // 12 Conscious — organic soulful samples, no 808 (orphiq)
-  {a808:'Heavy',    aDrums:['Sub-bass punch','Crisp hi-hats'],       fx:['필터 스윕다운','라이저'],        groove:'레이드백 포켓'}, // 13 Trap Soul — "808 IS the melody", sparse slow 8th hi-hats (beatkey)
-  {a808:'Heavy',    aDrums:['Four-on-the-floor kick','Glitchy breaks'], fx:['화이트노이즈 스윕','임팩트/크래시'], groove:'타이트 그리드'}, // 14 Hyperpop  — four-on-floor kick + glitchy chaotic elements
-  {a808:'Balanced', aDrums:['Glitchy breaks','Crisp hi-hats'],       fx:['화이트노이즈 스윕','순간 정적'], groove:'타이트 그리드'}, // 15 Digicore  — bedroom digital aesthetic, lo-fi glitch texture
-  {a808:'Dominant', aDrums:['Sub-bass punch'],                       fx:['필터 스윕다운','순간 정적'],     groove:'살짝 스윙'},    // 16 Pluggnb   — Zaytoven: "808 bumping, everything else is just extra" (wikipedia)
-  {a808:'Minimal',  aDrums:['Live jazz drums','Crisp hi-hats'],      fx:['테이프 스탑','스네어 롤'],       groove:'헤비 스윙'},    // 17 Westwood  — jazz-influenced live drums, quirky organic feel
-  {a808:'Dominant', aDrums:['Trap rolls','Sub-bass punch'],          fx:['임팩트/크래시','스네어 롤'],       groove:'타이트 그리드'}, // 18 Trap Metal — heavily distorted clipping 808, downtuned riffs, screamed vocals, aggressive trap rolls
-  {a808:'Balanced', aDrums:['Jersey bounce kick','Rolling triplets'], fx:['필터 스윕다운','임팩트/크래시'], groove:'살짝 스윙'},    // 19 Sexy Drill — chopped R&B sample loop, sliding 808, jersey-style bounce kick + drill hats, nonchalant delivery
+  {a808:'Heavy',    bass:'hard-hitting 808 bass', aDrums:['Trap rolls','Crisp hi-hats'],           fx:['임팩트/크래시','라이저'],       groove:'타이트 그리드'}, // 0 Trap
+  {a808:'Dominant', bass:'distorted 808 bass', aDrums:['Trap rolls','Sub-bass punch'],          fx:['리버스 심벌','순간 정적'],       groove:'타이트 그리드'}, // 1 Dark Trap
+  {a808:'Balanced', bass:'smooth melodic 808 bass', aDrums:['Trap rolls','Crisp hi-hats'],           fx:['라이저','필터 스윕다운'],        groove:'살짝 스윙'},    // 2 Melodic Trap
+  {a808:'Heavy',    bass:'sliding 808 bass', aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['순간 정적','필터 스윕다운'],     groove:'타이트 그리드'}, // 3 NY Drill
+  {a808:'Heavy',    bass:'gliding drill sub-bass', aDrums:['Rolling triplets','Crisp hi-hats'],     fx:['스네어 롤','임팩트/크래시'],     groove:'타이트 그리드'}, // 4 UK Drill
+  {a808:'Heavy',    bass:'distorted Memphis 808 bass', aDrums:['Memphis cowbell chop','Sub-bass punch'], fx:['테이프 스탑','필터 스윕다운'],   groove:'헤비 스윙'},    // 5 Phonk
+  {a808:'None',     bass:'warm sampled electric bass', aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['테이프 스탑','스네어 롤'],       groove:'헤비 스윙'},    // 6 Boom Bap
+  {a808:'Balanced', bass:'soft spacious 808 bass', aDrums:['Crisp hi-hats'],                        fx:['화이트노이즈 스윕','순간 정적'], groove:'살짝 스윙'},    // 7 Cloud Rap
+  {a808:'None',     bass:'warm upright-style bass', aDrums:['Boom Bap kick'],                        fx:['테이프 스탑','순간 정적'],       groove:'레이드백 포켓'}, // 8 Lo-fi
+  {a808:'Balanced', bass:'short sidechained club sub-bass', aDrums:['Jersey bounce kick','Crisp hi-hats'],  fx:['임팩트/크래시','스네어 롤'],     groove:'푸시드 포켓'},  // 9 Jersey Club
+  {a808:'Dominant', bass:'distorted pitched 808 bass', aDrums:['Trap rolls','Glitchy breaks'],          fx:['필터 스윕다운','임팩트/크래시'], groove:'타이트 그리드'}, // 10 Rage/Plugg
+  {a808:'None',     bass:'deep log-drum bassline', aDrums:['Afro log drum','Shaker groove','Rolling triplets'],    fx:['스네어 롤','임팩트/크래시'],     groove:'살짝 스윙'},    // 11 Afro Trap
+  {a808:'None',     bass:'warm live bass guitar', aDrums:['Boom Bap kick','Crisp hi-hats'],        fx:['순간 정적','테이프 스탑'],       groove:'헤비 스윙'},    // 12 Conscious
+  {a808:'Heavy',    bass:'smooth chord-following 808 bass', aDrums:['Sub-bass punch','Crisp hi-hats'],       fx:['필터 스윕다운','라이저'],        groove:'레이드백 포켓'}, // 13 Trap Soul
+  {a808:'None',     bass:'saturated synth sub-bass', aDrums:['Four-on-the-floor kick','Glitchy breaks'], fx:['화이트노이즈 스윕','임팩트/크래시'], groove:'타이트 그리드'}, // 14 Hyperpop
+  {a808:'Balanced', bass:'crunchy bedroom 808 bass', aDrums:['Glitchy breaks','Crisp hi-hats'],       fx:['화이트노이즈 스윕','순간 정적'], groove:'타이트 그리드'}, // 15 Digicore
+  {a808:'Dominant', bass:'long sustained 808 bass', aDrums:['Sub-bass punch'],                       fx:['필터 스윕다운','순간 정적'],     groove:'살짝 스윙'},    // 16 Pluggnb
+  {a808:'None',     bass:'rubbery live bass guitar', aDrums:['Live jazz drums','Crisp hi-hats'],      fx:['테이프 스탑','스네어 롤'],       groove:'헤비 스윙'},    // 17 Westwood
+  {a808:'Dominant', bass:'clipping distorted 808 bass', aDrums:['Trap rolls','Sub-bass punch'],          fx:['임팩트/크래시','스네어 롤'],       groove:'타이트 그리드'}, // 18 Trap Metal
+  {a808:'Balanced', bass:'smooth sliding 808 bass', aDrums:['Jersey bounce kick','Rolling triplets'], fx:['필터 스윕다운','임팩트/크래시'], groove:'살짝 스윙'},    // 19 Sexy Drill
 ];
+
+function genreLowEnd(i=st.genre,level=st._808){
+  const auto=GENRE_AUTO[i];
+  if(!auto)return 'genre-appropriate bass';
+  if(level!=='None'&&(auto.a808!=='None'||st.b808Set))return auto.a808==='None'?`${level} 808 bass`:`${level} ${auto.bass}`;
+  return auto.a808==='None'?auto.bass:'restrained rounded synth bass';
+}
+function lowEndHint(auto){return !auto?'장르를 선택하면 저음을 추천해요':auto.a808==='None'?`저음: ${auto.bass} · 808 없음`:`808: ${st._808} · ${auto.bass}`;}
 
 // 전환 효과(브릿지/드롭 전환) — 장르 고르면 GENRE_AUTO.fx로 자동 선택, 직접 바꿀 수도 있음
 const HH_TRANSITION_FX=['라이저','리버스 심벌','화이트노이즈 스윕','임팩트/크래시','필터 스윕다운','순간 정적','스네어 롤','테이프 스탑'];
@@ -699,7 +707,7 @@ function recommendRhythm(){
   st.groove=scorePick(HH_GROOVE,GENRE_GROOVE_TIPS,MOOD_GROOVE_FIT,st.genre,st.mood,MOOD_GROOVE_FIT[st.mood]?.slice(0,1))[0];
   chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
   chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
-  setAutoHint('hh-808-hint','808: '+st._808);
+  setAutoHint('hh-808-hint',lowEndHint(auto));
   setAutoHint('hh-groove-hint',st.groove);
   st.transitionFx=st.mood?scorePick(HH_TRANSITION_FX,MOOD_FX_TIPS,{},st.mood,null,auto.fx).slice(0,2):[...auto.fx];
   chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
@@ -926,7 +934,7 @@ function selectGenre(i){
     // 808·드럼·전환효과 자동 추천 적용
     const auto=GENRE_AUTO[i];
     if(auto){
-      st._808=auto.a808;
+      st._808=auto.a808;st.b808Set=false;
       st.drums=[...auto.aDrums];
       st.transitionFx=[...auto.fx];
       st.groove=auto.groove;
@@ -934,7 +942,7 @@ function selectGenre(i){
       chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
       chipGrid(document.getElementById('hh-fx'),HH_TRANSITION_FX,st,'transitionFx',2,onRhythmManualChange);
       chipGrid(document.getElementById('hh-groove'),HH_GROOVE,st,'groove',1,onRhythmManualChange);
-      setAutoHint('hh-808-hint','808: '+auto.a808);
+      setAutoHint('hh-808-hint',lowEndHint(auto));
       setAutoHint('hh-drums-hint',auto.aDrums.join(', '));
       setAutoHint('hh-fx-hint',auto.fx.join(', '));
       setAutoHint('hh-groove-hint',auto.groove);
@@ -1588,7 +1596,7 @@ function makeOutBlock(label,contentHTML,copyId,borderColor){
 function genArrangeDir(genre,sec,ctx){
   const {eDesc,dDesc,mDesc,hookEng,bpmNum}=ctx;
   // Expert modifiers derived from what the producer has actually set up
-  const boomLvl={None:0,Minimal:1,Balanced:2,Heavy:3,Dominant:4}[st._808]??2;
+  const boomLvl=use808()?({None:0,Minimal:1,Balanced:2,Heavy:3,Dominant:4}[st._808]??2):1;
   const fastBpm=bpmNum>=135;
   const slowBpm=bpmNum<=95;
   // Hook entry: heavy 808 → instant drop no build; light → gradual layer
@@ -1600,10 +1608,10 @@ function genArrangeDir(genre,sec,ctx){
     :['drop at bar 3 after 2-bar setup, mid-intensity entry','brief 2-bar setup then drop at bar 3, medium intensity entry']);
   // Verse contrast: high 808 means hook was massive → verse needs dramatic strip-down
   const intVerse=pick(boomLvl>=3
-    ?['strip to skeleton — kick and hi-hat only, 808 pulled back, wide empty space for contrast','pared down to just kick and hi-hat, 808 pulled way back, lots of open space']
+    ?[`strip to skeleton — kick and hi-hat only, ${eDesc} pulled back, wide empty space for contrast`,`pared down to just kick and hi-hat, ${eDesc} pulled way back, lots of open space`]
     :boomLvl<=1
-    ?['verse stays airy, no heavy bass, just rhythmic texture bed','verse kept light and airy, no low end, purely rhythmic texture']
-    :['verse pulls 808 back by half, lighter drum hit, spacious clean pocket','808 cut back by half in the verse, drums lighter, clean open pocket']);
+    ?[`verse stays airy, ${eDesc} kept restrained under the rhythmic texture`,`verse kept light and airy, ${eDesc} reduced to a simple pocket`]
+    :[`verse pulls ${eDesc} back by half, lighter drum hit, spacious clean pocket`,`${eDesc} cut back by half in the verse, drums lighter, clean open pocket`]);
   // BPM-based timing advice
   const loopWord=pick(slowBpm
     ?['slow hypnotic loop, let notes ring long, wide reverb tail','slow hypnotic repetition, notes ringing out with a wide reverb tail']
@@ -1700,7 +1708,7 @@ function buildHHSectionPrompt(genre,moodIdx,keyStr,bpmNum,eightOh,drums,melody,r
   // 808을 'None'으로 고르면(예: Conscious Hip Hop — 진짜 808 없는 장르) 스타일 태그엔 808 언급이 안 들어가는데
   // 섹션 텍스트는 무조건 "booming 808 bass"라고 못박혀 있어서 직접 모순이 남 — 실측 확인. 808 없는 장르는
   // g.instr에 실제 저음 악기(live bass 등)가 있으니 그걸 대신 씀
-  const eDesc=(eightOh&&eightOh!=='None')?eightOh+' 808 bass':(eightOh==='None'?(GENRES[st.genre]?.instr?.find(x=>/bass/i.test(x))||'warm bass'):'booming 808 bass');
+  const eDesc=genreLowEnd(st.genre,eightOh);
   // 드럼을 직접 안 고르면(가장 흔한 경우) 장르 안 보고 무조건 "crisp trap drums"로 고정돼 있었음 —
   // 스타일 태그 쪽은 이미 GENRES[st.genre].drum(장르별 문구, 예: "hyperpop drums")을 쓰는데 섹션 텍스트만 안 맞춰져 있어서
   // 같은 프롬프트 안에서 "hyperpop drums"(스타일) vs "crisp trap drums"(섹션)로 모순이 남— 장르 기본 문구로 맞춤
@@ -2461,7 +2469,8 @@ function hhGenerate(source,opts){
   const nuanceGroove=mood&&pickFreshNuance(MOOD_GROOVE_NUANCE[mood.kr],usedW);
   const nuanceDrums=mood&&pickFreshNuance(MOOD_DRUMS_NUANCE[mood.kr],usedW);
   const rhythmParts=[];
-  if(eff808&&eff808!=='None')rhythmParts.push(`${nuance808?nuance808+' ':''}${eff808} 808`);
+  if(eff808&&eff808!=='None')rhythmParts.push(`${nuance808?nuance808+' ':''}${genreLowEnd(st.genre,eff808)}`);
+  else if(g)rhythmParts.push(genreLowEnd(st.genre,'None'));
   if(st.groove)rhythmParts.push(`${grooveText(st.groove)}${nuanceGroove?' '+nuanceGroove:''}`);
   if(st.drums.length)rhythmParts.push(`${st.drums.map(d=>d.toLowerCase()).join(' & ')}${nuanceDrums?' '+nuanceDrums:''}`);
   else if(g)rhythmParts.push(g.drum);
@@ -2573,7 +2582,7 @@ function hhGenerate(source,opts){
   if(g)noteLines.push(`<strong>${g.en}</strong> 장르 · <em>${g.sound}</em> 사운드 · 에너지 <strong>${g.energy}</strong>`);
   noteLines.push(`조성 <strong>${keyStr}</strong> · 템포 <strong>${bpmVal} BPM</strong>`);
   if(st.melody.length)noteLines.push(`멜로디 악기: <strong>${st.melody.join(', ')}</strong>`);
-  if(st._808&&st._808!=='None'&&!_no808)noteLines.push(`808 강도: <strong>${st._808}</strong>`);
+  if(g)noteLines.push(`저음 설계: <strong>${genreLowEnd(st.genre,eff808)}</strong>`);
   if(refSong)noteLines.push(`레퍼런스: <em>${escHtml(refSong)}</em>`);
   if(antiAI)noteLines.push(`<strong>Anti-AI 필터</strong> ON — 유기적이고 인간적인 느낌 부여`);
 
@@ -2954,12 +2963,54 @@ const POP_NARR_EN={
   '감정 대비':'remove layers and reveal a different emotional color','조성 변화':'use a restrained harmonic shift to refresh the final section','인트로스펙티브':'strip back and let the lyric question or reflect','서프라이즈 전환':'change one central texture or rhythm for a clear surprise',
   '페이드 아웃':'let the last phrase and signature instrument drift away naturally','감성 마무리':'resolve with a final intimate line that completes the story','루프 엔딩':'return to the opening motif so the song can cycle naturally','갑작스러운 컷':'end immediately after the final phrase for a clean confident cut',
 };
+const POP_GENRE_CORE={
+  'k-pop':'clean synth bass, tight punchy pop drums and bright layered synths',
+  'indie pop':'melodic electric bass, live-feel drums and clean guitar interplay',
+  'dream pop':'warm bass guitar, washed guitars, atmospheric pads and restrained drums',
+  'alt r&b':'deep rounded sub-bass, sparse syncopated drums and warm electric keys',
+  'neo soul':'warm live bass guitar, pocket drums, Rhodes voicings and tasteful guitar accents',
+  'dance pop':'clean pulsing synth bass, four-on-the-floor pop drums and glossy synth hooks',
+  'bedroom pop':'soft electric bass, dry intimate drums and muted guitar or synth details',
+  synthpop:'pulsing analog synth bass, crisp electronic drums and shimmering arpeggiators',
+  'acoustic pop':'warm bass guitar, acoustic guitar, piano and natural live pop drums',
+  hyperpop:'saturated synth sub-bass, clipped glitch drums and bright distorted synths',
+};
+const TAB_GENRE_CORE={
+  elec:{
+    house:'deep rounded sub-bass, a steady four-on-the-floor kick and syncopated chord stabs',
+    techno:'a mono rolling synth bass, rigid kick, metallic percussion and sparse machine-like motifs',
+    'uk garage':'deep elastic sub-bass, shuffled two-step drums, clipped chords and syncopated percussion',
+    'drum and bass':'fast breakbeats, controlled Reese sub-bass and concise atmospheric synth layers',
+    ambient:'slow-evolving pads, low drones, soft piano or granular textures and almost no drums',
+    trance:'rolling offbeat synth bass, driving kick, arpeggiators and a wide euphoric lead',
+    'future bass':'modulated synth sub-bass, half-time drums, bright chord stacks and pitched textures',
+    'melodic techno':'rolling analog sub-bass, restrained four-on-the-floor drums and a repeating arpeggiated motif',
+    'afro house':'deep log-drum bassline, four-on-the-floor kick, shakers and layered hand percussion',
+    IDM:'irregular electronic bass, fractured drums, granular synth details and evolving rhythmic patterns',
+  },
+  rock:{
+    'indie rock':'melodic bass guitar, live drums and interlocking clean or lightly driven guitars',
+    'post-punk':'driving picked bass guitar, dry punchy drums and angular chorus-treated guitars',
+    shoegaze:'steady bass guitar, live drums and dense layered fuzz guitars with long reverb tails',
+    emo:'supportive bass guitar, dynamic live drums and expressive clean-to-driven guitars',
+    'dream pop':'warm bass guitar, restrained drums, chorus guitars and wide atmospheric synths',
+    'math rock':'articulate bass guitar, syncopated live drums and clean interlocking guitar figures',
+    'alternative rock':'solid bass guitar, punchy live drums and a focused distorted guitar riff',
+    'post-rock':'patient bass guitar, tom-led live drums and slowly building guitar swells',
+  },
+};
+const TAB_INSTR_SOUND={
+  elec:{'신스 리드':'featured synth lead','서브 베이스':'controlled sub-bass','패드':'atmospheric pads','아르페지에이터':'rhythmic arpeggiator','보코더':'vocoder texture','퍼커션':'layered percussion','하이햇':'detailed hi-hats','킥':'focused club kick','보컬 촙':'short vocal chops','리버브 기타':'reverb guitar texture','스트링스':'electronic string layers','피아노':'processed piano'},
+  rock:{'일렉 기타':'electric guitar','어쿠스틱 기타':'acoustic guitar','베이스 기타':'bass guitar','드럼':'live drums','키보드/신스':'keyboard and synth','피아노':'piano','리드 기타':'lead guitar','리듬 기타':'rhythm guitar','보컬 하모니':'vocal harmonies','페달 스틸':'pedal steel','현악기':'strings','관악기':'winds'},
+};
+
 function popStylePrompt(s,genre,mood,bpm){
   const instr=s.instruments.map(i=>POP_INSTR_SOUND[i]||i).filter(Boolean);
+  const core=POP_GENRE_CORE[genre?.tag]||'warm melodic bass, tight drums and a clear signature instrument';
   const vocal=POP_VOCAL_GUIDE[s.vocalStyle]||'clear expressive lead vocals with controlled emotion';
   const choices=Object.values(s.narrSt).filter(Boolean).map(v=>POP_NARR_EN[v]||v).slice(0,4);
   const concept=s.concept.trim();
-  return `${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'} with a ${mood?.tag||'focused emotional'} mood. ${vocal}. Build the identity around ${instr.length?instr.join(', '):'a clear signature melody, warm bass and tight drums'}. ${concept?'Shape the lyric and emotional arc around the user’s situation.':''} Keep the verses open and story-focused, let the pre-chorus raise melodic tension, then open into a wide, short and instantly memorable chorus with supporting harmonies and a fuller rhythm section. ${choices.join('; ')}. Preserve the central motif while changing register, backing layers and instrumental density between sections. Use polished modern production, clear vocal presence, controlled low end, clean transients and purposeful stereo width; keep every layer serving the lyric and hook. ${antiAI?'Natural dynamics, human phrasing and subtle imperfections, polished but not sterile.':''}`.replace(/\s+/g,' ').trim();
+  return `${genre?.tag||'modern pop'} at ${bpm} BPM in ${KEYS[s.key]||'A minor'} with a ${mood?.tag||'focused emotional'} mood. ${vocal}. Ground the arrangement in ${core}. Build the identity around ${instr.length?instr.join(', '):'one clear signature melody'}. ${concept?'Shape the lyric and emotional arc around the user’s situation.':''} Keep the verses open and story-focused, let the pre-chorus raise melodic tension, then open into a wide, short and instantly memorable chorus with supporting harmonies and a fuller rhythm section. ${choices.join('; ')}. Preserve the central motif while changing register, backing layers and instrumental density between sections. Use polished modern production, clear vocal presence, controlled low end, clean transients and purposeful stereo width; keep every layer serving the lyric and hook. ${antiAI?'Natural dynamics, human phrasing and subtle imperfections, polished but not sterile.':''}`.replace(/\s+/g,' ').trim();
 }
 function popSectionPrompt(s,bpm){
   const counts={};s.structSegs.forEach(x=>counts[x]=(counts[x]||0)+1);
@@ -3142,7 +3193,9 @@ function vocalGenerate(tabKey){
   tags.push(`${bpm} BPM`);
   const vs=vStyles.find(v=>v.kr===s.vocalStyle);
   if(vs)tags.push(vs.tag);
-  if(s.instruments.length)tags.push(s.instruments.join(', '));
+  const core=TAB_GENRE_CORE[tabKey]?.[s.genre];
+  if(core)tags.push(core);
+  if(s.instruments.length)tags.push(s.instruments.map(i=>TAB_INSTR_SOUND[tabKey]?.[i]||i).join(', '));
   if(antiAI)tags.push('organic, warm, human-feel, analog imperfections, natural dynamics');
 
   document.getElementById(`${tabKey}-sect-ta`).value=sect.trim();
@@ -3191,7 +3244,7 @@ function updateFloatSummary(){
     const bpm=parseInt(document.getElementById('hh-bpm')?.value)||st.bpm;
     parts.push(bpm+'BPM');
     if(st.mood)parts.push(st.mood);
-    if(st._808&&st._808!=='Balanced')parts.push('808:'+st._808);
+    if(use808()&&st._808&&st._808!=='None')parts.push('808:'+st._808);
     if(st.drums.length)parts.push(st.drums[0]);
   } else {
     const s=VTS?.[tab];

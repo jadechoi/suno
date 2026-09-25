@@ -153,8 +153,8 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
 // aiProducerReview·aiParseExternalFeedback가 같은 "현재 프롬프트 상태"를 보게 — 예전엔 리뷰는 드럼/808/그루브/스타일 박스를 못 보고,
 // 외부 피드백 파서는 현재 프롬프트를 아예 못 봐서(스키마가 언급하는 [현재 설정]·[프로듀서 레퍼런스]도 없었음) 이미 있는 걸 또 제안하거나 removeRef/melodyLead를 못 채웠음
 // 지금까지 고른 설정 요약 — 리뷰·외부 피드백·레퍼런스 추천이 같은 걸 봄. refs:false면 현재 레퍼런스는 뺌(레퍼런스를 새로 고를 땐 기존 걸 앵커로 삼으면 안 됨)
-// 808은 힙합·트랩의 저음 — 힙합 밖 장르는 사용자가 직접 골랐을 때만 씀
-function use808(){return !(GENRES[st.genre]&&GENRES[st.genre].family!=='hiphop')||!!st.b808Set;}
+// 같은 힙합 안에서도 붐뱁·로파이·컨셔스·아프로트랩 등은 808 대신 장르 고유 베이스를 쓴다.
+function use808(){return !!st.b808Set||!!(GENRE_AUTO[st.genre]&&GENRE_AUTO[st.genre].a808!=='None');}
 function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const auto=soft&&st._mtAutoManaged!==false;   // soft: 자동 채워진 장르 기본값은 확정 값이 아니라 참고로만 보여줌
   const g=GENRES[st.genre];
@@ -636,9 +636,10 @@ async function aiRecommendMelodyTexture(){
       st.commercial?`색깔: ${st.commercial}`:null,
       st.density?`밀도: ${st.density}`:null,
       st.length?`목표 길이: ${st.length}`:null,
+      `장르 기본 저음: ${genreLowEnd(st.genre,GENRE_AUTO[st.genre]?.a808||'None')}`,
       `BPM ${st.bpmSet?st.bpm:'미지정(프롬프트에 쓰지 않음)'} / Key ${st.keySet?KEYS[st.key]:'미지정(프롬프트에 쓰지 않음)'}`,
     ].filter(Boolean).join('\n');
-    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 808 강도 1개, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 808과 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 808·드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라(예: 808을 원래 안 쓰는 장르는 None, 드릴은 그리드가 타이트한 쪽, 어두운 무드면 808을 더 무겁게, 슬프거나 내성적이면 가볍게). 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
+    const staticText=`너는 ${producerRole()}야. 아래 선택된 요소들을 보고, 이 곡에 가장 잘 어울리는 멜로디 리드 악기 1개, 배경 악기 1개, 믹스 텍스처 2개, 악기 톤/음색 1개, 전환효과 1~2개, 스윙/그루브 1개, 저음 설계, 드럼 패턴 1~3개, 편곡 밀도 1개, 곡 구조 1개를 추천해줘. 808은 트랩·드릴처럼 장르 정체성에 필요한 경우에만 쓰고, 붐뱁·로파이·아프로트랩·컨셔스·하이퍼팝·Westwood에서는 반드시 None을 골라 장르 기본 저음(샘플/라이브 베이스, 로그드럼, 신스 서브)을 유지해. 곡 구조는 아래 [구조 프리셋] 중에서 장르·무드·보컬 유무·목표 길이·색깔(커머셜/언더그라운드)과 타겟 레퍼런스 곡의 실제 곡 구성(네가 아는 대로)을 종합해 골라 — 예를 들어 루프 하나로 미니멀하게 가는 곡이면 Minimal/Loop Evolve, 벌스로 쌓다가 훅에서 터지는 곡이면 Slow Burn, 훅이 자주 돌아오는 곡이면 Hook Heavy. [현재 선택]에 타겟 레퍼런스 곡이 있으면, 그 곡의 실제 편곡 성격(로그드럼 같은 루프 하나로 밀고 가는 미니멀한 곡인지, 라이저·크래시로 빌드업하는 곡인지, 드롭이 폭발적인 곡인지, 레이어가 촘촘한 곡인지)을 네가 아는 대로 판단해서 밀도·전환효과·드럼 선택에 반영해 — 미니멀한 곡이면 밀도는 Minimalist/Sparse, 전환효과는 필터 스윕다운·순간 정적·테이프 스탑처럼 절제된 것을, 빌드업이 강한 곡이면 라이저·스네어 롤·임팩트 쪽을 골라. 레퍼런스가 미니멀 루프형이어도 멜로디는 반드시 리드+배경 2개를 골라 — 대신 배경은 존재감이 작은 것으로. 리드와 배경은 대역이 겹치지 않게(둘 다 Dark synth·Ambient pad·Strings 같은 저역 지속음이면 저음 악기와 함께 로우~로우미드가 뭉쳐서 마스킹) 한쪽은 플럭·벨·아르페지오 같은 짧은 트랜지언트 악기로 골라 (Supersaw + Ambient pad처럼 둘 다 넓게 깔리는 지속음이면 중고역이 서로 마스킹). 곡을 모르면 무리해서 추측하지 말고 장르·무드 기준으로만 골라. 드럼·그루브는 장르 정체성을 지키면서 무드에 맞게 골라. 리드와 배경은 서로 다른 역할이니 각각 그 역할에 맞는 걸로 따로 판단해줘 — 리드는 곡을 이끄는 전면 멜로디, 배경은 리드를 받쳐주는 후면 텍스처. 어떤 악기가 리드에 어울리고 어떤 게 배경에 어울릴지는 정해진 규칙이 없으니 이 조합의 맥락(장르·무드)을 보고 네가 직접 판단해. 목표는 다양성이 아니라 이 조합에 대한 최적의 선택이야 — 이 조합에 정말 그 게 최선이라고 판단되면 이전과 같은 결과를 다시 줘도 상관없어, 억지로 다르게 고르지 마. 단, 아래 목록에 있는 이름만 정확히 그대로 사용해.
 
 [멜로디 악기 목록]
 ${HH_MELODY.join(', ')}
@@ -684,7 +685,7 @@ ${ctx}`;
     const tone=HH_MELODY_TONE.includes(parsed.melodyTone)?parsed.melodyTone:null;
     const fx=(parsed.transitionFx||[]).filter(f=>HH_TRANSITION_FX.includes(f)).slice(0,2);
     const groove=HH_GROOVE.includes(parsed.groove)?parsed.groove:null;
-    const lvl808=HH_808.includes(parsed['808'])?parsed['808']:null;
+    const lvl808=GENRE_AUTO[st.genre]?.a808==='None'?'None':(HH_808.includes(parsed['808'])?parsed['808']:null);
     const density=HH_DENSITY.includes(parsed.density)?parsed.density:null;
     const structIdx=HH_STRUCT_PRESETS.findIndex(p=>p.name===parsed.structure);
     const drums=(parsed.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
@@ -730,9 +731,9 @@ ${ctx}`;
       chipGrid(document.getElementById('hh-density'),HH_DENSITY,st,'density',1,null);
     }
     if(lvl808){
-      st._808=lvl808;st.b808Set=true;
+      st._808=lvl808;st.b808Set=GENRE_AUTO[st.genre]?.a808!=='None';
       chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);
-      clearAutoHint('hh-808-hint');
+      if(use808())clearAutoHint('hh-808-hint');else setAutoHint('hh-808-hint',lowEndHint(GENRE_AUTO[st.genre]));
     }
     if(drums.length){
       st.drums=drums;
@@ -903,6 +904,24 @@ function parseSections(text){
   });
   return secs;
 }
+// 부제만 달라진 헤더는 복원하되 구간 종류·번호·순서가 바뀐 결과는 검증에서 거절한다.
+function restoreSectionHeaders(text,structure){
+  const identity=h=>h.match(/^\[(Instrumental )?(Intro|Hook|Verse|Bridge|Outro)(?:\s+(\d+))?(?=:|\])/i)?.slice(1).map(x=>(x||'').toLowerCase()).join('|');
+  const secs=parseSections(text);
+  if(secs.length!==structure.length||secs.some((s,i)=>!identity(s.header)||identity(s.header)!==identity(structure[i].header)))return text;
+  let i=0;
+  return text.split('\n').map(line=>/^\[.*\]$/.test(line.trim())?structure[i++].header:line).join('\n');
+}
+function hasSelectedDrum(text,name){
+  const normalized=text.toLowerCase().replace(/[‐‑–—]/g,'-');
+  const positive=normalized.split(/[.!?;\n]/).filter(s=>! /\b(no|without|avoid|remove|omit|exclude)\b/.test(s)).join(' ');
+  if(positive.includes(name.toLowerCase()))return true;
+  const aliases={
+    'Sub-bass punch':/\b(?:punchy|punching|tight|percussive|hard-hitting)\s+(?:\w+\s+){0,2}sub[ -]?bass\b|\bsub[ -]?bass\s+(?:\w+\s+){0,2}(?:punch|impact|attack)\b/,
+    'Crisp hi-hats':/\b(?:crisp|tight|sharp|crystalline)\s+(?:\w+\s+){0,2}(?:hi[ -]?hats|hats)\b|\bhi[ -]?hats\s+(?:stay|remain|sound|are)\s+crisp\b/,
+  };
+  return !!aliases[name]?.test(positive);
+}
 function splitPhrases(body){return (body||'').replace(/^\(\d+ Bars: /,'').replace(/\)$/,'').split(/, (?![^()]*\))/).map(x=>x.trim().toLowerCase()).filter(Boolean);}
 // 명세: 고정 정보 + 힌트 — 검사기의 기준이기도 함
 // 고쳐쓰기에서 바뀌어도 되는 섹션 — 지시가 바뀐 섹션, 새로 삭제 확정된 구가 들어 있던 섹션만. 나머지는 이전 결과를 글자 그대로 유지해야 함
@@ -1055,7 +1074,7 @@ function buildWriteSpec(draftSect,draftStyle,prev){
   return {
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:st.keySet?KEYS[st.key]:null,bpm:st.bpmSet?st.bpm:null,
     lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
-    drums:auto?[]:[...st.drums],bass808:(auto||!use808())?null:st._808,vocal:hasVocal?st.vocal:null,
+    drums:auto?[]:[...st.drums],bass:genreLowEnd(st.genre,use808()?st._808:'None'),bass808:(auto||!use808())?null:st._808,vocal:hasVocal?st.vocal:null,
     transitionFx:auto?[]:[...(st.transitionFx||[])],groove:auto?null:st.groove,texture:auto?[]:[...st.texture],
     producerReference:(auto||!producerRefActive())?null:(st.refs[0]||null),
     producerSound:(!auto&&producerRefActive()&&st.refs[0])?refFit(HH_REF.find(r=>r.kr===st.refs[0])?.en||'',', '):null,   // 이름은 못 쓰니 이 소리 특징을 스타일에 반영해야 함
@@ -1102,7 +1121,7 @@ function validateWritten(spec,section,style,opts){
   const hooks=secs.filter(s=>s.type==='hook');
   if(spec.lead&&!low.includes(spec.lead.toLowerCase()))errors.push(`리드 악기 "${spec.lead}"가 섹션 어디에도 없음`);
   if(spec.background&&!low.includes(spec.background.toLowerCase()))errors.push(`배경 악기 "${spec.background}"가 섹션 어디에도 없음`);
-  spec.drums.forEach(d=>{if(!low.includes(d.toLowerCase()))errors.push(`고른 드럼 "${d}"가 섹션 어디에도 없음`);});
+  spec.drums.forEach(d=>{if(!hasSelectedDrum(section+'\n'+style,d))errors.push(`고른 리듬 요소 "${d}"의 소리 특징이 스타일·섹션에 없음`);});
   // 실존 아티스트·프로듀서 이름 금지 (Suno 임퍼스네이션 정책) — 소리 묘사로 풀어 써야 함
   {
     const names=[...HH_REF.map(r=>r.kr),...(spec.referenceSong||'').split(' - ')[0].split(/\s+(?:feat\.?|featuring|ft\.?|x|&)\s+|,\s*/i)].map(n=>n.trim().toLowerCase()).filter(n=>n.length>=4);
@@ -1237,7 +1256,7 @@ const WRITE_STATIC=`너는 장르 전문 프로듀서이자 Suno 프롬프트 �
 - 믹스·공간·인간미·전환효과를 모든 구간에 빠짐없이 적지 마. 그 구간의 음악적 역할을 바꾸는 디테일만 선택하고, 이미 충분하면 더 채우지 마. maxChars는 목표가 아니라 절대 상한이야.
 
 [선택값과 레퍼런스]
-- 명세의 lead/background/drums가 있으면 이름 그대로 곡 안에 등장시켜. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
+- 명세의 lead/background는 이름 그대로 곡 안에 등장시켜. drums는 스타일 또는 필요한 섹션에 실제 소리로 반영해. Sub-bass punch는 punchy sub-bass, Crisp hi-hats는 crisp hi-hats처럼 자연스럽게 표현해도 돼. bass는 장르에 맞는 저음 참고이며 808을 모든 장르에 강제로 추가하지 마. 위치는 음악적 의도로 정해. 사용자가 확정한 악기·그루브·전환효과·텍스처는 존중하고 장르 기본 추천은 참고로만 봐.
 - bpm·key가 있으면 그대로 쓰고, null이면 특정 BPM·Key를 만들지 마. producerSound가 있으면 소리 특징을 스타일에 반영해. 실존 아티스트·프로듀서·곡 이름이나 OO-inspired는 출력하지 마.
 - referenceSong이 있으면 곡 제목과 아티스트를 보고 네가 확실히 아는 사운드·연주·편곡 특성만 분석해서 반영해. 실제 오디오를 들었다고 주장하거나 모르는 세부를 지어내지 마. 제목과 이름은 최종 출력에 쓰지 말고 재현 가능한 소리 언어로 바꿔. BPM과 Key는 referenceSong에서 추측하지 말고 명세 값을 그대로 사용해.
 - brief가 있으면 소리 특징·styleTags·cues를 반영해. 제목만 아는 곡을 실제로 들었다고 주장하지 마. 스타일에 명시한 악기는 섹션에서 실제 역할을 갖게 해.
@@ -1289,7 +1308,7 @@ ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 �
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:sec[1].trim(),style:sty[1].trim().replace(/\s*\n\s*/g,' '),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {section:restoreSectionHeaders(sec[1].trim(),spec.structure),style:sty[1].trim().replace(/\s*\n\s*/g,' '),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
@@ -1518,7 +1537,7 @@ function buildBriefProposal(text,p){
   setInstrumentMenus(GENRES[v.genre]?.family||(st.genre===null?null:GENRES[st.genre].family));   // 아래 검증이 새 장르 계열의 메뉴를 보게 (끝에서 원복)
   v.mood=HH_MOODS.find(m=>m.kr===p.mood)?.kr||null;
   v.drums=(p.drums||[]).filter(d=>HH_DRUMS.includes(d)).slice(0,3);
-  v.bass808=HH_808.includes(p.bass808)?p.bass808:null;
+  v.bass808=GENRE_AUTO[v.genre]?.a808==='None'?'None':(HH_808.includes(p.bass808)?p.bass808:null);
   v.lead=HH_MELODY.includes(p.melodyLead)?p.melodyLead:null;
   v.bg=HH_MELODY.includes(p.melodyBackground)&&p.melodyBackground!==v.lead?p.melodyBackground:null;
   setInstrumentMenus(st.genre===null?null:GENRES[st.genre].family);   // 검증 끝 — 현재 장르 계열로 원복
@@ -1573,7 +1592,7 @@ function applyBrief(){
   if(on('genre')&&st.genre!==v.genre)selectGenre(v.genre);
   else if(on('mood'))onMoodChange();
   if(on('drums')){st.drums=v.drums.filter(d=>HH_DRUMS.includes(d));chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);clearAutoHint('hh-drums-hint');}
-  if(on('808')){st._808=v.bass808;st.b808Set=true;chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);clearAutoHint('hh-808-hint');}
+  if(on('808')){st._808=v.bass808;st.b808Set=v.bass808!=='None';chipGrid(document.getElementById('hh-808'),HH_808,st,'_808',1,on808Change);if(st.b808Set)clearAutoHint('hh-808-hint');else setAutoHint('hh-808-hint',lowEndHint(GENRE_AUTO[st.genre]));}
   if(on('melody')){
     let bg=v.bg;
     if(!HH_MELODY.includes(v.lead))v.lead=null;else if(bg&&!HH_MELODY.includes(bg))bg=null;

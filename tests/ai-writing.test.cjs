@@ -10,6 +10,7 @@ for (const file of ['hh-data.js', 'hh-ai.js', 'hh-openai-audio.js']) {
 vm.runInContext(`const st={extraTags:[],vocal:'No Vocal',melody:['Muted guitar','Synth pluck'],refs:[]};`,ctx);
 const run = code => vm.runInContext(code,ctx);
 const appSource=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+vm.runInContext(appSource.slice(appSource.indexOf('const GENRE_AUTO='),appSource.indexOf('// 전환 효과(브릿지/드롭 전환)')),ctx);
 const spotifySource=fs.readFileSync(path.join(__dirname,'..','hh-spotify.js'),'utf8');
 assert.doesNotMatch(appSource,/refAf/);
 assert.doesNotMatch(spotifySource,/af\.(?:energy|valence|danceability)|spMoodFromFeatures|sp808FromEnergy|spDrumsFromFeatures/);
@@ -53,6 +54,24 @@ assert.equal(validate(section,instrumentalStyle+' Add humming.').ok,false);
 assert.equal(validate(section,instrumentalStyle+' Add sung vocals.').ok,false);
 assert.equal(validate(section.replaceAll('Muted guitar','Other instrument')).ok,false);
 assert.equal(validate(section.replace('[Intro]','[Outro]')).ok,false);
+const renamed=section.replace('[Instrumental Hook 1]','[Instrumental Hook 1: New subtitle]');
+assert.equal(ctx.restoreSectionHeaders(renamed,spec.structure),section);
+const reordered=section.replace('[Intro]','[Outro]');
+assert.equal(ctx.restoreSectionHeaders(reordered,spec.structure),reordered);
+assert.equal(ctx.hasSelectedDrum('Use punchy sub-bass under the motif.','Sub-bass punch'),true);
+assert.equal(ctx.hasSelectedDrum('Keep crisp hi hats in the groove.','Crisp hi-hats'),true);
+assert.equal(ctx.hasSelectedDrum('Avoid crisp hi-hats.','Crisp hi-hats'),false);
+assert.equal(ctx.hasSelectedDrum('A soft pad floats.','Sub-bass punch'),false);
+assert.equal(validate(section,instrumentalStyle+' Punchy sub-bass and crisp hi hats.',{...spec,drums:['Sub-bass punch','Crisp hi-hats']}).ok,true);
+for(const genre of [6,8,11,12,14,17]){
+  run(`st.genre=${genre};st.b808Set=false;`);
+  assert.equal(run('use808()'),false);
+  assert.doesNotMatch(run('genreLowEnd(st.genre,"None")'),/808/);
+}
+run('st.genre=0;st.b808Set=false;');
+assert.equal(run('use808()'),true);
+assert.doesNotMatch(run('genreLowEnd(0,"None")'),/\b808 bass/);
+run('st.genre=null;');
 assert.equal(validate(section.replace('8 Bars:','16 Bars:')).ok,false);
 assert.equal(validate(section,instrumentalStyle+'x'.repeat(950)).ok,false);
 assert.equal(validate(section,instrumentalStyle.replace('110 BPM','120 BPM')).ok,false);
