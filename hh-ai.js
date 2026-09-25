@@ -1287,7 +1287,7 @@ async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
-[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **수정 가능한 섹션은 다음뿐이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 섹션은 전부 그대로)'}**. 다른 구간의 음악적 의도와 기존 작성 스타일은 유지해. 필요한 연결 문장은 다듬어도 돼. 중복·모순을 줄이되 필요한 보완의 길이를 억지로 제한하지 마, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
+[모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **음악적 내용을 변경할 섹션은 다음이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 음악적 내용 유지)'}**. 다른 구간의 음악적 의도와 자연어 작성 방식은 유지해. 모든 구간에서 중복·장황한 문장을 줄이고 스타일과의 역할 모순을 정리해도 돼. 이전 문장 자체를 보존하라는 뜻은 아니야. 가사는 별도 보존 조건을 따라. 중복·모순을 줄이되 필요한 보완의 길이를 억지로 제한하지 마, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
 
 [명세]
 ${JSON.stringify(spec,null,1)}
@@ -1308,7 +1308,7 @@ ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 �
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:restoreSectionHeaders(sec,spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],styleContext),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {section:restoreSectionHeaders(sec,spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],JSON.stringify({intent:styleContext,section:sec})),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 function renderWriteBadge(){
   const b=document.getElementById('hh-write-badge');
@@ -1353,7 +1353,7 @@ function updatePromptHistoryTexts(id,section,style,lyrics){
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}
   renderPromptHistory();
 }
-async function hhAiWrite(entryId){
+async function hhAiWrite(entryId,{fresh=false}={}){
   if(!aiWriteEnabled()||!_hhDraft)return;
   const token=++_writeToken;
   const draft=_hhDraft;
@@ -1363,7 +1363,7 @@ async function hhAiWrite(entryId){
   _writeState='pending';_writeErr='';_writeWarn=null;renderWriteBadge();
   const run=(async()=>{
     try{
-      const mode=(_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
+      const mode=(!fresh&&_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
       const spec=buildWriteSpec(mode==='edit'?_hhWritten:null);
       let errors=null,result=null,lastErrors=null,warn=null,failed=null;
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단

@@ -27,6 +27,12 @@ function seed(){
 }
 `);
 (async()=>{
+  run("seed();_hhDraft.fpBase='old';writeOnce=async({mode})=>{globalThis.selectedMode=mode;return {section:'[Intro]\\nFresh direction',style:'Short style',lyrics:''};};");
+  await ctx.hhAiWrite('fresh',{fresh:true});
+  assert.equal(ctx.selectedMode,'create');
+  await ctx.hhAiWrite('feedback');
+  assert.equal(ctx.selectedMode,'edit');
+
   run("seed();writeOnce=async()=>{throw new Error('fixture API failure');};");
   await ctx.hhAiWrite('failure');
   assert.equal(run("nodes['hh-sect-ta'].value"),'[Intro]\nPrevious direction');

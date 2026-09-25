@@ -2323,6 +2323,7 @@ function updateGenPending(){
 }
 function hhGenerate(source,opts){
   const isRefresh=source===false;
+  const freshWrite=source===undefined;
   const _no808=!use808();   // 808은 힙합·트랩 저음 — 다른 계열은 직접 고르기 전에는 규칙 초안에도 안 씀
   const eff808=_no808?'None':st._808;
   if(source===undefined&&_pendingLabels.length)source=_pendingLabels.join(' + ');
@@ -2715,14 +2716,14 @@ function hhGenerate(source,opts){
   // stSnapshot — st는 JSON-safe 필드로만 이뤄져 있어서 그대로 깊은 복사해두면, 나중에 "다시 가져오기"로
   // 이 시점의 전체 설정(멜로디·구조·텍스처 등)을 그대로 복원해서 AI 리뷰를 다시 받을 수 있음
   const _entryId=source!==false?savePromptHistoryEntry({genre:g?g.kr:'-',bpm:st.bpmSet?bpmVal:null,key:st.keySet?keyStr:null,mood:st.mood||'-',refSong,summaryRows,section:sectText,style:styleText,lyrics:lyricsPure,source:typeof source==='string'?source:null,stSnapshot:JSON.parse(JSON.stringify(st))}):null;
-  // 작성기 시작 — 캐시 적중이면 생략, 진행 중이면 중복 호출 안 함, 이전 실패가 같은 상태의 재렌더(source===false)면 재호출 안 함(명시적 Generate만 재시도)
+  // 화면 갱신만 기존 결과를 재사용한다. 명시적 Generate는 선택이 같아도 현재 규칙으로 새로 작성한다.
   const _fb=_hhWritten&&_hhWritten.fpFull===_fps.fpFull&&!_hhWritten.meta?.ok;
-  if(_wc){_writeState='ok';_writeWarn=_wc.meta?.warn||null;renderWriteBadge();}
+  if(_wc&&isRefresh){_writeState='ok';_writeWarn=_wc.meta?.warn||null;renderWriteBadge();}
   else if(!aiWriteEnabled()){_writeState='off';renderWriteBadge();}
   else if(_writePromise&&_hhDraft.fpFull===_fps.fpFull&&_writeState==='pending'&&source===false){renderWriteBadge();}
   else if(_fb&&source===false){_writeState='fallback';renderWriteBadge();}
   else if(isRefresh){renderWriteBadge();}
-  else hhAiWrite(_entryId);
+  else hhAiWrite(_entryId,{fresh:freshWrite});
   if(!isRefresh){_lastGenFp=_fps.fpFull;_pendingLabels=[];}
   updateGenPending();
 }
