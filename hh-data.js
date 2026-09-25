@@ -910,3 +910,28 @@ GENRE_FUSION.push(['pedal steel and banjo textures','radio-ready country pop'],[
 Object.assign(GENRE_ALIAS,{43:8,44:14});
 const GENRE_LYRIC_LANG={35:'한국어',44:'日本語'};
 const GENRE_LYRIC_LANG_FIXED={44:'日本語'};   // J-Pop은 가사를 반드시 일본어로 — 바꿀 수 없음   // 장르를 고를 때 제안하는 가사 언어(직접 바꾸면 더는 제안하지 않음)
+
+// 추가 장르는 끝에 붙여 기존 저장 기록의 장르 인덱스를 유지한다.
+const RHYTHM_POP_PROFILES=[
+  {kr:'라틴 팝',en:'Latin Pop',tag:'latin pop',bpm:100,bpmR:[85,120],drums:['Latin syncopated kick & snare','Shaker groove'],melody:['Nylon-string guitar','Bass guitar'],feel:'라틴 타악기와 엇박 리듬, 따뜻한 기타가 대중적인 후렴을 받치는 느낌',moods:['감각적·관능적','로맨틱·달콤한','축제·환희'],pop:['나일론 기타','라틴 리듬','베이스']},
+  {kr:'레게톤',en:'Reggaeton',tag:'reggaeton',bpm:95,bpmR:[85,110],drums:['Dembow kick & snare','Shaker groove'],melody:['Arp pluck synth','Synth bass'],feel:'반복되는 뎀보 킥·스네어와 둥근 저음이 이끄는 관능적이고 탄력적인 댄스 리듬',moods:['감각적·관능적','자신감·플렉스','축제·환희'],pop:['신스','뎀보 리듬','베이스']},
+  {kr:'댄스홀',en:'Dancehall',tag:'dancehall',bpm:100,bpmR:[85,115],drums:['Dancehall kick & rimshot','Shaker groove'],melody:['Electric guitar','Synth bass'],feel:'엇박 기타와 간결한 킥·림숏, 탄력적인 베이스 사이의 여백이 만드는 느긋한 바운스',moods:['칠·그루비','감각적·관능적','자신감·플렉스'],pop:['일렉 기타','댄스홀 리듬','베이스']},
+  {kr:'아프로비츠',en:'Afrobeats',tag:'afrobeats',bpm:108,bpmR:[95,120],drums:['Afrobeats syncopated kick','Interlocking percussion'],melody:['Electric guitar','Marimba'],feel:'서로 맞물리는 퍼커션과 부드러운 기타, 엇박 베이스가 만드는 가볍고 유연한 그루브',moods:['칠·그루비','축제·환희','로맨틱·달콤한'],pop:['일렉 기타','아프로비츠 리듬','베이스']},
+];
+for(const p of RHYTHM_POP_PROFILES){
+  p.index=GENRES.length;
+  GENRES.push({kr:p.kr,en:p.en,tag:p.tag,family:'pop',bpm:p.bpm,bpmR:p.bpmR,instr:[...p.drums,...p.melody],vocal:'sung or rhythmic delivery',pts:[p.drums[0],'recognizable repeating groove','space between instrumental phrases'],sound:'rhythmic danceable',energy:'mid-high',drum:p.drums[0]});
+  GENRE_FEEL.push(p.feel);GENRE_HOOK_NAME.push(p.en+' Groove');GENRE_FUSION.push([p.tag,p.tag+' groove']);
+  p.moods.forEach(m=>MOOD_GENRE_GUIDE[m].push(p.index));
+  for(const d of p.drums)if(!MENU_BY_FAMILY.pop.drums.includes(d))MENU_BY_FAMILY.pop.drums.push(d);
+  POP_GENRES.push({kr:p.kr,tag:p.tag});
+  POP_AUTO[p.tag]={mood:'업비트·댄서블',instruments:p.pop,vocalStyle:'팝 보컬',structure:'Standard',narr:{}};
+}
+Object.assign(POP_INSTR_SOUND,{'나일론 기타':'warm nylon-string guitar plucks','쿠아트로':'bright Puerto Rican cuatro picking','라틴 리듬':'syncopated Latin kick and snare with light percussion','뎀보 리듬':'repeating dembow kick and snare groove','댄스홀 리듬':'sparse dancehall kick and rimshot bounce','아프로비츠 리듬':'syncopated Afrobeats kick with interlocking percussion'});
+for(const name of ['나일론 기타','쿠아트로','라틴 리듬','뎀보 리듬','댄스홀 리듬','아프로비츠 리듬'])POP_INSTR.push(name);
+for(const [name,reg,hook] of [['Nylon-string guitar','mid','warm fingerpicked rhythmic motif'],['Puerto Rican cuatro','high','bright ringing picked response'],['Muted guitar','mid','short offbeat muted chord strokes']]){
+  MENU_BY_FAMILY.pop.melody.push(name);
+  NEW_MELODY[name]={role:'lead',reg,human:'subtle picking dynamics',art:{intro:'isolated picked motif',hook,verse:'sparse picked responses',bridge:'reduced motif with space between notes',outro:'return to the opening motif'}};
+  MELODY_REGISTER[name]=reg;INSTR_HUMAN[name]='subtle picking dynamics';
+}
+setInstrumentMenus(null);

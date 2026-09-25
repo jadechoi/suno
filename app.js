@@ -623,6 +623,12 @@ function refFit(text,sep){
 function pick(v){return Array.isArray(v)?v[Math.floor(Math.random()*v.length)]:v;}
 
 // 장르 3점/2점 + 무드 2점/1점 + (있으면) 보너스 1점씩 합산 → 점수 내림차순 정렬. 조합이 다르면 결과도 다름
+// 기존 추천 점수 방식에 새 장르의 핵심 리듬과 악기도 연결한다.
+for(const p of RHYTHM_POP_PROFILES){
+  GENRE_MELODY_TIPS[p.index]=p.melody.join(' + ');
+  GENRE_DRUMS_TIPS[p.index]=p.drums.join(' + ');
+  GENRE_TEXTURE_TIPS[p.index]='Polished production + Stereo wide';
+}
 function scorePick(options,genreTips,moodFit,genreIdx,moodKr,bonus){
   const scores={};
   options.forEach(o=>scores[o]=0);
@@ -832,21 +838,25 @@ function clearAutoHint(id){
   if(el)el.hidden=true;
 }
 
-// 힙합 탭은 힙합 장르만 보여준다. 팝·R&B는 별도 탭에서 가사 중심 흐름으로 만든다.
+// 기본 힙합 목록과 다른 계열 목록을 분리하되, 모든 장르를 직접 고를 수 있게 한다.
 function renderHhGenres(){
   const container=document.getElementById('hh-genre-chips');
   container.innerHTML='';
   let fam=document.getElementById('hh-genre-family');
   if(fam)fam.remove();
+  const more=document.createElement('details');
+  more.style.width='100%';more.open=st.genre!==null&&GENRES[st.genre]?.family!=='hiphop';
+  const label=document.createElement('summary');label.textContent='다른 장르 선택 · 팝 / 라틴 / 일렉트로닉';more.appendChild(label);
+  const grid=document.createElement('div');grid.className='chip-grid';more.appendChild(grid);
   GENRES.forEach((g,i)=>{
-    if(g.family!=='hiphop'&&i!==st.genre)return;
     const el=document.createElement('div');
     el.className='chip'+(st.genre===i?' selected':'');
     el.textContent=g.kr;
     el.title=GENRE_FEEL[i]||'';
     el.onclick=()=>selectGenre(i);
-    container.appendChild(el);
+    (g.family==='hiphop'?container:grid).appendChild(el);
   });
+  container.appendChild(more);
   // 장르 이름만으로는 어떤 소리인지 모르는 사람용 — 고른 장르의 느낌을 쉬운 말로 바로 아래에
   const feel=document.getElementById('hh-genre-feel');
   if(feel){
