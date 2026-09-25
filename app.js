@@ -917,10 +917,7 @@ function syncInstrumentMenus(){
   chipGrid(document.getElementById('hh-drums'),HH_DRUMS,st,'drums',null,onDrumsManualChange);
 }
 function selectGenre(i){
-  if(GENRES[i]?.family!=='hiphop'){
-    showToast('팝·R&B 장르는 팝·R&B 탭에서 선택하세요');
-    return;
-  }
+  if(!GENRES[i])return;
   const deselect=st.genre===i;
   st.genre=deselect?null:i;
   _aiSuggestions=null;
@@ -2325,8 +2322,8 @@ function hhGenerate(source,opts){
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
   // 레퍼런스 곡만 고르고 장르를 고르지 않았다면, Generate 전에 곡명 GPT 분석을 끝내고 추천값을 채운 뒤 생성한다.
-  if(!opts?._afterRefAuto&&st.genre===null&&refSong&&getOpenAIKey()){
-    autoAnalyzeReference(refSong).then(()=>hhGenerate(source,{...(opts||{}),_afterRefAuto:true}));
+  if(!opts?._afterRefAuto&&refSong&&st.brief?.text!==refSong&&getOpenAIKey()){
+    autoAnalyzeReference(refSong).then(ok=>{if(ok&&(document.getElementById('hh-ref-song')?.value||'').trim()===refSong)hhGenerate(source,{...(opts||{}),_afterRefAuto:true});});
     return;
   }
   const moodIdx=HH_MOODS.findIndex(m=>m.kr===st.mood);
@@ -2731,6 +2728,7 @@ function downloadTextFile(filename,content,mime){
   URL.revokeObjectURL(url);
 }
 function saveHhPromptAsMd(){
+  if(_writeState==='pending'||_refAutoPromise){showToast('AI 작성·분석이 끝난 뒤 저장해주세요');return;}
   const g=st.genre!==null?GENRES[st.genre]:null;
   const sectText=document.getElementById('hh-sect-ta')?.value||'';
   const styleText=document.getElementById('hh-style-ta')?.value||'';
@@ -2761,6 +2759,13 @@ function saveHhPromptAsMd(){
 ## 선택 요약
 ${rows.map(([k,v])=>`- **${k}**: ${v}`).join('\n')}
 ${aiSection}
+## 생성 상태와 분석
+- 상태: ${_writeState}
+- 스타일 글자 수: ${styleText.length}/1000
+- 안내: ${_writeNote||_writeErr||(_writeWarn||[]).join(' / ')||'없음'}
+- 레퍼런스 분석: ${JSON.stringify(st.brief||null)}
+- 선택 출처: ${JSON.stringify(referenceSelectionOrigins())}
+
 ## 섹션 프롬프트
 \`\`\`
 ${sectText}

@@ -77,7 +77,7 @@ assert.equal(ctx.restoreSectionHeaders(shortHeaders,spec.structure,true),section
 const wrongNumber=section.replace('[Instrumental Hook 2]','[Hook 3]');
 assert.equal(ctx.restoreSectionHeaders(wrongNumber,spec.structure,true),wrongNumber);
 assert.equal(ctx.restoreSectionHeaders(shortHeaders,spec.structure,false),shortHeaders);
-assert.equal(validate(section.replace('[Intro]','[Outro]')).ok,true);
+assert.equal(validate(section.replace('[Intro]','[Outro]')).ok,false);
 const renamed=section.replace('[Instrumental Hook 1]','[Instrumental Hook 1: New subtitle]');
 assert.equal(ctx.restoreSectionHeaders(renamed,spec.structure),section);
 const reordered=section.replace('[Intro]','[Outro]');
@@ -155,7 +155,7 @@ assert.equal(validate('',instrumentalStyle).ok,false);
 assert.equal(validate(section,'').ok,false);
 assert.equal(validate('[Intro]',instrumentalStyle).ok,false);
 assert.equal(validate('No section headers.',instrumentalStyle).ok,false);
-assert.equal(validate('[Intro]\nA soft motif.\n[Hook]\nKeep the same groove.', 'Instrumental only. A warm, sparse beat.', {...spec,prevLength:1,producerSound:'unmatched phrase',brief:{styleTags:['unmatched tag']}}).ok,true);
+assert.equal(validate('[Intro]\nA soft motif.\n[Hook]\nKeep the same groove.', 'Instrumental only. A warm, sparse beat.', {...spec,structure:[{header:'[Intro]'},{header:'[Hook]'}],prevLength:1,producerSound:'unmatched phrase',brief:{styleTags:['unmatched tag']}}).ok,true);
 assert.equal(checkEvents(eventLyrics.replace('[Chorus 2]','[Verse 2]')).ok,false);
 assert.equal(checkEvents(eventLyrics.replace('Here is where we go','x'.repeat(5000))).ok,false);
 assert.doesNotMatch(run('WRITE_STATIC'),/fixedStyleTags를 정확히|1800자 이하|최소 두 줄 유지|바꾸면 검사에서 실패/);

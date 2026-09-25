@@ -889,6 +889,8 @@ let _writeWarn=null;   // 핵심 검사는 통과했지만 추가 개선 검사 
 // 복원·초기화 이후에는 이전 요청의 스트리밍·완료 콜백을 무시한다.
 function invalidateAiWrite(){
   ++_writeToken;
+  ++_briefToken;
+  _refAutoPromise=null;_refAutoText='';
   _writePromise=null;_writeFix=null;_writeNote='';_writeWarn=null;_writeErr='';_writeState='off';
 }
 function aiWriteEnabled(){
@@ -1144,6 +1146,8 @@ function validateWritten(spec,section,style,opts={}){
   if(section.length>WRITE_LIMITS.section)errors.push('섹션 프롬프트는 5,000자 이하여야 함');
   if(style.length>WRITE_LIMITS.style)errors.push('스타일 프롬프트는 1,000자 이하여야 함');
   const secs=parseSections(section);
+  const kind=header=>(header.match(/^\[(?:Instrumental\s+)?(Intro|Hook|Chorus|Verse|Bridge|Outro|Pre-Chorus|Build|Drop|Breakdown|Solo)\b/i)?.[1]||'').toLowerCase().replace('chorus','hook');
+  if(spec.structure&&(secs.length!==spec.structure.length||secs.some((s,i)=>kind(s.header)!==kind(spec.structure[i]?.header||''))))errors.push('선택한 구간이 누락되거나 순서가 달라요. 필요한 구간: '+spec.structure.map(s=>s.header).join(' → '));
   if(section.trim()&&(!secs.length||secs.some(s=>!s.body.trim())))errors.push('섹션을 표시할 [헤더]와 구간별 설명이 필요함');
   if(spec.lyrics){
     const lyrics=(opts.lyrics||'').trim();
@@ -1404,6 +1408,7 @@ function hhAiRewrite(){
 // BRIEF — 곡명 또는 "이런 느낌의 곡" 한 줄을 선택 항목으로 번역 (장르·음악을 잘 몰라도 시작할 수 있게)
 // ============================================================
 let _briefProposal=null;
+let _briefToken=0;
 // 무보컬을 골랐는데 브리프 문구에 보컬 묘사("whispered vocals")가 있으면 Suno가 보컬을 넣을 수 있어서 그런 문구는 뺌
 // 보컬을 제거해도 같은 문장의 리듬·베이스 정보는 잃지 않는다.
 // 작성기가 보컬 조건을 우선 적용하고 instrumentalProfile의 반주 특징을 보존한다.
@@ -1444,7 +1449,10 @@ ${Object.entries(MENU_BY_FAMILY).map(([f,m])=>`[${f}] 드럼: ${m.drums.join(' |
 프로듀서 레퍼런스(producer): ${HH_REF.map(r=>`${r.kr} (${r.vibes})`).join(' | ')}`;
 }
 function briefAutoApply(id,before){
-  if(id==='genre'||id==='sound')return true;
+  if(id==='sound')return true;
+  const sourceField={genre:'genre',mood:'mood',drums:'drums','808':'_808',melody:'melody',texture:'texture',density:'density'}[id];
+  if(sourceField&&before.origins?.[sourceField]==='ai-reference')return true;
+  if(id==='genre')return before.genre===null;
   const field={mood:'mood',drums:'drums','808':'b808Set',melody:'melody',texture:'texture',density:'density'}[id];
   return field?!before[field]:false;   // 보컬과 이미 고른 값은 자동 분석이 덮어쓰지 않는다.
 }
@@ -1456,7 +1464,8 @@ async function aiAnalyzeBrief(opts={}){
   const fail=msg=>{if(statusEl){statusEl.hidden=false;statusEl.style.color='var(--danger)';statusEl.textContent='❌ '+msg;}};
   if(!key){fail('🎧 SPOTIFY 연동 패널에서 OpenAI API Key를 먼저 저장하세요');return false;}
   if(!text){fail('곡명이나 만들고 싶은 느낌을 한 줄 적어주세요');return false;}
-  const before={genre:st.genre,mood:st.mood,drums:st.drums.length,melody:st.melody.length,texture:st.texture.length,density:st.density,b808Set:st.b808Set};
+  const token=++_briefToken;
+  const before={origins:referenceSelectionOrigins(),genre:st.genre,mood:st.mood,drums:st.drums.length,melody:st.melody.length,texture:st.texture.length,density:st.density,b808Set:st.b808Set};
   btn.disabled=true;btn.textContent='🤖 분석 중...';
   if(statusEl)statusEl.hidden=true;
   try{
@@ -1468,20 +1477,21 @@ ${text}
 ${briefOptionsText()}`;
 
     const raw=await callOpenAI(key,{maxTokens:3000,staticText:BRIEF_STATIC,dynamicText,think:false});
+    if(token!==_briefToken||(document.getElementById('hh-brief')?.value||'').trim()!==text)return false;
     const p=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
     _briefProposal=buildBriefProposal(text,p);
     const current=(document.getElementById('hh-brief')?.value||'').trim();
     if(opts.expectedText&&current!==opts.expectedText){_briefProposal=null;return false;}
     if(opts.autoApply&&st.genre===before.genre){
       _briefProposal.items.forEach(it=>it.on=briefAutoApply(it.id,before));
-      applyBrief();
+      applyBrief({preserveManual:true});
     }else renderBriefResult();
     return true;
   }catch(e){
-    fail(e.message);
+    if(token===_briefToken)fail(e.message);
     return false;
   }finally{
-    btn.disabled=false;btn.textContent='🤖 AI로 분석·추천';
+    if(token===_briefToken){btn.disabled=false;btn.textContent='🤖 AI로 분석·추천';}
   }
 }
 // AI 응답을 메뉴 값으로 검증 — 목록에 없는 값은 버리고, 이름이 섞인 소리 키워드는 걸러냄
@@ -1540,9 +1550,11 @@ function updateBriefApplyBtn(){
   if(b&&_briefProposal){const n=_briefProposal.items.filter(i=>i.on).length;b.textContent=`✅ 선택 적용 (${n})`;b.disabled=!n;b.style.opacity=n?'1':'.5';}
 }
 // 적용 순서: 무드 → 장르(selectGenre가 808·드럼·멜로디를 장르 기본값으로 자동 추천하므로 먼저) → 곡에서 뽑은 값으로 덮어쓰기
-function applyBrief(){
+function applyBrief(opts={}){
   const P=_briefProposal;
   if(!P)return;
+  const manual=opts.preserveManual?Object.fromEntries(REFERENCE_FIELDS.filter(k=>referenceSelectionOrigins()[k]!=='ai-reference'&&st[k]!=null&&(!Array.isArray(st[k])||st[k].length)&&(!['_808','groove','transitionFx','melodyTone'].includes(k)||st._mtAutoManaged===false)).map(k=>[k,JSON.parse(JSON.stringify(st[k]))])):{};
+  const wasBassSet=st.b808Set;
   const beforeSelections=Object.fromEntries(REFERENCE_FIELDS.map(k=>[k,JSON.stringify(st[k]??null)]));
   const on=id=>P.items.some(i=>i.id===id&&i.on);
   const v=P.v;
@@ -1555,7 +1567,6 @@ function applyBrief(){
   if(on('melody')){
     let bg=v.bg;
     if(!HH_MELODY.includes(v.lead))v.lead=null;else if(bg&&!HH_MELODY.includes(bg))bg=null;
-    if(v.lead&&bg&&v.lead!==bg)bg=complementBg(v.lead,bg,scorePick(HH_MELODY,GENRE_MELODY_TIPS,MOOD_MELODY_FIT,st.genre,st.mood,null));
     st.melody=v.lead?(bg?[v.lead,bg]:[v.lead]):[];
     st.melodyLeadIdx=(bg&&MELODY_ROLE[v.lead]!=='lead'&&MELODY_ROLE[bg]==='lead')?1:0;
     st._mtAutoManaged=false;
@@ -1578,6 +1589,9 @@ function applyBrief(){
     onStructSignalChange();
   }
   if(on('producer')){st.refs=v.producer?[v.producer]:[];renderProducerRef();clearAutoHint('hh-ref-hint');}
+  Object.assign(st,manual);
+  if(Object.prototype.hasOwnProperty.call(manual,'_808'))st.b808Set=wasBassSet;
+  if(opts.preserveManual)renderHhChips();
   st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai',instrumentalProfile:P.instrumentalProfile||{}}:null;
   st.referenceSelections=P.kind==='song'?Object.fromEntries(REFERENCE_FIELDS.filter(k=>beforeSelections[k]!==JSON.stringify(st[k]??null)||on(({_808:'808',structSegs:'structure',melodyTone:'melody'}[k]||k))).map(k=>[k,JSON.parse(JSON.stringify(st[k]??null))])):null;
   if(P.kind==='song'){const r=document.getElementById('hh-ref-song');if(r)r.value=P.text;}
@@ -1621,10 +1635,13 @@ function syncProducerLock(){
 let _refCandidate=null;
 let _refAutoText='',_refAutoPromise=null;
 function autoAnalyzeReference(label){
-  if(!label||!getOpenAIKey()||st.genre!==null||(st.brief?.kind==='song'&&st.brief.text===label))return Promise.resolve(false);
+  if(!label||!getOpenAIKey()||(st.brief?.kind==='song'&&st.brief.text===label))return Promise.resolve(false);
   if(_refAutoPromise&&_refAutoText===label)return _refAutoPromise;
+  if(st.brief?.text!==label)st.brief=null;
+  const input=document.getElementById('hh-brief');if(input)input.value=label;
   _refAutoText=label;
-  _refAutoPromise=aiAnalyzeBrief({autoApply:true,expectedText:label}).finally(()=>{_refAutoText='';_refAutoPromise=null;});
+  const pending=aiAnalyzeBrief({autoApply:true,expectedText:label}).finally(()=>{if(_refAutoPromise===pending){_refAutoText='';_refAutoPromise=null;}});
+  _refAutoPromise=pending;
   return _refAutoPromise;
 }
 function setRefSongFromPicker(label,cand){
