@@ -164,7 +164,7 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const refProducers=(st.refs.length&&producerRefActive())?st.refs.map(kr=>{const p=HH_REF.find(r=>r.kr===kr);return p?`${kr} (${p.en})`:kr;}).join(' / '):null;
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   return [
-    `장르: ${g.kr} (${g.sound})`,
+    g?`장르: ${g.kr} (${g.sound})`:'장르: 미선택 — 레퍼런스 곡과 나머지 설정에서 가장 가까운 사운드를 판단',
     mood?`무드: ${mood.kr}`:null,
     st.commercial?`색깔: ${st.commercial}`:null,
     auto?`장르 기본 추천(자동으로 채워진 참고값일 뿐 — 따르지 않아도 되고, 이 곡의 의도에 맞는 악기·드럼·베이스·질감을 직접 설계해): 멜로디 ${st.melody.join(', ')||'-'} / 드럼 ${st.drums.join(', ')||'-'} / 808 ${use808()?(st._808||'-'):'-'} / 그루브 ${st.groove||'-'} / 텍스처 ${st.texture.join(', ')||'-'}`:null,

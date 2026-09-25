@@ -15,6 +15,8 @@ assert.doesNotMatch(appSource,/refAf/);
 assert.doesNotMatch(spotifySource,/af\.(?:energy|valence|danceability)|spMoodFromFeatures|sp808FromEnergy|spDrumsFromFeatures/);
 assert.match(run('WRITE_STATIC'),/referenceSong이 있으면 곡 제목과 아티스트를 보고/);
 assert.match(run('WRITE_STATIC'),/BPM과 Key는 referenceSong에서 추측하지 말고/);
+run(`Object.assign(st,{genre:null,mood:null,commercial:null,_mtAutoManaged:false,drums:[],_808:'Balanced',b808Set:false,groove:null,texture:[],transitionFx:[],era:null,region:null,density:null,brief:null,length:null,structSegs:['intro','hook','outro'],bpmSet:false,keySet:false,narrAI:{},removedPhrases:[]}); globalThis.antiAI=true;`);
+assert.match(run('aiSelectionCtx()'),/장르: 미선택/);
 assert.equal(run(`audioFileFormat({name:'track.mp3',type:'audio/mpeg'})`),'mp3');
 assert.equal(run(`audioFileFormat({name:'track.wav',type:'audio/wav'})`),'wav');
 assert.equal(run(`audioFileFormat({name:'track.m4a',type:'audio/mp4'})`),'');
