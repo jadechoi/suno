@@ -3091,7 +3091,7 @@ async function popAiWriteStyle(s,token){
   const status=document.getElementById('pop-ai-status');
   if(status){status.hidden=false;status.textContent='🤖 AI가 선택값과 레퍼런스로 스타일·섹션을 작성하는 중…';}
   const reference=s.refSong?.trim()||'(없음)';
-  const selection={genre:s.genre,bpm:s.bpm,key:KEYS[s.key],mood:s.mood,instruments:s.instruments,vocalStyle:s.vocalStyle,concept:s.concept,referenceSong:reference,structure:s.structSegs,direction:s.narrSt,antiAI};
+  const selection={designMode:s.refSong?.trim()?'reference-type-beat':'original-song',genre:s.genre,bpm:s.bpm,key:KEYS[s.key],mood:s.mood,instruments:s.instruments,vocalStyle:s.vocalStyle,concept:s.concept,referenceSong:reference,structure:s.structSegs,direction:s.narrSt,antiAI};
   const genreGuide=!s.genre&&s.refSong?`레퍼런스의 장르를 확실히 알면 아래 태그 중 하나를 <genre>태그</genre>로 별도 출력해. 모르면 빈 값. ${POP_GENRES.map(g=>g.tag).join(' | ')}`:'';
   const prompt=`${genreGuide}\n레퍼런스와 아래 선택값에서 스타일과 섹션을 처음부터 직접 작성해. 규칙 초안이나 기존 문장을 고치는 작업이 아니야. 사용자가 고른 악기·보컬·BPM·Key·구조를 지키고, 비어 있는 음악적 결정은 곡의 의도에 맞게 설계해. 곡 기획·상황은 감정과 전개에 반영해. 레퍼런스는 확실히 아는 소리 특징만 참고하고 실제 오디오를 들었다고 주장하지 마. 곡명·아티스트 이름을 최종 출력에 쓰지 마. 가사는 나중에 별도로 작성하므로 지금 쓰지 마. 섹션 헤더는 [Intro], [Verse 1], [Chorus 1], [Bridge], [Outro] 같은 표준 영어 표기를 사용하고 같은 종류가 반복되면 순서대로 번호를 붙여. 선택된 구조와 순서를 유지해.\n\n[선택값]\n${JSON.stringify(selection)}\n\n<style>영어 자연어 한 문단, 1000자 이하</style><section>구간별 필요한 연출, 5000자 이하</section>`;
 

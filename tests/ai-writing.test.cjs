@@ -21,6 +21,12 @@ run(`Object.assign(st,{genre:null,mood:null,commercial:null,_mtAutoManaged:false
 assert.match(run('aiSelectionCtx()'),/장르: 미선택/);
 run('function computeMelodyRoles(){return null;}');
 const directSpec=ctx.buildWriteSpec(null);
+assert.equal(directSpec.designMode,'original-song');
+run("st.brief={kind:'song',text:'Reference'};");
+assert.equal(ctx.musicDesignMode(),'reference-type-beat');
+run("st.brief={kind:'vibe',text:'A quiet night groove'};");
+assert.equal(ctx.musicDesignMode(),'original-song');
+run('st.brief=null;');
 assert.deepEqual(Array.from(directSpec.structure,s=>s.header),['[Intro]','[Instrumental Hook 1]','[Outro]']);
 assert.equal(directSpec.structure[1].bars,8);
 assert.equal(run(`briefAutoApply('genre',{genre:null})`),true);

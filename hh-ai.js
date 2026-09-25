@@ -155,6 +155,10 @@ function normalizeAiSuggestion(s,uniqueSegs,occKeys){
 // 지금까지 고른 설정 요약 — 리뷰·외부 피드백·레퍼런스 추천이 같은 걸 봄. refs:false면 현재 레퍼런스는 뺌(레퍼런스를 새로 고를 땐 기존 걸 앵커로 삼으면 안 됨)
 // 같은 힙합 안에서도 붐뱁·로파이·컨셔스·아프로트랩 등은 808 대신 장르 고유 베이스를 쓴다.
 function use808(){return !!st.b808Set||!!(GENRE_AUTO[st.genre]&&GENRE_AUTO[st.genre].a808!=='None');}
+function musicDesignMode(){
+  const reference=(document.getElementById('hh-ref-song')?.value||'').trim();
+  return reference||st.brief?.kind==='song'?'reference-type-beat':'original-song';
+}
 function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const auto=soft&&st._mtAutoManaged!==false;   // soft: 자동 채워진 장르 기본값은 확정 값이 아니라 참고로만 보여줌
   const g=GENRES[st.genre];
@@ -165,6 +169,7 @@ function aiSelectionCtx({refs=true,structure=true,soft=false}={}){
   const hasVocal=st.vocal&&st.vocal!=='No Vocal';
   return [
     REFERENCE_DEVELOPMENT_GUIDE,
+    `작성 목적: ${musicDesignMode()}`,
     st.brief?.instrumentalProfile?`레퍼런스 반주 분석: ${JSON.stringify(st.brief.instrumentalProfile)}`:null,
     st.referenceSelections?`출처: ${JSON.stringify(referenceSelectionOrigins())}. ai-reference는 AI가 추천한 참고값이며 사용자 확정 조건이 아님. 실제 레퍼런스 반주 특징을 우선하고 메뉴와 맞지 않으면 자유롭게 표현.`:null,
     g?`장르: ${g.kr} (${g.sound})`:'장르: 미선택 — 레퍼런스 곡과 나머지 설정에서 가장 가까운 사운드를 판단',
@@ -1160,6 +1165,7 @@ function buildWriteSpec(prev){
   const structure=secs.map(s=>({header:s.header,type:s.type,bars:s.bars?+s.bars:null,maxChars:sectionCaps[s.type]||220}));
   const fixedStyle=[hasVocal?null:'[Instrumental]',hasVocal?null:'no vocals',st.keySet?`Key of ${KEYS[st.key]}`:null,st.bpmSet?`${st.bpm} BPM`:null,(g?g.tag:null)].filter(Boolean);
   return {
+    designMode:musicDesignMode(),
     genre:g?g.en:null,genreTag:g?g.tag:null,mood:st.mood,key:st.keySet?KEYS[st.key]:null,bpm:st.bpmSet?st.bpm:null,
     lead:auto?null:(roles?roles.lead:(st.melody[0]||null)),background:auto?null:(roles?roles.bg:null),
     drums:auto?[]:[...st.drums],bass:genreLowEnd(st.genre,use808()?st._808:'None'),bass808:st.b808Set?st._808:null,vocal:hasVocal?st.vocal:null,
@@ -1470,7 +1476,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 
 규칙:
 - 곡명이면 kind="song": 제목과 아티스트를 보고 네가 확실히 아는 실제 사운드(드럼, 베이스, 신스/악기, 보컬 처리, 믹스 공간감, 에너지 흐름)를 반영해. 실제 오디오를 들었다고 주장하지 말고, 잘 모르는 곡이면 kind="vibe"로 두고 understood에 "이 곡은 잘 몰라서 이름만으로는 판단하지 않았다"고 적은 뒤 입력의 다른 단서로만 골라.
-- 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기를 골라.
+- 느낌 설명이면 kind="vibe": 무드·에너지·상황(춤, 드라이브, 공부, 이별 등)에서 어울리는 장르·악기·연주 관계·전개를 새로 추천해. 원곡을 분석하는 척하지 마. instrumentalProfile과 cues는 이 경우 제안하는 새 곡 설계이며 레퍼런스의 사실이 아니야.
 - 아티스트의 대표 장르로 곡을 단정하지 마. 하이퍼팝·일렉트로클래시·일렉트로 하우스·UK 개러지는 해당 곡의 리듬과 소리로 구분해. 베이스 리프가 훅이면 그 베이스를 melodyLead로 고를 수 있고, 별도 기타·신스 멜로디를 만들 필요는 없어.
 - 선택지에 구체적인 장르가 있으면 일반 pop 대신 해당 장르를 골라. drums는 핵심 킥·스네어 패턴을 먼저, 셰이커·클랩 같은 보조 타악기는 그 다음에 골라. 멜로디 배경은 필수가 아니며 근거 없이 Ambient pad를 추가하지 마. 쿠아트로·나일론 기타·일반 어쿠스틱 기타를 구별하고 확신 없는 악기 재질이나 주법을 단정하지 마.
 - 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy를 영어 자연어로 설명해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
