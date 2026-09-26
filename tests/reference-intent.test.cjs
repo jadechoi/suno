@@ -83,3 +83,12 @@ assert.equal(sparsePlan.roleEvidenceMissing,true);
 assert.ok(sparsePlan.missingSoundFields.includes('instruments'));
 assert.match(ctx.writingInstructions({designMode:'reference-type-beat'}),/정보가 부족한 타입비트의 작성 경계/);
 assert.doesNotMatch(ctx.writingInstructions({designMode:'original-song'}),/정보가 부족한 타입비트의 작성 경계/);
+
+// Type-beat writing no longer inherits title re-analysis or menu lead enforcement.
+const typeInstructions=ctx.writingInstructions({designMode:'reference-type-beat'});
+assert.doesNotMatch(typeInstructions,/referenceSong이 있으면 곡 제목과 아티스트를 보고/);
+assert.doesNotMatch(typeInstructions,/명세의 lead\/background는 스타일 또는 섹션에서/);
+assert.match(typeInstructions,/Hook은 구조상의 구간 이름/);
+assert.match(typeInstructions,/\[무보컬과 보컬 — 사용자 선택 최우선\]/);
+assert.match(typeInstructions,/\[출력 계약/);
+assert.match(ctx.writingInstructions({designMode:'original-song'}),/명세의 lead\/background는 스타일 또는 섹션에서/);
