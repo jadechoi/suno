@@ -2635,9 +2635,14 @@ function hhGenerate(source,opts){
       const btnHtml=actionable?(s.applied
         ?`<span style="margin-left:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-hi);background:var(--accent-dim);color:var(--accent-text);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0">✓ 적용됨</span>`
         :`<label style="display:flex;align-items:center;gap:5px;margin-left:10px;cursor:pointer;flex-shrink:0;font-size:11px;font-weight:600;color:var(--accent-text);white-space:nowrap"><input type="checkbox" class="hh-ai-cb" ${s.selected?'checked':''} onchange="toggleAiSuggestion(${idx},this.checked)">선택</label>`):'';
-      const criteriaHtml=s.criteria&&rubricScore(s.criteria)!=null?`<div style="margin-top:5px;font-size:10px;color:var(--text-3)">${REVIEW_RUBRIC.filter(r=>s.criteria[r.key]!=null).map(r=>`${r.label} <strong style="color:${s.criteria[r.key]>=8?'var(--success)':s.criteria[r.key]>=6?'#F59E0B':'var(--danger)'}">${s.criteria[r.key]}</strong>`).join(' · ')}</div>`:'';
+      const criteriaHtml=s.criteria&&rubricScore(s.criteria)!=null?`<div style="margin-top:5px;font-size:10px;color:var(--text-3)">${REVIEW_RUBRIC.filter(r=>r.key!=='reference'&&s.criteria[r.key]!=null).map(r=>`${r.label} <strong style="color:${s.criteria[r.key]>=8?'var(--success)':s.criteria[r.key]>=6?'#F59E0B':'var(--danger)'}">${s.criteria[r.key]}</strong>`).join(' · ')}</div>`:'';
       const scoreColor=s.score==null?null:s.score>=75?'var(--success)':s.score>=50?'#F59E0B':'var(--danger)';
-      const scoreHtml=s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';
+      const scoreHtml=s.category==='총평'&&s.score!=null?`<strong style="color:${scoreColor};margin-left:6px">${s.prevScore!=null?`${s.prevScore}→`:''}${s.score}/100</strong>`:'';
+      const evidenceHtml=[['preserved','유지된 특징'],['risks','이탈 위험'],['unknown','판단 불가']].map(([key,label])=>{
+        const items=Array.isArray(s.evidence?.[key])?s.evidence[key].filter(x=>typeof x==='string'):[];
+        return items.length?`<div style="margin-top:6px"><strong>${label}</strong><ul style="margin:3px 0;padding-left:18px">${items.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul></div>`:'';
+      }).join('');
+      const scoreDetails=s.category==='총평'&&(scoreHtml||criteriaHtml)?`<details style="margin-top:7px"><summary>프롬프트 설계 참고 점수 · 실제 음원 평가 아님</summary>${scoreHtml}${criteriaHtml}</details>`:'';
       const verifyHtml=s.verify?(()=>{
         const vColor=s.verify.status==='pass'?'var(--success)':s.verify.status==='partial'?'#F59E0B':'var(--danger)';
         const vIcon=s.verify.status==='pass'?'✅ 확인됨':s.verify.status==='partial'?'⚠️ 일부만 반영':'❌ 반영 안 됨';
@@ -2658,7 +2663,7 @@ function hhGenerate(source,opts){
         if(s.removeTag)parts.push(`"${s.removeTag}" 포함 태그 제거`);
         return parts.length?`<div style="margin-top:5px;font-size:11px;color:var(--text-3)">✏️ 적용된 내용: ${parts.map(escHtml).join(' · ')}</div>`:'';
       })():'';
-      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong>${scoreHtml} — ${escHtml(s.text)}</span>${btnHtml}</div>${criteriaHtml}${appliedContentHtml}${verifyHtml}</div>`;
+      return `<div style="margin-bottom:7px;padding:9px 11px;background:rgba(157,78,221,.06);border:1px solid rgba(157,78,221,.2);border-radius:6px;font-size:12px;font-style:normal;color:var(--text-1);line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${emoji} <strong>${escHtml(s.category)}</strong> — ${escHtml(s.text)}</span>${btnHtml}</div>${evidenceHtml}${scoreDetails}${appliedContentHtml}${verifyHtml}</div>`;
     }).join('');
     const hasApplied=_aiSuggestions.some(s=>s.applied);
     aiReviewHtml=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-hi)">
