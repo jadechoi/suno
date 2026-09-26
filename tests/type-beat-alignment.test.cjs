@@ -24,5 +24,14 @@ ctx.callOpenAI=async()=>{calls++;return JSON.stringify({edits});};
  assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
  edits=[{field:'style',quote:'not in output',replacement:'different',planPath:'sound.balance'}];
  assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
+ // Regression: alignment must not turn a supplied mid-tempo feel into fast energy from BPM/key.
+ const moodOutput={...output,style:'Dark sensual mid-tempo bounce at 178 BPM in D major.'};
+ for(const planPath of ['constraints.bpm','constraints.key']){
+  edits=[{field:'style',quote:'mid-tempo',replacement:'high-tempo',planPath,reason:'numeric tempo inference'}];
+  assert.equal((await ctx.checkTypeBeatAlignment({...spec,bpm:178,key:'D major'},moodOutput)).result,moodOutput);
+ }
+ edits=[{field:'style',quote:'Bright celebratory',replacement:'Dark sensual',planPath:'sound.energy',reason:'restore supplied mood'}];
+ const darkSpec={...spec,brief:{instrumentalProfile:{energy:'Dark sensual restrained energy'}}};
+ assert.equal((await ctx.checkTypeBeatAlignment(darkSpec,{...output,style:'Bright celebratory beat.'})).result.style,'Dark sensual beat.');
  console.log('PASS: grounded alignment edits, no-change path, original-song bypass, missing evidence and budget/header protection.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
