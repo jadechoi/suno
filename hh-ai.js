@@ -1279,15 +1279,15 @@ ${PROMPT_ROLE_GUIDE}
 - style은 자연어 한 문단이며 선택 조건을 의미로 반영해. fixedStyleTags는 참고 정보이지 복사할 필수 문구가 아니야. 무보컬 여부와 장르부터 시작해. 스타일은 처음부터 공백·문장부호 포함 700~900자를 목표로 설계하고 반드시 1000자 이내로 완성해. 단어 수나 토큰 수가 아니야. 섹션의 세부 설명을 스타일에 반복하지 마. limits.style과 limits.sectionTotal은 상한이지 목표가 아니야. 필요한 설명이 짧게 끝나면 더 채우지 마.
 - 수정 시 확정된 지시와 삭제 문구를 반영하고 지정되지 않은 구간·가사는 보존해. 문장을 줄이면서 동사·시점·원래 패턴의 유지 조건을 없애지 마.`;
 // Type beats share output/lyrics handling, not the original-song motif-design instructions.
-const TYPE_BEAT_WRITE_STATIC=`너는 레퍼런스 반주 기반 타입비트를 설계하는 프로듀서다. 다른 곡을 쓰되 같은 사운드 균형을 유지해.
+const TYPE_BEAT_WRITE_STATIC=`너는 레퍼런스 반주 기반 타입비트를 설계하는 프로듀서다. 원곡과 다른 곡을 쓰되 같은 스타일 범위를 유지해. 원곡의 정확한 편곡 재현은 목표가 아니다.
 ${STYLE_BUDGET_GUIDE}
 ${REFERENCE_DEVELOPMENT_GUIDE}
 [타입비트 스타일 작성]
-- 새로 기억할 훅·상승 하강 음형·악기 간 대화를 의무적으로 만들지 마. 반주 분석의 중심 역할을 재현 가능한 자연어로 설명해. 새 선율이 필요해도 그 악기의 원래 비중과 연주 밀도 안에서만 설계해.
-- 설계서 sound.balance는 무엇이 앞에 있고 뒤에 있는지, sound.activity는 얼마나 자주 연주하는지, sound.timbreSpace는 밝기·어택·잔향·거리, sound.vocalSpace는 보컬을 위한 여백이다. 이 정보를 스타일의 악기 역할 문장에 반영해. 지원 악기를 lead/solo/front and center로 승격시키지 마.
-- unknownBalanceFields에 있는 비중·활동량·음색·여백은 판단 불가다. sectionCues의 catchy hook 같은 요약만으로 지속적인 전면 리드나 정확한 응답 빈도·음역·솔로 비중을 만들어내지 마. 정보가 없는 역할은 과장하거나 일괄 축소하지 말고, 확인된 그루브와 사용자가 고른 편성만 설명해.
-- lead/background 메뉴 이름은 분석된 비중보다 우선하지 않는다. 사용자가 직접 악기 역할을 바꿨으면 그 변경만 반영해. 분석이 불확실하면 임의로 기타를 크게 하거나 모든 악기를 작게 하지 말고, 확인된 역할만 설명해.
-- 무보컬은 보컬 제거다. 보컬 멜로디를 기타로 옮기거나 빈자리를 새로운 모티프로 채우지 마. 그루브·베이스·반주의 균형과 보컬이 들어갈 공간을 유지해.
+- 새로 기억할 훅·상승 하강 음형·악기 간 대화를 의무적으로 만들지 마. 목표 스타일에 어울리는 새 멜로디·코드·필인·세부 전개를 설계해도 돼. 새로운 아이디어를 원곡의 사실로 말하지 말고, 무드·바운스·음색·전체 밀도·에너지 범위를 바꾸지 마.
+- 설계서 sound.balance는 무엇이 앞에 있고 뒤에 있는지, sound.activity는 얼마나 자주 연주하는지, sound.timbreSpace는 밝기·어택·잔향·거리, sound.vocalSpace는 보컬을 위한 여백이다. 이 정보를 스타일의 악기 역할 문장에 반영해. 원곡 악기 비중을 정확히 복제할 필요는 없지만, 보조 파트를 과장해 비트를 솔로 연주곡으로 바꾸지 마.
+- unknownBalanceFields에 있는 비중·활동량·음색·여백은 판단 불가다. sectionCues의 catchy hook 같은 요약만으로 지속적인 전면 리드나 정확한 응답 빈도·음역·솔로 비중을 만들어내지 마. 정보가 없어도 같은 스타일 안의 새로운 반주 역할은 설계할 수 있어. 이를 원곡에서 확인된 역할이라고 주장하지 마.
+- lead/background 메뉴 이름은 분석된 비중보다 우선하지 않는다. 사용자가 직접 악기 역할을 바꿨으면 그 변경만 반영해. 분석이 불확실하면 임의로 기타를 크게 하거나 모든 악기를 작게 하지 말고, 목표 스타일에 맞는 역할을 과장 없이 설계해.
+- 무보컬은 보컬 제거다. 원곡 보컬 멜로디를 기타로 옮기지 마. 새 반주 모티프는 허용하지만 보컬이 빠졌다는 이유로 여백을 모두 채우지 마. 그루브·베이스·반주의 균형과 보컬이 들어갈 공간을 유지해.
 - 지정 BPM/Key는 유지하되 장조라는 이유로 밝고 축제처럼 해석하지 마. 수치·장르명보다 주어진 무드·체감·음색의 관계를 명확하게 써.
 - 스타일은 전체 사운드 균형과 꼭 필요한 대비만 담고, 섹션은 그 균형 안에서 필요한 변화만 ( )에 적어. 모든 훅을 점점 크거나 밝게 만들지 마. 실제 가사는 괄호 밖에 둬.
 ${WRITE_STATIC.slice(WRITE_STATIC.indexOf('[섹션 디렉팅]'))}`;
@@ -1372,9 +1372,9 @@ async function checkTypeBeatAlignment(spec,result){
   if(spec.designMode!=='reference-type-beat')return {result,note:''};
   const plan=typeBeatPlan(spec);
   const labels={balance:'악기 비중',activity:'연주 밀도',timbreSpace:'음색·공간',vocalSpace:'보컬 여백'};
-  const coverage=plan.unknownBalanceFields.length?' 판단 근거 부족: '+plan.unknownBalanceFields.map(k=>labels[k]).join(', ')+'. 이 항목들의 레퍼런스 일치 여부는 확인하지 못했어요.':'';
+  const coverage=plan.unknownBalanceFields.length?' 판단 근거 부족: '+plan.unknownBalanceFields.map(k=>labels[k]).join(', ')+'. 원곡의 세부 재현은 확인하지 못하지만 같은 스타일의 새 비트 설계는 가능합니다.':'';
   const raw=await callOpenAI(getOpenAIKey(),{maxTokens:2200,staticText:
-    'Compare the prompt with the supplied reference plan, not with your knowledge of the song. This is an intent-drift check, not a producer review. Look only for changed foreground/background roles, activity, timbre/space, mood or energy that contradict explicit plan evidence. User overrides take precedence. Menu order is not a role assignment. Unknown or absent evidence is not a defect. Do not invent facts, add musical improvements, enforce synonyms or require changes. Return JSON {"edits":[{"field":"style|section","quote":"exact unique substring from output","replacement":"minimal replacement preserving prose and section headers","planPath":"sound.balance or another explicit sound/userOverrides/constraints path","reason":"brief Korean explanation"}]}. Return empty edits if no grounded contradiction. At most 5 edits. Preserve lyrics, all section headers/order, BPM/key/vocal choice, and length budgets. Never turn a background part into a lead or demand a climax.',
+    'Compare the prompt with the supplied reference plan, not with your knowledge of the song. This is an intent-drift check, not a producer review. Evaluate style drift, not exact reconstruction: changes in mood, rhythmic bounce, timbral character, overall density or energy that contradict explicit plan evidence. New melodies, chord progressions, fills and section details are allowed within that style. Different foreground/background placement alone is not a defect unless it violates an explicit user constraint or changes the beat into a different stylistic feel. User overrides take precedence. Menu order is not a role assignment. Unknown or absent evidence is not a defect. Do not invent facts, add musical improvements, enforce synonyms or require changes. Return JSON {"edits":[{"field":"style|section","quote":"exact unique substring from output","replacement":"minimal replacement preserving prose and section headers","planPath":"sound.balance or another explicit sound/userOverrides/constraints path","reason":"brief Korean explanation"}]}. Return empty edits if no grounded contradiction. At most 5 edits. Preserve lyrics, all section headers/order, BPM/key/vocal choice, and length budgets. Do not enforce original note patterns or exact instrument levels. Do not demand a climax.',
     dynamicText:JSON.stringify({plan,output:{style:result.style,section:result.section}})});
   const data=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
   if(!Array.isArray(data.edits))throw new Error('설계 비교 응답 형식 오류');
