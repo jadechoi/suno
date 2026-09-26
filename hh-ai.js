@@ -1296,7 +1296,13 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - 무보컬은 보컬 제거다. 원곡 보컬 멜로디를 기타로 옮기지 마. 새 반주 모티프는 허용하지만 보컬이 빠졌다는 이유로 여백을 모두 채우지 마. 그루브·베이스·반주의 균형과 보컬이 들어갈 공간을 유지해.
 - 지정 BPM/Key는 유지하되 장조라는 이유로 밝고 축제처럼 해석하지 마. 수치·장르명보다 주어진 무드·체감·음색의 관계를 명확하게 써.
 - 스타일은 전체 사운드 균형과 꼭 필요한 대비만 담고, 섹션은 그 균형 안에서 필요한 변화만 ( )에 적어. 모든 훅을 점점 크거나 밝게 만들지 마. 실제 가사는 괄호 밖에 둬.
-${WRITE_STATIC.slice(WRITE_STATIC.indexOf('[섹션 디렉팅]'))}`;
+${WRITE_STATIC.slice(WRITE_STATIC.indexOf('[섹션 디렉팅]'))}
+[정보가 부족한 타입비트의 작성 경계 — 위의 일반 작성 규칙보다 우선]
+- analysisEvidence의 unrecorded는 근거 설명 누락이지 반증이나 확실함이 아니다. 남아 있는 장르·그루브·악기 정보는 음원 미검증 단서로 사용하고, inference/unknown으로 제외된 내용은 제목을 보고 다시 채우지 마.
+- missingSoundFields가 있으면 제공된 나머지 특징과 사용자 지정 조건에 집중해. 제목에서 분석을 새로 수행하거나 구체적 악기·음역·음형·레이어를 지어내서 누락을 메우지 마. 확인된 스타일 안의 새 작곡은 허용하되 원곡의 사실로 단정하지 마.
+- roleEvidenceMissing이면 악기 이름이나 메뉴 순서만으로 그 악기를 main voice, upfront lead, singable hook, solo로 승격하지 마. userOverrides에 명시된 역할 또는 별도로 사용자가 요청한 지시가 있으면 그 요청은 우선해. 악기 존재만 알면 그 음색을 활용하되 우세한 리드 역할을 강제하지 않아도 된다. 무보컬 빈자리를 훅 멜로디·옥타브 더블링·추가 패드로 자동 보충하지 마.
+- 같은 반주 유지에 충분하면 섹션마다 악기·필인·음역 변형을 더하지 마. 정보가 적을수록 출력도 간결하게 유지해.
+`;
 function writingInstructions(spec){return spec.designMode==='reference-type-beat'?TYPE_BEAT_WRITE_STATIC:WRITE_STATIC;}
 
 const STYLE_COMPRESSION_GUIDE=`Rewrite only the supplied style as one coherent English paragraph of at most 1000 characters INCLUDING spaces and punctuation, aiming for targetCharacters. This is compression, not composition.
@@ -1352,6 +1358,8 @@ function typeBeatPlan(spec){
     analysisEvidence:brief.analysisEvidence||null,
     sectionCues:brief.cues||{},
     uncertainFields:brief.uncertainFields||[],
+    roleEvidenceMissing:!brief.instrumentalProfile?.balance||brief.analysisEvidence?.balance?.basis==='unrecorded',
+    missingSoundFields:['genre','groove','instruments','energy'].filter(k=>!brief.instrumentalProfile?.[k]),
     unknownBalanceFields:['balance','activity','timbreSpace','vocalSpace'].filter(k=>!brief.instrumentalProfile?.[k]),
     menuHints:{genre:spec.genre,mood:spec.mood,instruments},
     userOverrides:overrides,
@@ -1676,8 +1684,8 @@ function filterReferenceUncertainty(p){
     for(const key of profile){
       const e=p.analysisEvidence[key];
       const known=e?.basis==='model-knowledge'&&typeof e.reason==='string'&&e.reason.trim();
-      out.analysisEvidence[key]={basis:known?'model-knowledge':e?.basis==='inference'?'inference':'unknown',reason:typeof e?.reason==='string'?e.reason.slice(0,400):'근거 설명 없음'};
-      if(!known){
+      out.analysisEvidence[key]={basis:known?'model-knowledge':['inference','unknown'].includes(e?.basis)?e.basis:'unrecorded',reason:typeof e?.reason==='string'?e.reason.slice(0,400):'근거 설명 없음'};
+      if(['inference','unknown'].includes(e?.basis)){
         if(!out.uncertainFields.includes('instrumentalProfile.'+key))out.uncertainFields.push('instrumentalProfile.'+key);
         // Menu recommendations must not smuggle excluded reference claims back into writing.
         const menu={genre:['genre'],groove:['drums'],bass:['bass808'],instruments:['melodyLead','melodyBackground'],timbreSpace:['texture']}[key]||[];

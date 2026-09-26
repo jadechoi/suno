@@ -66,3 +66,20 @@ const detail=ctx.briefAnalysisDetails(evidenceInput);
 assert.match(detail,/추정 · 작성에서 제외/);
 assert.match(detail,/모델 지식 · 음원 미검증/);
 assert.doesNotMatch(detail,/loud guitar/);
+
+// Missing or malformed evidence is not explicit uncertainty; repeated filtering is stable.
+for(const analysisEvidence of [{},{genre:{basis:'unexpected'}},{genre:{basis:'model-knowledge'}}]){
+ const input={kind:'song',genre:'Reggaeton',drums:['Dembow kick & snare'],instrumentalProfile:{genre:'reggaeton',groove:'dembow'},analysisEvidence,cues:{hook:'steady dembow'}};
+ const once=ctx.filterReferenceUncertainty(input),twice=ctx.filterReferenceUncertainty(once);
+ assert.equal(twice.genre,'Reggaeton');assert.equal(twice.instrumentalProfile.groove,'dembow');
+ assert.equal(twice.analysisEvidence.genre.basis,'unrecorded');assert.equal(twice.cues.hook,'steady dembow');
+ assert.equal(twice.uncertainFields.length,0);
+}
+const explicitlyUnknown=ctx.filterReferenceUncertainty({kind:'song',genre:'Reggaeton',instrumentalProfile:{genre:'reggaeton'},analysisEvidence:{genre:{basis:'unknown',reason:'not known'}}});
+assert.equal(explicitlyUnknown.genre,null);
+assert.equal(explicitlyUnknown.instrumentalProfile.genre,undefined);
+const sparsePlan=ctx.typeBeatPlan({...fixed.spec,brief:{instrumentalProfile:{genre:'reggaeton',groove:'dembow'},analysisEvidence:{}}});
+assert.equal(sparsePlan.roleEvidenceMissing,true);
+assert.ok(sparsePlan.missingSoundFields.includes('instruments'));
+assert.match(ctx.writingInstructions({designMode:'reference-type-beat'}),/정보가 부족한 타입비트의 작성 경계/);
+assert.doesNotMatch(ctx.writingInstructions({designMode:'original-song'}),/정보가 부족한 타입비트의 작성 경계/);
