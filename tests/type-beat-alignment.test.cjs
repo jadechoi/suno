@@ -9,6 +9,9 @@ ctx.callOpenAI=async()=>{calls++;return JSON.stringify({edits});};
 (async()=>{
  assert.equal((await ctx.checkTypeBeatAlignment({...spec,designMode:'original-song'},output)).result,output);
  assert.equal(calls,0);
+ const limited=await ctx.checkTypeBeatAlignment(spec,output);
+ assert.match(limited.note,/판단 근거 부족/);
+ assert.match(limited.note,/연주 밀도/);
  assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result,output);
  edits=[{field:'style',quote:output.style,replacement:'Guitar stays behind the drums.',planPath:'sound.balance',reason:'기타 비중 복원'}];
  assert.equal((await ctx.checkTypeBeatAlignment(spec,output)).result.style,'Guitar stays behind the drums.');
