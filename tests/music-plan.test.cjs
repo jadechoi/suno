@@ -3,7 +3,7 @@ const ctx=vm.createContext({console});
 for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
 vm.runInContext("const st={narrAI:{hook1:'Keep guitar behind the drums.'},extraTags:[],removedPhrases:[]}; getOpenAIKey=()=> 'fixture'; aiSelectionCtx=()=> 'sensual';",ctx);
 const spec={designMode:'reference-type-beat',structure:[{header:'[Intro]'},{header:'[Instrumental Hook 1]'}],brief:{instrumentalProfile:{groove:'relaxed dembow',balance:'rhythmic guitar supporting drums'}}};
-const design={identity:'Sensual relaxed dembow; drums and bass lead the groove.',roles:[{part:'guitar',function:'Rhythmic accompaniment with space, never a solo lead.'}],sections:spec.structure.map(x=>({header:x.header,direction:'Maintain the same groove and roles.'}))};
+const design={identity:'Sensual relaxed dembow; drums and bass lead the groove.',roles:[{part:'guitar',function:'Rhythmic accompaniment with space, never a solo lead.',performance:'Muted offbeat strums.',fitReason:'Supports the supplied relaxed dembow pulse.'}],sections:spec.structure.map(x=>({header:x.header,direction:'Maintain the same groove and roles.'}))};
 (async()=>{
  const requests=[];
  ctx.callOpenAI=async(_key,r)=>{requests.push(r);return requests.length===1?JSON.stringify(design):'<style>Instrumental sensual dembow. Guitar supports drums.</style><section>[Intro]\n(Sparse entry.)\n[Instrumental Hook 1]\n(Maintain the established groove.)</section>';};
