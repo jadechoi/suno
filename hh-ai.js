@@ -344,7 +344,7 @@ function setDirective(occKey,category,text){
 const RUBRIC_TEXT=()=>`${REFERENCE_DEVELOPMENT_GUIDE}
 리뷰는 두 가지를 함께 판단해. 첫째, 이 지시가 원하는 스타일·무드·멜로디 방향과 다른 소리를 유도하는가. 둘째, 의도를 유지하면서 훅의 기억성·그루브의 몰입감·악기 간 관계·전개의 흐름을 더 좋게 만들 기회가 있는가. 문법 검사나 오류 찾기로 끝내지 마.
 오류가 없어도 음악적으로 유의미한 발전을 제안할 수 있어. 각 제안에 현재 프롬프트의 근거 → 해당 구간에서 바꿀 연주 지시 → 기대되는 음악적 효과를 연결해. 더 밝게·크게·복잡하게 만드는 것을 개선으로 간주하지 말고 레퍼런스의 에너지 범위와 선택 조건을 지켜. 근거가 없으면 제안하지 마. 필수 수정과 선택적 발전은 설명에서 구분하되 개수를 채우지 마.
-총평에는 evidence의 preserved/risks/unknown 배열로 유지된 특징·이탈 위험·판단 불가를 먼저 설명해. 출력 문구와 선택 의도에 근거하고 실제 음원을 듣지 않은 원곡 유사도 점수는 만들지 마. reference 점수는 생략해. 나머지 점수는 프롬프트 설계의 참고 평가일 뿐이야.
+총평에는 evidence의 preserved/risks/unknown 배열로 유지된 특징·이탈 위험·판단 불가를 먼저 설명해. 출력 문구와 선택 의도에 근거하고 실제 음원을 듣지 않은 원곡 유사도 점수는 만들지 마. reference 점수는 생략해. 모델 분석과 출력이 일치해도 원곡과 일치한다고 결론내리지 마. 특히 거의 완전히 부합·원곡 그대로 같은 유사도 단정은 금지하며 제공된 설계와 일치한다고만 평가해. 분석의 추정과 실제 출력의 문구를 구분해. 나머지 점수는 프롬프트 설계의 참고 평가일 뿐이야.
 채점은 아래 항목을 각각 0~10 정수로 매겨 criteria에 넣어 (합계는 내가 계산하니 네가 합산하지 마). 앵커: 5=어떤 장르에도 붙는 범용 템플릿 수준 / 7=탄탄하지만 다듬을 곳이 분명히 있음 / 9=지금 바로 Suno에 넣어 곡을 만들어도 되는 수준. 실제로 결함이 없는 항목엔 8~10을 줘도 돼 — 억지로 깎지 마.
 악기의 역할·응답·여백이 명확하면 박자 좌표나 레이어를 더 붙이라고 하지 마. 같은 중심 리듬을 유지한 채 훅의 공간이나 저음만 바꾸는 것도 유효한 전개야. 모든 악기의 동시 타격을 무조건 금지하지 마. 충분히 설계됐으면 생성·청취 단계로 안내해. 사용자가 실제 결과의 약점을 알려줬다면 그 약점과 직접 관련된 최소 수정만 우선하고, 프롬프트만 보고 들리지 않은 문제를 단정하지 마.
 ${REVIEW_RUBRIC.filter(r=>r.key!=='reference').map(r=>`- ${r.key}(${r.label}, 가중 ${r.w}): ${r.def}`).join('\n')}
@@ -1180,7 +1180,7 @@ function buildWriteSpec(prev){
     referenceSong:(document.getElementById('hh-ref-song')?.value||'').trim()||null,
     genrePalette:auto?{instruments:[...(g?.instr||[])],drums:GENRE_AUTO[st.genre]?.aDrums||[],groove:GENRE_AUTO[st.genre]?.groove||null}:null,
     selectionOrigins:referenceSelectionOrigins(),
-    brief:effectiveBrief()?{analysisBasis:'title-based model knowledge, not audio-verified',cueBasis:st.brief.cueBasis||{},uncertainFields:st.brief.uncertainFields||[],instrumentalProfile:st.brief.instrumentalProfile||{},understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
+    brief:effectiveBrief()?{analysisBasis:'title-based model knowledge, not audio-verified',analysisEvidence:st.brief.analysisEvidence||null,cueBasis:st.brief.cueBasis||{},uncertainFields:st.brief.uncertainFields||[],instrumentalProfile:st.brief.instrumentalProfile||{},understood:st.brief.understood,styleTags:effectiveBrief().styleTags||[],cues:effectiveBrief().cues||{}}:null,
     commercial:st.commercial||null,density:st.density||null,antiAI:!!antiAI,
     structure,fixedStyleTags:fixedStyle,
     limits:{sectionTotal:secLimit,lyricsCombined:WRITE_LIMITS.section,style:WRITE_LIMITS.style},
@@ -1244,6 +1244,7 @@ ${PROMPT_ROLE_GUIDE}
 이 예시의 장르·BPM·음형·악기·보컬을 다른 곡에 그대로 복사하지 마. 의도에 맞는 중심 아이디어와 상호작용을 새로 설계해. 같은 패턴의 반복 자체를 결함으로 보지 마.
 
 [섹션 디렉팅]
+- 각 섹션을 작성한 뒤 스타일과 이전 구간에 이미 있는 설명을 삭제해. 같은 그루브를 유지하는 구간은 유지 문장만으로 충분하다. 악기별로 한 문장씩 채우지 마. 작은 필인·음역 상승·패드 확장·정해진 마디마다의 장식을 차별화 목적으로 만들어내지 마. 구간 역할을 바꾸는 꼭 필요한 변화만 남겨. 예: (Return to the established groove; keep the same restrained energy.)처럼 짧아도 완성된 구간이다. 이 예시 문구를 모든 구간에 복사하지 마.
 - 스타일의 기본 편성·음색·그루브는 따로 재서술하지 않아도 유지된다. 구간마다 드럼·베이스·멜로디·공간을 모두 설명하는 체크리스트를 만들지 마. 변화가 없는 훅은 기존 그루브 유지처럼 짧게 써도 된다. 지시 개수는 고정하지 마.
 - 하나의 <section> 블록 안에 선택한 전체 곡 구조를 처음부터 끝까지 작성해. Intro만 쓰고 끝내지 마.
 - <section>은 Suno 가사 칸에 들어갈 최종 연출이야. 각 구간에서 결과에 실제로 필요한 디테일만 간결한 영어 자연어로 써. 디테일 개수를 미리 정하지 말고, 하나로 충분하면 하나만 쓰고 서로 연결된 여러 지시가 꼭 필요할 때만 함께 써.
@@ -1300,7 +1301,7 @@ function writingInstructions(spec){return spec.designMode==='reference-type-beat
 
 const STYLE_COMPRESSION_GUIDE=`Rewrite only the supplied style as one coherent English paragraph of at most 1000 characters INCLUDING spaces and punctuation, aiming for targetCharacters. This is compression, not composition.
 Preserve the intended genre/mood, vocal condition, supplied BPM/key, recognizable groove or motif, essential instrument roles, space for vocals when making a type beat, and the main arrangement contrast. Respect applied feedback and exclusions. Do not invent instruments, melodies, brighter moods, builds or new facts about a reference.
-Keep audible actions and relationships, not a tag list. Remove repeated adjectives, instrument-by-instrument elaboration and section-by-section narration first. Section context is for consistency only: do not copy it into the style. Maintain the original energy range and do not turn backing parts into solo leads. Keep explicit user constraints over generic defaults. Do not cut a sentence midway. Return only <style>the complete shortened paragraph</style>.`;
+Keep audible actions and relationships, not a tag list. Remove repeated adjectives, instrument-by-instrument elaboration and section-by-section narration first. Section context is for consistency only: do not copy it into the style. Maintain the original energy range and do not turn backing parts into solo leads. Keep explicit user constraints over generic defaults. Do not cut a sentence midway. Return JSON {"essential":"A complete concise paragraph carrying ALL indispensable identity and explicit constraints, under 700 characters", "optional":["Complete optional sentence."]}. Optional sentences must contain only expendable elaboration, never BPM/key, vocal choice, core mood/groove or user requirements. The app may omit optional sentences to fit the actual character limit. Do not repeat the essential paragraph in optional sentences.`;
 // 토큰 수가 아닌 공백 포함 실제 글자 수를 기준으로 스타일만 압축한다.
 async function fitAiStyle(style,context=''){
   const originalStyle=style.replace(/\s+/g,' ').trim();
@@ -1311,8 +1312,23 @@ async function fitAiStyle(style,context=''){
       staticText:STYLE_COMPRESSION_GUIDE,
       dynamicText:JSON.stringify({currentCharacters:text.length,maximumCharacters:WRITE_LIMITS.style,targetCharacters:[850,700,550][attempt],minimumReduction:Math.max(0,text.length-[850,700,550][attempt]),context,originalStyle,style:text})
     });
-    text=(raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1]||raw).replace(/\s+/g,' ').trim();
-    if(!text)throw new Error('스타일 압축 결과가 비어 있어요');
+    let candidate=raw.match(/<style>([\s\S]*?)<\/style>/i)?.[1];
+    if(!candidate){
+      try{
+        const obj=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+        if(typeof obj.essential==='string'&&obj.essential.trim()){
+          candidate=obj.essential.replace(/\s+/g,' ').trim();
+          for(const sentence of Array.isArray(obj.optional)?obj.optional:[]){
+            if(typeof sentence!=='string')continue;
+            const addition=sentence.replace(/\s+/g,' ').trim();
+            if(addition&&(candidate+' '+addition).length<=WRITE_LIMITS.style)candidate+=' '+addition;
+          }
+        }
+      }catch(_){}
+    }
+    candidate=(candidate||'').replace(/\s+/g,' ').trim();
+    // Keep the best complete version; never truncate or replace it with malformed output.
+    if(candidate&&candidate.length<text.length)text=candidate;
   }
   return text;
 }
@@ -1333,6 +1349,7 @@ function typeBeatPlan(spec){
     reference:spec.referenceSong||null,
     analysisBasis:'Title-based model knowledge; not verified by listening',
     sound:brief.instrumentalProfile||{},
+    analysisEvidence:brief.analysisEvidence||null,
     sectionCues:brief.cues||{},
     uncertainFields:brief.uncertainFields||[],
     unknownBalanceFields:['balance','activity','timbreSpace','vocalSpace'].filter(k=>!brief.instrumentalProfile?.[k]),
@@ -1571,6 +1588,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - 아티스트의 대표 장르로 곡을 단정하지 마. 하이퍼팝·일렉트로클래시·일렉트로 하우스·UK 개러지는 해당 곡의 리듬과 소리로 구분해. 베이스 리프가 훅이면 그 베이스를 melodyLead로 고를 수 있고, 별도 기타·신스 멜로디를 만들 필요는 없어.
 - 선택지에 구체적인 장르가 있으면 일반 pop 대신 해당 장르를 골라. drums는 핵심 킥·스네어 패턴을 먼저, 셰이커·클랩 같은 보조 타악기는 그 다음에 골라. 멜로디 배경은 필수가 아니며 근거 없이 Ambient pad를 추가하지 마. 쿠아트로·나일론 기타·일반 어쿠스틱 기타를 구별하고 확신 없는 악기 재질이나 주법을 단정하지 마.
 - 곡명 분석은 음원 검증이 아니라 모델 지식이다. uncertainFields 배열에 확신 없는 필드 경로를 적고 해당 값은 null 또는 빈 값으로 둬. 예: ["melodyBackground","instrumentalProfile.instruments","cues.bridge"]. 앱은 이 필드를 추천·작성에서 제외한다. 다른 필드의 설명·styleTags·cues에도 같은 추측을 우회해서 넣지 마. 세부 일부만 확실하면 확실한 내용만 남기고 모르는 내용을 채우지 마. 새 편곡 아이디어는 원곡 특징에 포함하지 마. kind=vibe에는 이 제외 규칙을 적용하지 않고 창작 제안을 허용해.
+- analysisEvidence: instrumentalProfile의 각 필드마다 {basis:"model-knowledge|inference|unknown", reason:"곡에 대해 기억하는 구체적인 단서 또는 판단 불가 이유"}를 제공해. 모델 지식은 청취 검증이 아니며 high confidence 같은 자기 평가를 근거로 쓰지 마. 장르 관습·악기 이름에서 유추한 비중, 공간, 연주 빈도는 inference로 표시하고 원곡 사실에 포함하지 마. 출처를 조회하지 않았으므로 URL·인용·청취 근거를 만들어내지 마.
 - 먼저 원곡의 반주 특징을 메뉴와 독립적으로 instrumentalProfile에 분석해: genre, groove, bass, instruments, arrangement, energy와 balance(악기별 전면·중간·배경 역할), activity(지속 반복·간헐 응답·구간 한정), timbreSpace(밝기·어택·음 길이·잔향·거리), vocalSpace(보컬 자리의 여백)를 영어 자연어로 설명해. 악기명만 보고 역할·크기를 추측하지 마. 보컬 제거 후에도 반주 악기의 비중을 그대로 유지해. 확신 없는 특징은 빈 문자열로 두고 꾸며내지 마. 보컬 특징은 여기에 섞지 마.
 - 그다음 화면 표시용 genre는 전체 장르 목록에서 가장 가까운 en을 고르되 적절한 항목이 없으면 null. 원곡을 힙합으로 변환하지 마. 다른 선택 필드도 맞는 항목만 고르고 없으면 null 또는 빈 배열. 메뉴 매핑 때문에 원곡의 반주 분석을 바꾸지 마.
 - styleTags(1~2개)와 cues는 영어 소리 묘사 키워드 구야. 콤마 없이 4~9단어 구 하나씩. 실존 아티스트·프로듀서·곡·앨범 이름은 절대 쓰지 마 (Suno 정책). 메뉴에 없는 악기도 확실히 아는 원곡 특징이면 instrumentalProfile에 설명할 수 있어.
@@ -1581,7 +1599,7 @@ ${REFERENCE_DEVELOPMENT_GUIDE}
 - vocal: 보컬이 거의 없으면 "No Vocal", 있으면 목록 중 가장 가까운 것. vocalStyle은 목록 중 하나 또는 null.
 - BPM과 Key는 분석하지 마 — 참고 곡을 고르면 프로그램이 Spotify에서 채우고, 아니면 사용자가 직접 정해.
 - 응답은 설명 없이 '{'로 시작하는 JSON 하나만.
-{"cueBasis":{},"uncertainFields":[],"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":"","balance":"","activity":"","timbreSpace":"","vocalSpace":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
+{"analysisEvidence":{},"cueBasis":{},"uncertainFields":[],"instrumentalProfile":{"genre":"","groove":"","bass":"","instruments":"","arrangement":"","energy":"","balance":"","activity":"","timbreSpace":"","vocalSpace":""},"kind":"song|vibe","understood":"한국어 1~2문장: 어떤 곡/느낌으로 이해했는지","genre":"","mood":"","drums":["",""],"bass808":"","melodyLead":"","melodyBackground":"","texture":["",""],"density":"","vocal":"","vocalStyle":null,"vocalChar":"","producer":null,"styleTags":[""],"cues":{"intro":"","hook":"","verse":"","bridge":"","outro":""},"reason":"한국어 한 문장"}`;
 // 분석 프롬프트에 붙는 선택지 목록 (텍스트 분석·GPT 오디오 분석 공용)
 function briefOptionsText(){
   return `[선택지]
@@ -1653,6 +1671,20 @@ function filterReferenceUncertainty(p){
   const cues=['intro','hook','verse','bridge','outro'];
   const allowed=[...fields,...profile.map(k=>'instrumentalProfile.'+k),...cues.map(k=>'cues.'+k)];
   out.uncertainFields=[...new Set((Array.isArray(p.uncertainFields)?p.uncertainFields:[]).filter(k=>allowed.includes(k)))];
+  if(p.analysisEvidence&&typeof p.analysisEvidence==='object'){
+    out.analysisEvidence={};
+    for(const key of profile){
+      const e=p.analysisEvidence[key];
+      const known=e?.basis==='model-knowledge'&&typeof e.reason==='string'&&e.reason.trim();
+      out.analysisEvidence[key]={basis:known?'model-knowledge':e?.basis==='inference'?'inference':'unknown',reason:typeof e?.reason==='string'?e.reason.slice(0,400):'근거 설명 없음'};
+      if(!known){
+        if(!out.uncertainFields.includes('instrumentalProfile.'+key))out.uncertainFields.push('instrumentalProfile.'+key);
+        // Menu recommendations must not smuggle excluded reference claims back into writing.
+        const menu={genre:['genre'],groove:['drums'],bass:['bass808'],instruments:['melodyLead','melodyBackground'],timbreSpace:['texture']}[key]||[];
+        for(const field of menu)if(!out.uncertainFields.includes(field))out.uncertainFields.push(field);
+      }
+    }
+  }
   for(const path of out.uncertainFields){
     const [group,key]=path.split('.');
     if(key)delete out[group][key];else out[group]=['drums','texture','styleTags'].includes(group)?[]:null;
@@ -1707,7 +1739,7 @@ function buildBriefProposal(text,p){
   if('producer' in p&&p.kind!=='song')add('producer','프로듀서',true,v.producer||'없음 — 어울리는 프로듀서가 없어 소리 특징 키워드로 대신해요');
   add('sound','소리 특징',styleTags.length||Object.keys(cues).length||Object.keys(instrumentalProfile).length,[...Object.values(instrumentalProfile),...styleTags,...Object.values(cues)].join(' / '));
   if(!items.length)throw new Error('AI가 목록에 있는 값을 반환하지 못했습니다');
-  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,instrumentalProfile,cueBasis:p.cueBasis||{},uncertainFields:p.uncertainFields||[],items};
+  return {text,kind:p.kind==='song'?'song':'vibe',understood:String(p.understood||'').slice(0,300),reason:String(p.reason||'').slice(0,200),v,styleTags,cues,instrumentalProfile,analysisEvidence:p.analysisEvidence||null,cueBasis:p.cueBasis||{},uncertainFields:p.uncertainFields||[],items};
 }
 function renderBriefResult(){
   const box=document.getElementById('hh-brief-result');
@@ -1768,7 +1800,7 @@ function applyBrief(opts={}){
   Object.assign(st,manual);
   if(Object.prototype.hasOwnProperty.call(manual,'_808'))st.b808Set=wasBassSet;
   if(opts.preserveManual)renderHhChips();
-  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai',instrumentalProfile:P.instrumentalProfile||{},cueBasis:P.cueBasis||{},uncertainFields:P.uncertainFields||[]}:null;
+  st.brief=on('sound')?{text:P.text,kind:P.kind,understood:P.understood,styleTags:P.styleTags,cues:P.cues,source:P.source||'ai',instrumentalProfile:P.instrumentalProfile||{},analysisEvidence:P.analysisEvidence||null,cueBasis:P.cueBasis||{},uncertainFields:P.uncertainFields||[]}:null;
   st.referenceSelections=P.kind==='song'?Object.fromEntries(REFERENCE_FIELDS.filter(k=>beforeSelections[k]!==JSON.stringify(st[k]??null)||on(({_808:'808',structSegs:'structure',melodyTone:'melody'}[k]||k))).map(k=>[k,JSON.parse(JSON.stringify(st[k]??null))])):null;
   if(P.kind==='song'){const r=document.getElementById('hh-ref-song');if(r)r.value=P.text;}
   _briefProposal=null;
@@ -1781,8 +1813,13 @@ function applyBrief(opts={}){
 }
 // 반영 중인 소리 특징 표시 + 해제
 function briefAnalysisDetails(brief){
+  brief=filterReferenceUncertainty(brief);
   const labels={genre:'장르',groove:'그루브',bass:'베이스 역할',instruments:'악기 구성',arrangement:'전개',energy:'에너지 범위',balance:'악기별 전면·배경 비중',activity:'연주 빈도·밀도',timbreSpace:'음색·잔향·거리',vocalSpace:'보컬을 위한 여백'};
-  const rows=Object.entries(labels).map(([key,label])=>'<dt>'+label+'</dt><dd>'+escHtml(brief.instrumentalProfile?.[key]||'분석 정보 없음 — 임의로 확정하지 않음')+'</dd>').join('');
+  const rows=Object.entries(labels).map(([key,label])=>{
+    const e=brief.analysisEvidence?.[key];
+    const basis=brief.kind!=='song'?'새 곡 설계 제안':e?.basis==='model-knowledge'?'모델 지식 · 음원 미검증':e?.basis==='inference'?'추정 · 작성에서 제외':e?.basis==='unknown'?'판단 불가 · 작성에서 제외':'근거 미기록 · 음원 미검증';
+    return '<dt>'+label+'</dt><dd>'+escHtml(brief.instrumentalProfile?.[key]||'분석 정보 없음 — 임의로 확정하지 않음')+'<br><small>'+basis+(e?.reason?' — '+escHtml(e.reason):'')+'</small></dd>';
+  }).join('');
   const uncertain=(brief.uncertainFields||[]).map(x=>escHtml(x)).join(', ')||'표시된 항목 없음 — 정확성이 검증됐다는 뜻은 아닙니다';
   return '<details style="margin-top:8px"><summary>반주 설계 분석 펼치기</summary><p>'+(brief.kind==='song'?'곡명 기반 AI 분석이며 실제 음원으로 검증하지 않았습니다.':'입력한 느낌을 바탕으로 제안한 새 곡 설계입니다.')+'</p><dl>'+rows+'</dl><p>불확실하여 제외: '+uncertain+'</p></details>';
 }
@@ -1791,7 +1828,8 @@ function renderBriefActive(){
   if(!el)return;
   if(!st.brief){el.hidden=true;return;}
   el.hidden=false;
-  el.innerHTML=`🧬 <b>반영 중인 소리 특징</b> — ${escHtml([...(st.brief.styleTags||[]),...Object.values(st.brief.cues||{})].join(' / '))} <button onclick="clearBrief()" style="margin-left:8px;padding:2px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:10px;cursor:pointer">해제</button>${briefAnalysisDetails(st.brief)}`;
+  const brief=effectiveBrief();
+  el.innerHTML=`🧬 <b>반영 중인 소리 특징</b> — ${escHtml([...(brief.styleTags||[]),...Object.values(brief.cues||{})].join(' / '))} <button onclick="clearBrief()" style="margin-left:8px;padding:2px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:10px;cursor:pointer">해제</button>${briefAnalysisDetails(st.brief)}`;
 }
 function clearBrief(){
   st.brief=null;

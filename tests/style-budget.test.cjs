@@ -29,5 +29,11 @@ vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
   // A permanently oversized response is bounded, never silently truncated.
   calls=0;ctx.callOpenAI=async(key,request)=>{calls++;const input=JSON.parse(request.dynamicText);assert.equal(input.originalStyle,'x'.repeat(1100));assert.equal(input.context,'Keep the guitar answering the bass.');return '<style>'+ 'x'.repeat(1100)+'</style>';};
   assert.equal((await ctx.fitAiStyle('x'.repeat(1100),'Keep the guitar answering the bass.')).length,1100);assert.equal(calls,3);
+  const essential='Instrumental reggaeton at 178 BPM in D major. Sensual dembow with restrained guitar and rounded bass. No vocals.';
+  calls=0;ctx.callOpenAI=async()=>{calls++;return JSON.stringify({essential,optional:['Optional detail. '.repeat(100),'Keep the same groove.']});};
+  const packed=await ctx.fitAiStyle('Long description. '.repeat(100));
+  assert.ok(packed.length<=1000);assert.ok(packed.startsWith(essential));assert.match(packed,/Keep the same groove/);assert.equal(calls,1);
+  ctx.callOpenAI=async()=>'{invalid';
+  assert.equal(await ctx.fitAiStyle('x'.repeat(1100)),'x'.repeat(1100));
   console.log('PASS: first-pass budget, style-only compression, pop integration and bounded retries.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

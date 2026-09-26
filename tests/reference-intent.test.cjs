@@ -52,3 +52,17 @@ assert.equal(ctx.typeBeatPlan({...fixed.spec,selectionOrigins:{melody:'current-s
 // The same projection supports any reference; no genre-specific branching.
 const club=ctx.typeBeatPlan({...fixed.spec,referenceSong:'Another reference',lead:'Synth bass',background:null,brief:{instrumentalProfile:{balance:'Bass riff foreground, stabs sparse'}}});
 assert.equal(club.sound.balance,'Bass riff foreground, stabs sparse');
+
+const evidenceInput={kind:'song',instrumentalProfile:{groove:'dembow',balance:'loud guitar'},analysisEvidence:{groove:{basis:'model-knowledge',reason:'recognizable dembow pulse'},balance:{basis:'inference',reason:'assumed from instrument name'}},cues:{hook:'loud guitar solo',verse:'steady pulse'},cueBasis:{hook:['balance'],verse:['groove']}};
+const grounded=ctx.filterReferenceUncertainty(evidenceInput);
+assert.equal(grounded.instrumentalProfile.balance,undefined);
+assert.equal(grounded.cues.hook,undefined);
+assert.equal(grounded.cues.verse,'steady pulse');
+assert.equal(grounded.analysisEvidence.balance.basis,'inference');
+assert.equal(ctx.filterReferenceUncertainty({...evidenceInput,kind:'vibe'}).instrumentalProfile.balance,'loud guitar');
+assert.equal(evidenceInput.instrumentalProfile.balance,'loud guitar');
+ctx.escHtml=s=>String(s).replaceAll('<','&lt;');
+const detail=ctx.briefAnalysisDetails(evidenceInput);
+assert.match(detail,/추정 · 작성에서 제외/);
+assert.match(detail,/모델 지식 · 음원 미검증/);
+assert.doesNotMatch(detail,/loud guitar/);
