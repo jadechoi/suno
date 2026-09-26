@@ -2866,7 +2866,7 @@ function restorePromptHistoryEntry(id){
   // AI가 작성한 기록이면 그 텍스트를 이 상태의 캐시로 — 복원할 때마다 AI를 다시 부르지 않고 저장돼 있던 그 텍스트가 그대로 나옴
   if(entry.aiWritten&&entry.section&&entry.style){
     const f=hhWriteFingerprints();
-    _hhWritten={fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,lyrics:entry.lyrics||'',meta:{ok:true,mode:'restored',warn:promptBudgetWarnings(entry.section,entry.style,entry.lyrics)},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
+    _hhWritten={musicPlan:entry.musicPlan||null,fpFull:f.fpFull,fpBase:f.fpBase,section:entry.section,style:entry.style,lyrics:entry.lyrics||'',meta:{ok:true,mode:'restored',warn:promptBudgetWarnings(entry.section,entry.style,entry.lyrics)},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
   }else _hhWritten=null;
   hhGenerate(false,{restore:true});
   document.getElementById('hh-genre-section')?.scrollIntoView({behavior:'smooth'});

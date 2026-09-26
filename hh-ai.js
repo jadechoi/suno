@@ -1374,14 +1374,35 @@ function typeBeatPlan(spec){
   };
 }
 
-async function writeOnce({mode,spec,prev,errors,failed,onPartial}){
+// One musical decision per generation; style and sections express it, not redesign it.
+const MUSIC_PLAN_GUIDE=`Create one musical design for the supplied intention. This is a new composition, not a claim about the reference recording.
+For reference-type-beat preserve the supplied mood, perceived groove, timbral character and energy range. For original-song design around the selected mood/genre and concept. User constraints and explicitly requested feedback take precedence; do not invent reference facts. A section named Hook does not require an instrumental lead melody. Instrument names or menu order alone do not imply foreground roles. Do not fill missing vocals with a new solo instrument.
+Decide the defining relationship among rhythm, bass, melody and space. Every part must have a purpose; no obligatory pad, octave doubling, fills or final climax. Section changes must serve that relationship. Returning to the established arrangement is a complete decision. Keep background parts in their role unless the user explicitly requests a change. Do not infer brightness or perceived speed from key/BPM.
+On edit, preserve the previous musical design and unchanged section intentions; revise only what the requested feedback needs. Explain intentional changes in the affected section entry. Do not rewrite lyrics.
+Return JSON only: {"identity":"mood, perceived groove, energy range and defining sound relationship", "roles":[{"part":"instrument or rhythm part", "function":"musical purpose, prominence, activity and space"}], "sections":[{"header":"exact supplied header", "direction":"only the necessary change from the base arrangement, or maintain it"}]}. Use English sound directions. Include every supplied header exactly once in order. Do not add instruments merely to give each section something new.`;
+async function buildMusicPlan({mode,spec,prev}){
+  const selection=spec.designMode==='reference-type-beat'?typeBeatPlan(spec):spec;
+  const raw=await callOpenAI(getOpenAIKey(),{maxTokens:4000,staticText:MUSIC_PLAN_GUIDE,dynamicText:JSON.stringify({mode,selection,previous:mode==='edit'?{musicPlan:prev?.musicPlan,style:prev?.style,section:prev?.section}:null,feedback:st.narrAI||{},confirmedStyle:st.extraTags||[],removedPhrases:st.removedPhrases||[]})});
+  const plan=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+  if(typeof plan.identity!=='string'||!plan.identity.trim()||!Array.isArray(plan.roles)||!plan.roles.every(r=>typeof r.part==='string'&&typeof r.function==='string')||!Array.isArray(plan.sections)||!plan.sections.every(x=>typeof x.direction==='string'&&x.direction.trim())||JSON.stringify(plan.sections.map(x=>x.header))!==JSON.stringify(spec.structure.map(x=>x.header)))throw new Error('음악 설계의 정체성·악기 역할·구간 구성이 누락됐어요. 다시 생성해주세요.');
+  return {identity:plan.identity,roles:plan.roles.map(({part,function:purpose})=>({part,function:purpose})),sections:plan.sections.map(({header,direction})=>({header,direction}))};
+}
+const MUSIC_PLAN_RENDER_GUIDE=`
+[공통 음악 설계의 표현 단계]
+아래 musicPlan은 이번 곡의 공통 음악적 설계다. 스타일은 identity와 roles를 자연스러운 한 문단으로 표현하고, 섹션은 동일한 역할 위에서 sections.direction의 변화만 표현해. 두 출력에서 별도로 작곡하지 마. 스타일의 배경 파트를 섹션에서 리드 훅으로 승격하거나, 계획에 없는 레이어·필인·음역 변주를 보태지 마. 설계의 반복·유지 지시도 완성된 편곡이다. 사용자의 명시적 조건과 충돌하면 사용자 조건을 우선해. 실제 가사 보존 및 출력 형식은 기존 계약을 지켜.`;
+
+async function writeOnce({mode,spec,prev,errors,failed,onPartial,musicPlan}){
   const key=getOpenAIKey();
+  musicPlan=musicPlan||await buildMusicPlan({mode,spec,prev});
   const plan=spec.designMode==='reference-type-beat'?typeBeatPlan(spec):null;
-  const styleContext=JSON.stringify({selection:plan||Object.fromEntries(['designMode','genre','mood','vocal','bpm','key','lead','background','drums','bass','groove','texture','density','selectionOrigins'].map(k=>[k,spec[k]])),appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
+  const styleContext=JSON.stringify({musicPlan,selection:plan||Object.fromEntries(['designMode','genre','mood','vocal','bpm','key','lead','background','drums','bass','groove','texture','density','selectionOrigins'].map(k=>[k,spec[k]])),appliedFeedback:{...st.narrAI},confirmedStyle:[...(st.extraTags||[])],removedPhrases:[...(st.removedPhrases||[])]});
   const directives=Object.entries(st.narrAI||{}).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'(없음)';
   const dynamicText=`
 
 [모드] ${mode==='edit'?`고쳐쓰기 — 아래 [이전 결과]를 바탕으로 [지시]를 반영해. **음악적 내용을 변경할 섹션은 다음이야: ${(spec.mutableHeaders||[]).join(' | ')||'(없음 — 음악적 내용 유지)'}**. 다른 구간의 음악적 의도와 자연어 작성 방식은 유지해. 모든 구간에서 중복·장황한 문장을 줄이고 스타일과의 역할 모순을 정리해도 돼. 이전 문장 자체를 보존하라는 뜻은 아니야. 가사는 별도 보존 조건을 따라. 중복·모순을 줄이되 필요한 보완의 길이를 억지로 제한하지 마, 스타일 프롬프트는 확정 스타일 지시·삭제 확정 문구를 반영해 정리해도 돼`:'새로 쓰기 — [의도]와 [명세]에 맞게 처음부터 써'}
+
+[공통 음악 설계 — musicPlan]
+${JSON.stringify(musicPlan,null,1)}
 
 [명세]
 ${JSON.stringify(plan||spec,null,1)}
@@ -1397,12 +1418,12 @@ ${plan?'위 단일 설계서만 기준으로 작성해. sound와 sectionCues를 
 ${!plan&&spec.brief?`곡 분석에서 나온 소리 특징(반드시 반영): ${spec.brief.understood}\n섹션별 특징: ${JSON.stringify(spec.brief.cues)}`:''}
 ${spec.lyrics&&spec.lyrics.provided?`\n[가사 지시 — 사용자가 직접 쓴 가사가 있어. <lyrics> 블록을 맨 앞에 쓰되, 아래 가사를 헤더·줄·줄바꿈까지 글자 그대로 복사해(고치거나 새로 쓰거나 줄이지 마 — 검사기가 글자 단위로 대조해). 네가 쓸 건 <section> 연출 설명과 <style>이고, 연출은 이 가사의 장면·감정·리듬에 맞춰 벌스·후렴마다 가사가 살아나는 보컬 전달과 편곡을 구체적으로 써. 가사 안에 없는 이야기를 연출에 지어내지 마]\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n[사용자 가사 — 그대로 복사]\n${spec.prevLyrics}\n`:''}${spec.lyrics&&!spec.lyrics.provided?`\n[가사 지시 — 보컬 곡이라 <lyrics> 블록을 맨 앞에 써]\n가사 언어: ${spec.lyrics.lang}\n사용자가 원하는 가사의 느낌·주제: ${spec.lyrics.theme||'(비어 있음 — 곡의 무드·분석 결과·장르에 어울리는 이야기와 감정을 네가 정해)'}\n가사 헤더(순서·글자 그대로): ${spec.lyrics.headers.join(' | ')}\n`:''}${mode==='edit'&&prev?`\n[이전 결과 — 섹션]\n${prev.section}\n\n[이전 결과 — 스타일]\n${prev.style}\n${spec.prevLyrics?`\n[이전 결과 — 가사 (글자 그대로 유지)]\n${spec.prevLyrics}\n`:''}`:''}${errors&&errors.length?`\n[직전 시도가 검사에서 실패한 사유 — 반드시 고쳐서 다시 써]\n${errors.map(e=>'- '+e).join('\n')}\n[직전 실패 결과 — 위 오류를 바로잡되 선택과 작성 스타일은 유지]\n${failed?JSON.stringify(failed):'(없음)'}\n`:''}`;
   // 숨은 추론을 끄면 작성이 61초→약 18초(4곡 모두 첫 시도에 검증 통과), 스트리밍으로 나오는 대로 화면에 보여줌
-  const raw=await callOpenAI(key,{maxTokens:16000,staticText:writingInstructions(spec),dynamicText,think:false,onText:onPartial});
+  const raw=await callOpenAI(key,{maxTokens:16000,staticText:writingInstructions(spec)+MUSIC_PLAN_RENDER_GUIDE,dynamicText,think:false,onText:onPartial});
   const sec=readAiSections(raw),sty=raw.match(/<style>([\s\S]*?)<\/style>/i);
   if(!sec||!sty)throw new Error('AI 응답에서 <section>/<style>을 찾지 못했습니다');
   const lyr=raw.match(/<lyrics>([\s\S]*?)<\/lyrics>/i);
   if(spec.lyrics&&!lyr)throw new Error('AI 응답에서 <lyrics>를 찾지 못했습니다');
-  return {section:restoreSectionHeaders(sec,spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],JSON.stringify({intent:styleContext,section:sec})),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
+  return {musicPlan,section:restoreSectionHeaders(sec,spec.structure,!spec.vocal),style:await fitAiStyle(sty[1],JSON.stringify({intent:styleContext,section:sec})),lyrics:spec.lyrics&&lyr?lyr[1].trim():''};
 }
 // One bounded comparison pass. Only grounded, exact-text edits may change the output.
 async function checkTypeBeatAlignment(spec,result){
@@ -1470,10 +1491,11 @@ function updateWriteCounters(){
   if(a){a.textContent=`${sect.length}/5000자`;a.style.color=sect.length>5000?'var(--danger)':sect.length>4200?'#F59E0B':'var(--success)';}
   if(b){b.textContent=`${style.length}/1000자`;b.style.color=style.length>1000?'var(--danger)':style.length>800?'#F59E0B':'var(--success)';}
 }
-function updatePromptHistoryTexts(id,section,style,lyrics){
+function updatePromptHistoryTexts(id,section,style,lyrics,musicPlan){
   if(!id)return;
   const list=loadPromptHistory();const e=list.find(x=>x.id===id);
   if(!e)return;
+  e.musicPlan=musicPlan||null;
   e.section=section;e.style=style;e.aiWritten=true;e.lyrics=lyrics||'';e.warn=promptBudgetWarnings(section,style,lyrics);
   try{localStorage.setItem(PROMPT_HISTORY_KEY,JSON.stringify(list));}catch(_){}
   renderPromptHistory();
@@ -1490,9 +1512,11 @@ async function hhAiWrite(entryId,{fresh=false}={}){
     try{
       const mode=(!fresh&&_hhWritten&&_hhWritten.meta?.ok&&_hhWritten.fpBase===draft.fpBase)?'edit':'create';
       const spec=buildWriteSpec(mode==='edit'?_hhWritten:null);
+      const musicPlan=await buildMusicPlan({mode,spec,prev:mode==='edit'?_hhWritten:null});
+      if(token!==_writeToken)return;
       let errors=null,result=null,lastErrors=null,warn=null,failed=null;
       for(let attempt=0;attempt<3;attempt++){   // 실패 사유를 붙여 최대 2번 재시도 — 폴백(규칙 초안)은 의도 반영이 약하니 마지막 수단
-        const out=await writeOnce({mode,spec,prev:mode==='edit'?_hhWritten:null,errors,failed,onPartial:txt=>{
+        const out=await writeOnce({mode,spec,musicPlan,prev:mode==='edit'?_hhWritten:null,errors,failed,onPartial:txt=>{
           if(token!==_writeToken)return;
           const sm=readAiSections(txt,true),tm=txt.match(/<style>([\s\S]*?)(?:<\/style>|$)/i),lm=txt.match(/<lyrics>([\s\S]*?)(?:<\/lyrics>|$)/i);
           const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta'),la=document.getElementById('hh-lyrics-ta');
@@ -1532,7 +1556,7 @@ async function hhAiWrite(entryId,{fresh=false}={}){
       }
       if(fixNotes&&!_writeNote)_writeNote=warn&&warn.length?('개선 권장 '+(prevWarn||[]).length+'개 → '+warn.length+'개로 줄었어요'):'개선 권장 항목을 모두 반영했어요';
       if(result){
-        _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,lyrics:result.lyrics||'',meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
+        _hhWritten={musicPlan:result.musicPlan,fpFull:draft.fpFull,fpBase:draft.fpBase,section:result.section,style:result.style,lyrics:result.lyrics||'',meta:{ok:true,mode,warn},dirSnap:{narrAI:{...(st.narrAI||{})},removedPhrases:[...(st.removedPhrases||[])]}};
         _writeState='ok';_writeWarn=warn;
         const ta=document.getElementById('hh-sect-ta'),sa=document.getElementById('hh-style-ta');
         if(ta)ta.value=result.section;
@@ -1541,7 +1565,7 @@ async function hhAiWrite(entryId,{fresh=false}={}){
           if(la&&result.lyrics)la.value=mergeLyricsAndDirection(result.lyrics,result.section)||result.lyrics;
           if(lo)lo.value=result.lyrics||'';}
         updateWriteCounters();
-        updatePromptHistoryTexts(entryId,result.section,result.style,result.lyrics);
+        updatePromptHistoryTexts(entryId,result.section,result.style,result.lyrics,result.musicPlan);
       }else{
         _hhWritten={fpFull:draft.fpFull,fpBase:draft.fpBase,section:draft.sect,style:draft.style,meta:{ok:false,errors:lastErrors}};
         _writeState='fallback';_writeErr=(lastErrors||[]).slice(0,3).join(' / ');

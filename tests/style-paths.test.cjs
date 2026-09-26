@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const ctx=vm.createContext({console,document:{getElementById:()=>null}});
 for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
 vm.runInContext("const st={melody:[],extraTags:[],narrAI:{},removedPhrases:[]};getOpenAIKey=()=> 'fixture';aiSelectionCtx=()=> 'original intention';",ctx);
+ctx.buildMusicPlan=async({spec})=>({identity:'fixture identity',roles:[],sections:spec.structure.map(x=>({header:x.header,direction:'Maintain the established groove.'}))});
 const base=JSON.parse(fs.readFileSync('tests/fixtures/despacito-type-beat.json','utf8')).spec;
 const cases=[
   {name:'rhythm-led club',genre:'minimal club',mood:'cold, playful',groove:'straight kick with late elastic bass',balance:'bass foreground, sparse stabs'},

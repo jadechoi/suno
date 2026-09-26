@@ -9,6 +9,8 @@ for (const file of ['hh-data.js', 'hh-ai.js', 'hh-openai-audio.js']) {
 }
 vm.runInContext(`const st={extraTags:[],vocal:'No Vocal',melody:['Muted guitar','Synth pluck'],refs:[]};`,ctx);
 const run = code => vm.runInContext(code,ctx);
+ctx.buildMusicPlan=async({spec})=>({identity:'fixture identity',roles:[],sections:spec.structure.map(x=>({header:x.header,direction:'Maintain the established groove.'}))});
+
 const appSource=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
 vm.runInContext(appSource.slice(appSource.indexOf('const GENRE_AUTO='),appSource.indexOf('// 전환 효과(브릿지/드롭 전환)')),ctx);
 const spotifySource=fs.readFileSync(path.join(__dirname,'..','hh-spotify.js'),'utf8');
@@ -194,11 +196,11 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   run(`callOpenAI=async(key,request)=>{globalThis.request=request;return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
   const fixedSpec={...spec,designMode:'reference-type-beat',brief:{instrumentalProfile:{balance:'Guitar supports the rhythm behind bass and drums',activity:'Sparse phrase endings',timbreSpace:'Short dry plucks',vocalSpace:'Open center'}}};
   await ctx.writeOnce({mode:'create',spec:fixedSpec});
-  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC'));
+  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC+MUSIC_PLAN_RENDER_GUIDE'));
   assert.doesNotMatch(ctx.request.staticText,/사용자가 준 예시에서 배울 설계|곡의 특징이 될 아이디어를 하나 정해/);
   assert.match(ctx.request.dynamicText,/Sparse phrase endings/);
   await ctx.writeOnce({mode:'edit',spec:fixedSpec,prev:{section,style:instrumentalStyle}});
-  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC'));
+  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC+MUSIC_PLAN_RENDER_GUIDE'));
   const result=await ctx.writeOnce({mode:'create',spec});
   assert.equal(result.style,instrumentalStyle);
   assert.equal(result.section,section);

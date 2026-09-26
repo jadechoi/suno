@@ -18,6 +18,7 @@ const nodes=Object.fromEntries(['hh-sect-ta','hh-style-ta','hh-lyrics-ta','hh-ly
 globalThis.document={getElementById:id=>nodes[id]||null};
 const st={};
 aiWriteEnabled=()=>true;renderWriteBadge=()=>{};updateWriteCounters=()=>{};
+buildMusicPlan=async()=>({identity:"fixture",roles:[],sections:[]});
 buildWriteSpec=()=>({limits:{style:1000,sectionTotal:5000}});
 updatePromptHistoryTexts=()=>{globalThis.historyWrites=(globalThis.historyWrites||0)+1;};
 function seed(){
@@ -50,6 +51,7 @@ function seed(){
   // A stale streaming callback and completed response must not replace a restored result.
   run(`seed();writeOnce=({onPartial})=>new Promise(resolve=>{globalThis.finish=resolve;globalThis.partial=onPartial;});`);
   const pending=ctx.hhAiWrite('old');
+  await new Promise(resolve=>setImmediate(resolve)); // planning completes before streaming begins
   ctx.invalidateAiWrite();
   run(`_hhWritten={section:'Restored',style:'Restored style',meta:{ok:true}};nodes['hh-sect-ta'].value='Restored';nodes['hh-style-ta'].value='Restored style';partial('<section>Old stream');finish({section:'[Intro]\\nOld response',style:'Old style',lyrics:''});`);
   await pending;
