@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const nodes={};let downloads=0;
 const ctx=vm.createContext({console,document:{getElementById:id=>nodes[id]??={value:'',style:{},querySelectorAll:()=>[],scrollIntoView:()=>{}}},showToast:()=>{},downloadTextFile:()=>downloads++});
 const run=s=>vm.runInContext(s,ctx),app=fs.readFileSync('app.js','utf8');
-for(const f of ['hh-data.js','reference-v2.js','reference-v3.js','hh-ai.js'])run(fs.readFileSync(f,'utf8'));
+for(const f of ['hh-data.js','archive/reference/reference-v2.js','archive/reference/reference-v3.js','hh-ai.js'])run(fs.readFileSync(f,'utf8'));
 run(app.slice(app.indexOf('const st='),app.indexOf('let antiAI=')));
 run(`const HH_TRANSITION_FX=[],HH_GROOVE=[],GENRE_AUTO=[],MELODY_ROLE={},HH_VOCAL_STYLE=[],HH_VOCAL_CHAR=[];let _lyricLangTouched=false,_lyricLangForced=false;getOpenAIKey=()=> 'fixture';`);
 for(const name of ['renderIntentStatus','syncInstrumentMenus','renderGenreRefSuggestions','chipGrid','setAutoHint','clearAutoHint','on808Change','onDrumsManualChange','onRhythmManualChange','recommendMelodyTexture','recommendProducerRef','recommendStructure','renderHhGenres','applyUiMode','renderProducerRef','setInstrumentMenus','renderHhChips','renderBriefActive','markPending','moodGrid','onMoodChange','onMelodyManualChange','renderMelodyRoleUI','onTextureManualChange','onVocalChange','recommendVocalChar','onStructSignalChange'])ctx[name]=()=>{};

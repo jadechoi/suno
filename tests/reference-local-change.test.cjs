@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','reference-v2.js','reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','archive/reference/reference-v2.js','archive/reference/reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
 const row=JSON.parse(fs.readFileSync('reports/role-fit-live-recheck.json')).find(r=>r.name==='someone-like-you');
 const base=row.plan,before=JSON.stringify(base),change={roleIndex:0,sectionIndex:1,direction:'In bars 3–4 briefly shape the upper chord notes into a melody at the same pulse, then resume accompaniment.',benefit:'같은 반주 안에서 잠깐 선율의 응답을 만든다.'};
 const changed=c.applyReferenceV3Change(base,change);

@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','reference-v2.js','reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);c.getOpenAIKey=()=> 'fixture';
+const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','archive/reference/reference-v2.js','archive/reference/reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);c.getOpenAIKey=()=> 'fixture';
 const spec={designMode:'reference-type-beat',vocal:null,bpm:100,key:'D minor',mood:'intimate',bass808:'None',selectionOrigins:{mood:'current-selection',_808:'current-selection',texture:'ai-reference'},texture:['Wide'],structure:[{header:'[Intro]'},{header:'[Instrumental Bridge 1]'}],limits:{section:5000}};
 const plan={referenceVersion:3,identityCore:{relationship:'Bass and drums lead the intimate groove; guitar answers briefly.'},vocalHandling:{soundPolicy:'No voices',roleStrategy:'leave-space',benefit:'space'},roles:[{part:'guitar',function:'short replies',performance:'clipped plucks',fitReason:'Original has a choir, removed here.',sourceTreatment:'new'}],sections:[{header:'[Intro]',direction:'Begin with bass and short guitar replies.',vocalMode:'instrumental'},{header:'[Instrumental Bridge 1]',direction:'Guitar briefly leads with sustained notes while drums recede.',vocalMode:'instrumental'}],parameters:{bpm:100,key:'D minor'},referenceAnalysis:{instrumentalProfile:{vocalSpace:'add a choir'}}};
 const good={style:'Instrumental intimate beat at 100 BPM in D minor. Bass and drums lead; guitar answers in clipped plucks, briefly sustaining in the bridge. No vocals or 808.',sections:plan.sections,lyrics:''};
@@ -11,7 +11,7 @@ const good={style:'Instrumental intimate beat at 100 BPM in D minor. Bass and dr
   assert.equal(input.content.referenceAnalysis,undefined);assert.equal(input.content.roles[0].fitReason,undefined);return JSON.stringify({violations:[]});
  };
  const out=await c.writeReferenceV3({spec,musicPlan:plan});assert.equal(writes,2);assert.equal(out.style,good.style);assert.match(out.section,/Guitar briefly leads/);assert.equal(out.musicPlan,plan);
- assert.equal((await c.checkMusicConditions(spec,plan)).length,0);
+ assert.equal((await c.checkMusicConditions(spec,c.referenceV3Publication(plan))).length,0);
  const sourceMood={...plan,referenceAnalysis:{instrumentalProfile:{mood:'bittersweet sadness'}}};
  const withoutOverride={...spec,selectionOrigins:{}};let count=0;
  c.callOpenAI=async(_key,r)=>{
@@ -22,6 +22,6 @@ const good={style:'Instrumental intimate beat at 100 BPM in D minor. Bass and dr
  await c.writeReferenceV3({spec:withoutOverride,musicPlan:sourceMood});assert.equal(count,2);
 
  // A genuinely requested voice in performance still reaches the condition checker.
- const bad={...plan,roles:[{...plan.roles[0],performance:'add a choir'}]};c.callOpenAI=async(_key,r)=>{assert.equal(JSON.parse(r.dynamicText).content.roles[0].performance,'add a choir');return JSON.stringify({violations:[{condition:'instrumental',quote:'add a choir',reason:'actual voice requested'}]});};assert.equal((await c.checkMusicConditions(spec,bad)).length,1);
+ const bad={...plan,roles:[{...plan.roles[0],performance:'add a choir'}]};c.callOpenAI=async(_key,r)=>{assert.equal(JSON.parse(r.dynamicText).content.roles[0].performance,'add a choir');return JSON.stringify({violations:[{condition:'instrumental',quote:'add a choir',reason:'actual voice requested'}]});};assert.equal((await c.checkMusicConditions(spec,c.referenceV3Publication(bad))).length,1);
  console.log('PASS: priority/explicit choices survive repair, planned bridge exception allowed, source vocals excluded, actual voice instruction checked');
 })().catch(e=>{console.error(e);process.exitCode=1;});

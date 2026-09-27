@@ -1,6 +1,6 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
 const c=vm.createContext({console,AbortSignal});
-for(const f of ['hh-data.js','reference-v2.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+for(const f of ['hh-data.js','archive/reference/reference-v2.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
 c.getOpenAIKey=()=> 'fixture';
 (async()=>{
  for(const version of ['feat. Guest — Remix','Live Acoustic','unfamiliar version']){

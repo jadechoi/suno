@@ -1,4 +1,4 @@
-const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');const c=vm.createContext({});vm.runInContext(fs.readFileSync('reference-v2.js','utf8'),c);
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');const c=vm.createContext({});vm.runInContext(fs.readFileSync('archive/reference/reference-v2.js','utf8'),c);
 // Actual failure text is retained; only the evidence-item response is a synthetic fixture.
 const rows=JSON.parse(fs.readFileSync('reports/analysis-steps-live.json'));
 for(const r of rows){const search=r.analysis.analysisDiagnostics.find(x=>x.stage==='reference-v2-research');const e=r.analysis.analysisEvidence.groove;assert.equal(e.supportMatched,false);assert.ok(e.supportQuote);const sources=search.sources;assert.ok(sources.length);

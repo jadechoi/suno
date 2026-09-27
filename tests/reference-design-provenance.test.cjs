@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','reference-v2.js','reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','archive/reference/reference-v2.js','archive/reference/reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
 const raw={referenceVersion:2,kind:'song',referenceIdentity:{status:'identified'},instrumentalProfile:{mood:'cold',groove:'elastic bass pulse',balance:'invented guitar solo'},analysisEvidence:{mood:{basis:'model-knowledge',scope:'track',reason:'memory'},groove:{basis:'inference',scope:'track',reason:'based on mood',anchors:['mood']},balance:{basis:'inference',scope:'track',reason:''}}};
 const spec={brief:raw,selectionOrigins:{melody:'current-selection'},instruments:['Electric guitar']};
 const contract=c.referenceV3EvidenceContract(c.filterReferenceV2(raw),spec);

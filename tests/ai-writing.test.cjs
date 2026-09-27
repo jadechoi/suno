@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ctx = vm.createContext({console,document:{getElementById:()=>null}});
-for (const file of ['hh-data.js', 'reference-v2.js', 'reference-v3.js', 'hh-ai.js', 'hh-openai-audio.js']) {
+for (const file of ['hh-data.js', 'archive/reference/reference-v2.js', 'archive/reference/reference-v3.js', 'hh-ai.js', 'hh-openai-audio.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), ctx, {filename:file});
 }
 vm.runInContext(`const st={extraTags:[],vocal:'No Vocal',melody:['Muted guitar','Synth pluck'],refs:[]};`,ctx);

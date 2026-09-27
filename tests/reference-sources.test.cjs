@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','hh-ai.js','archive/reference/supplement-sources.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
 c.escHtml=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
 const design={kind:'song',instrumentalProfile:{groove:'known pocket',energy:''},analysisEvidence:{groove:{basis:'model-knowledge',scope:'track',reason:'known'},energy:{basis:'unknown',scope:'unknown',reason:'unknown'}},uncertainFields:['instrumentalProfile.energy']};
 (async()=>{
