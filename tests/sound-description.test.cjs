@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const c=vm.createContext({console});for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+const raw={kind:'vibe',understood:true,instrumentalProfile:{bass:{role:'rhythmic identity',playing:['short low hit','long rest','late double pickup'],count:2},groove:'kick stays straight',unused:false},cues:{hook:{entrance:'Restore the original bass gesture',support:'A metallic accent answers the rest.'}}};
+const normalized=c.normalizeSoundDesign(raw);
+assert.equal(normalized.understood,'');assert.match(normalized.instrumentalProfile.bass,/short low hit; long rest; late double pickup/);assert.match(normalized.instrumentalProfile.bass,/count: 2/);assert.equal(normalized.instrumentalProfile.unused,undefined);assert.equal(raw.understood,true);assert.equal(typeof raw.instrumentalProfile.bass,'object');
+assert.doesNotMatch(JSON.stringify(normalized),/\[object Object\]|"true"/);
+assert.equal(c.soundDescription(null),'');assert.equal(c.soundDescription('[object Object]'),'');
+const long='Keep this complete musical instruction. '.repeat(20)+'End with the original bass gesture.';
+assert.equal(c.normalizeSoundDesign({cues:{hook:long}}).cues.hook,long);
+const contract=vm.runInContext('MUSIC_DESIGN_CONTRACT',c);assert.match(contract,/identityCore.signature/);assert.match(contract,/Writing and compression retain that audible behavior/);
+console.log('PASS: nested analysis meaning retained, booleans rejected, complete cues preserved.');

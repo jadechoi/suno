@@ -1,0 +1,33 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx=vm.createContext({console});
+for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+ctx.getOpenAIKey=()=> 'fixture';
+(async()=>{
+ const plan={roles:[],sections:[{header:'[Intro]',direction:'Keep lush strings.',benefit:'Requested cinematic warmth.'}]};
+ ctx.callOpenAI=async(_key,r)=>{assert.ok(r.staticText.includes('None is the default winner'));assert.ok(r.staticText.includes('user need not explicitly request a climax'));return JSON.stringify({edits:[]});};
+ assert.equal((await ctx.refineMusicPlan({},plan)).sections[0].direction,'Keep lush strings.');
+ ctx.callOpenAI=async()=>JSON.stringify({edits:[{header:'[Intro]',original:'wrong original',direction:'Remove strings.',benefit:'Sparse.',reason:'Less.'}]});
+ assert.equal((await ctx.refineMusicPlan({},plan)).sections[0].direction,'Keep lush strings.');
+ ctx.callOpenAI=async()=>JSON.stringify({edits:[{header:'[Intro]',original:'Keep lush strings.',direction:'Keep lush strings; let guitar rest.',benefit:'Expose the requested string entrance.',reason:'The entrance needs space.'}]});
+ assert.equal((await ctx.refineMusicPlan({},plan)).sections[0].direction,'Keep lush strings; let guitar rest.');
+ assert.equal(plan.sections[0].direction,'Keep lush strings.');
+ ctx.callOpenAI=async()=>JSON.stringify({edits:[],sectionDirections:[{header:'[Intro]',direction:'Let the strings sustain; expose the guitar pickup.'}]});
+ const ready=await ctx.refineMusicPlan({},plan);assert.equal(ready.directSectionRendering,true);assert.equal(ctx.designedSectionText(ready),'[Intro]\n(Let the strings sustain; expose the guitar pickup.)');
+ assert.equal(ctx.validatedSectionDirections(plan,[{header:'[Wrong]',direction:'Invent a drop'}]),null);
+ assert.equal(ctx.validatedSectionDirections(plan,[]),null);
+ assert.equal(ctx.designedSectionText({...ready,directSectionRendering:false}),'');
+
+ const actions=[{header:'[Intro]',changes:[{action:'Expose the sustained strings.',benefit:'Establish the requested warmth.'}]}];
+ assert.equal(ctx.validatedSectionDirections(plan,actions)[0].direction,'Expose the sustained strings.');
+ assert.equal(ctx.validatedSectionDirections(plan,[{header:'[Intro]',changes:[{action:'Add a solo.',benefit:''}]}]),null);
+ assert.equal(ctx.validatedSectionDirections(plan,[{header:'[Intro]',changes:[]}]),null);
+ plan.identityCore={signature:{preserveAcrossSections:'Sustained string harmony',variationSpace:'Guitar may rest'}};
+ ctx.callOpenAI=async(_key,r)=>{assert.deepEqual(JSON.parse(r.dynamicText).identityCore,plan.identityCore);return JSON.stringify({sections:[{header:'[Intro]',direction:'Let strings sustain; guitar shifts to legato.'}]});};
+ const long='[Intro]\n('+('Repeated baseline. '.repeat(40))+')';
+ assert.match(await ctx.fitAiSections(long,{limits:{section:120}},plan),/guitar shifts to legato/);
+ let calls=0,diagnostics=[];
+ ctx.callOpenAI=async()=>{calls++;return '{"sections":[]}';};
+ assert.equal(await ctx.fitAiSections(long,{limits:{section:120}},plan,diagnostics),long);
+ assert.equal(calls,2);assert.equal(diagnostics.length,2);
+ console.log('section purpose and bounded budget repair passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

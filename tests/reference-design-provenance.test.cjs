@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','reference-v2.js','reference-v3.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+const raw={referenceVersion:2,kind:'song',referenceIdentity:{status:'identified'},instrumentalProfile:{mood:'cold',groove:'elastic bass pulse',balance:'invented guitar solo'},analysisEvidence:{mood:{basis:'model-knowledge',scope:'track',reason:'memory'},groove:{basis:'inference',scope:'track',reason:'based on mood',anchors:['mood']},balance:{basis:'inference',scope:'track',reason:''}}};
+const spec={brief:raw,selectionOrigins:{melody:'current-selection'},instruments:['Electric guitar']};
+const contract=c.referenceV3EvidenceContract(c.filterReferenceV2(raw),spec);
+assert.equal(contract.features.groove.status,'interpretation');assert.equal(contract.features.mood.status,'model-recollection');assert.equal(contract.features.balance,undefined);assert.equal(contract.unresolved.balance,'evidence-missing');assert.ok(!JSON.stringify(contract).includes('invented guitar solo'));assert.equal(contract.userChoices.instruments[0],'Electric guitar');
+const role=(kind,field,treatment='adapt')=>({part:'guitar',sourceTreatment:treatment,decisionBasis:{kind,field,explanation:'musical reason'}});
+const check=r=>c.referenceV3ProvenanceIssues({roles:[r]},contract);
+assert.equal(check(role('user','instruments')).length,0);assert.ok(check(role('user','density')).length);
+assert.equal(check(role('reference','groove')).length,0);assert.ok(check(role('reference','balance')).length);
+assert.equal(check(role('creative','', 'new')).length,0);assert.ok(check(role('creative','', 'preserve')).length);
+const auto=c.referenceV3EvidenceContract(c.filterReferenceV2(raw),{...spec,selectionOrigins:{melody:'reference'}});assert.equal(auto.userChoices.instruments,undefined);
+const plan={identityCore:{relationship:'guitar leads when requested'},roles:[{...role('creative','', 'new'),function:'melodic center',performance:'expressive bends',fitReason:'creative benefit'}],sections:[],parameters:{}};
+const publication=c.referenceV3Publication(plan);assert.equal(publication.roles[0].decisionBasis,undefined);assert.equal(publication.roles[0].performance,'expressive bends');
+console.log('PASS: interpretation retained, excluded text withheld, manual vs auto choices, justified creative roles allowed, provenance not published');

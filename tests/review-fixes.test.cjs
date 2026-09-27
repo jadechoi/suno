@@ -3,7 +3,8 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const ctx=vm.createContext({console});
+const stored=new Map();
+const ctx=vm.createContext({console,localStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v)}});
 for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(read(f),ctx);
 const run=s=>vm.runInContext(s,ctx);
 const spotify=read('hh-spotify.js');
@@ -18,6 +19,7 @@ const nodes=Object.fromEntries(['hh-sect-ta','hh-style-ta','hh-lyrics-ta','hh-ly
 globalThis.document={getElementById:id=>nodes[id]||null};
 const st={};
 aiWriteEnabled=()=>true;renderWriteBadge=()=>{};updateWriteCounters=()=>{};
+checkMusicConditions=async()=>[];
 buildMusicPlan=async()=>({identity:"fixture",roles:[],sections:[]});
 buildWriteSpec=()=>({limits:{style:1000,sectionTotal:5000}});
 updatePromptHistoryTexts=()=>{globalThis.historyWrites=(globalThis.historyWrites||0)+1;};
@@ -27,6 +29,7 @@ function seed(){
  _writeFix=null;
 }
 `);
+ctx.refineMusicPlan=async(_spec,plan)=>plan;
 (async()=>{
   run("seed();_hhDraft.fpBase='old';writeOnce=async({mode})=>{globalThis.selectedMode=mode;return {section:'[Intro]\\nFresh direction',style:'Short style',lyrics:''};};");
   await ctx.hhAiWrite('fresh',{fresh:true});
@@ -38,6 +41,8 @@ function seed(){
   await ctx.hhAiWrite('failure');
   assert.equal(run("nodes['hh-sect-ta'].value"),'[Intro]\nPrevious direction');
   assert.equal(run('_hhWritten.fpFull'),'old');
+  assert.equal(run('_writeState'),'preserved');
+  assert.match(JSON.parse(stored.get('hh_last_write_diagnostics')).error,/fixture API failure/);
   assert.match(run('_writeNote'),/아직 반영되지/);
   run("seed();writeOnce=async()=>({section:'',style:'',lyrics:''});");
   await ctx.hhAiWrite('invalid');
@@ -47,6 +52,19 @@ function seed(){
   assert.equal(run("nodes['hh-style-ta'].value.length"),1100);
   assert.equal(run('_writeState'),'ok');
   assert.match(run('_writeWarn[0]'),/1000자/);
+  run("seed();_hhWritten=null;globalThis.writeCalls=0;checkMusicConditions=async()=>['보컬 효과 충돌'];writeOnce=async()=>{writeCalls++;};");
+  await ctx.hhAiWrite('bad-plan');
+  assert.equal(ctx.writeCalls,0);
+  assert.equal(run('_writeState'),'fallback');
+  run("seed();_hhWritten=null;checkMusicConditions=async(_spec,content)=>content.style?['보컬 효과 충돌']:[];writeOnce=async()=>{writeCalls++;return {section:'[Intro]\\nAdd ah chops',style:'Add voices',lyrics:''};};");
+  await ctx.hhAiWrite('bad-output');
+  assert.equal(ctx.writeCalls,3);
+  const diagnostics=JSON.parse(stored.get('hh_last_write_diagnostics'));
+  assert.equal(diagnostics.attempts.filter(x=>x.stage==='validation').length,3);
+  assert.equal(diagnostics.attempts.at(-1).output.style,'Add voices');
+  assert.ok(diagnostics.attempts.at(-1).errors.includes('보컬 효과 충돌'));
+  assert.equal(run('_writeState'),'fallback');
+  run("checkMusicConditions=async()=>[];");
   ctx.historyWrites=undefined;
   // A stale streaming callback and completed response must not replace a restored result.
   run(`seed();writeOnce=({onPartial})=>new Promise(resolve=>{globalThis.finish=resolve;globalThis.partial=onPartial;});`);
@@ -62,8 +80,13 @@ function seed(){
   const restore=app.slice(app.indexOf('function restorePromptHistoryEntry('),app.indexOf('let _historyShowAll'));
   assert.ok(restore.indexOf('invalidateAiWrite();')<restore.indexOf('Object.assign(st,'));
   assert.match(restore,/hhGenerate\(false,\{restore:true\}\)/);
-  assert.match(app,/if\(!isRefresh&&!opts\?\._afterRefAuto/);
+  assert.doesNotMatch(app,/return autoAnalyzeReference\(refSong\)/);
   assert.match(app,/keepSect=isRefresh&&!opts\?\.restore/);
   assert.match(app,/function hhReset\(\)\{\s*invalidateAiWrite\(\);/);
+  run("seed();_hhWritten=null;buildMusicPlan=async()=>{throw Object.assign(new Error('missing groove'),{code:'reference_incomplete'});};nodes['hh-style-ta'].value='rule style';");
+  await ctx.hhAiWrite('missing-reference');
+  assert.equal(run('_writeState'),'needs-reference');
+  assert.equal(run("nodes['hh-style-ta'].value"),'');
+  assert.equal(run('_hhWritten'),null);
   console.log('PASS: stale responses, failed rewrites, chart badge identity and UK Garage preset.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

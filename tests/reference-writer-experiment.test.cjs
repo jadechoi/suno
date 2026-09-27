@@ -1,0 +1,20 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({console,AbortSignal});for(const f of ['hh-data.js','reference-v2.js','hh-ai.js','reference-writer-experiment.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+c.getOpenAIKey=()=> 'fixture';
+const spec={designMode:'reference-type-beat',brief:{referenceVersion:2,referenceIdentity:{status:'identified'},instrumentalProfile:{mood:'cold playful',groove:'elastic bass against steady kick',instruments:'short synth bass and clipped stabs',balance:'singer forward'},analysisEvidence:{mood:{basis:'model-knowledge',scope:'track',reason:'specific recollection'},groove:{basis:'model-knowledge',scope:'track',reason:'specific recollection'},instruments:{basis:'model-knowledge',scope:'track',reason:'specific recollection'},balance:{basis:'unknown',scope:'unknown'}}},structure:[{header:'[Intro]'},{header:'[Instrumental Hook 1]'}],vocal:null,bpm:124,key:'C major',selectionOrigins:{},limits:{section:5000}};
+const good={musicalFocus:'Elastic bass and steady kick drive the playful groove; clipped stabs answer in its rests.',style:'Instrumental club beat at 124 BPM in C major. Cold and playful; short synth bass bounces late against a steady kick, with clipped stabs in its rests.',sections:[{header:'[Intro]',direction:'Expose the clipped bass gesture.'},{header:'[Instrumental Hook 1]',direction:'Bring in the steady kick; keep the bass rests.'}]};
+(async()=>{
+ const card=c.referenceBeatCard(spec.brief,spec);assert.equal(card.traits.balance,undefined);
+ assert.match(c.referenceBeatOutput(good,card).output.section,/\[Intro\]\n\[Expose/);assert.equal(c.referenceBeatOutput(good,card).issues.length,0);
+ assert.ok(c.referenceBeatOutput({...good,musicalFocus:''},card).issues.length);
+ assert.equal(c.referenceBeatOutput(good,card).output.musicalFocus,good.musicalFocus);
+ assert.ok(c.referenceBeatOutput({...good,style:good.style.replace('124','130')},card).issues.length);
+ assert.ok(c.referenceBeatOutput(good,{...card,parameters:{bpm:null,key:null}}).issues.length);
+ assert.ok(c.referenceBeatOutput({...good,sections:good.sections.slice(0,1)},card).issues.length);
+ assert.throws(()=>c.referenceBeatCard({...spec.brief,referenceIdentity:{status:'unknown'}},spec),/정보 보완/);
+ let calls=[];c.callOpenAI=async(k,r)=>{calls.push(JSON.parse(r.dynamicText));return JSON.stringify(calls.length===1?{...good,style:good.style.replace('124','130')}:good);};
+ const out=await c.writeReferenceBeatExperiment({spec});assert.equal(calls.length,2);assert.match(calls[1].failed.style,/130/);assert.equal(out.style,good.style);
+ c.callOpenAI=async()=>JSON.stringify({...good,style:'x'.repeat(1001)});
+ await assert.rejects(()=>c.writeReferenceBeatExperiment({spec}),e=>e.failedOutput.style.length===1001&&e.diagnostics.length===4);
+ console.log('Reference experiment: PDF tags, same evidence, missing info, parameters, bounded repair and failure preservation OK');
+})().catch(e=>{console.error(e);process.exitCode=1;});

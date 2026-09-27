@@ -1,0 +1,23 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({console});for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+c.getOpenAIKey=()=> 'fixture';
+const selection={referenceContract:{},sound:{balance:'Guitar supports the vocal topline'},referenceRelationships:[],userOverrides:{}};
+const plan={roles:[{part:'guitar',function:'Guitar replaces the vocal topline',roleDecision:{changeScope:'same-job'}}],sections:[]};
+(async()=>{
+ let calls=0;c.callOpenAI=async()=>{calls++;return JSON.stringify({conflicts:[{part:'guitar',sourceQuote:'"Guitar supports the vocal topline"',planQuote:'“Guitar replaces the vocal topline”',reason:'Removing vocals does not authorize replacing their role'}]});};
+ const diagnostics=[];
+ await assert.rejects(()=>c.reviewReferenceRoles(selection,plan,diagnostics),e=>e.roleConflict===true&&e.code==='write_format');
+ assert.equal(diagnostics[0].stage,'role-fidelity-review');
+ c.callOpenAI=async()=>JSON.stringify({conflicts:[]});
+ await c.reviewReferenceRoles(selection,{roles:[{part:'guitar',function:'New syncopated chords supporting the groove'}]},[]);
+ c.callOpenAI=async()=>JSON.stringify({conflicts:[{part:'guitar',sourceQuote:'Invented source claim',planQuote:plan.roles[0].function,reason:'wrong'}]});
+ await assert.rejects(()=>c.reviewReferenceRoles(selection,plan),/인용 근거/);
+ let retries=0;const recoveryDiagnostics=[];
+ c.callOpenAI=async(_key,request)=>{retries++;if(retries===1)return JSON.stringify({conflicts:[{part:'guitar',sourceQuote:'Reviewer instruction, not source',planQuote:plan.roles[0].function,reason:'invalid evidence'}]});assert.match(JSON.parse(request.dynamicText).reviewCorrection,/unchanged plan/);return JSON.stringify({conflicts:[]});};
+ await c.reviewReferenceRoles(selection,plan,recoveryDiagnostics);assert.equal(retries,2);assert.equal(recoveryDiagnostics.filter(x=>x.stage==='role-fidelity-review-invalid').length,1);
+ c.callOpenAI=async()=>JSON.stringify({conflicts:[{part:'guitar',sourceQuote:selection.sound.balance,planQuote:'Guitar takes over the topline throughout the hook',reason:'Section assigns a new job'}]});
+ await assert.rejects(()=>c.reviewReferenceRoles(selection,{...plan,sections:[{direction:'Guitar takes over the topline throughout the hook'}]}),e=>e.roleConflict===true);
+ c.callOpenAI=async()=>{throw new Error('must not call for original song');};
+ await c.reviewReferenceRoles({},plan);
+ console.log('PASS: independent role-review conflict routing, quoted evidence, pass and original-song bypass (mock judgments).');
+})().catch(e=>{console.error(e);process.exitCode=1;});

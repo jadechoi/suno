@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ctx = vm.createContext({console,document:{getElementById:()=>null}});
-for (const file of ['hh-data.js', 'hh-ai.js', 'hh-openai-audio.js']) {
+for (const file of ['hh-data.js', 'reference-v2.js', 'reference-v3.js', 'hh-ai.js', 'hh-openai-audio.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), ctx, {filename:file});
 }
 vm.runInContext(`const st={extraTags:[],vocal:'No Vocal',melody:['Muted guitar','Synth pluck'],refs:[]};`,ctx);
@@ -16,8 +16,8 @@ vm.runInContext(appSource.slice(appSource.indexOf('const GENRE_AUTO='),appSource
 const spotifySource=fs.readFileSync(path.join(__dirname,'..','hh-spotify.js'),'utf8');
 assert.doesNotMatch(appSource,/refAf/);
 assert.doesNotMatch(spotifySource,/af\.(?:energy|valence|danceability)|spMoodFromFeatures|sp808FromEnergy|spDrumsFromFeatures/);
-assert.match(run('WRITE_STATIC'),/referenceSong이 있으면 곡 제목과 아티스트를 보고/);
-assert.match(run('WRITE_STATIC'),/BPM과 Key는 referenceSong에서 추측하지 말고/);
+assert.match(run('WRITE_STATIC'),/Render the supplied musicPlan/);
+assert.match(run('WRITE_STATIC'),/express supplied BPM\/key without inventing missing values/);
 assert.doesNotMatch(ctx.buildWriteSpec.toString(),/draftSect|draftStyle/);
 run(`Object.assign(st,{genre:null,mood:null,commercial:null,_mtAutoManaged:false,drums:[],_808:'Balanced',b808Set:false,groove:null,texture:[],transitionFx:[],era:null,region:null,density:null,brief:null,length:null,structSegs:['intro','hook','outro'],bpmSet:false,keySet:false,narrAI:{},removedPhrases:[]}); globalThis.antiAI=true;`);
 assert.match(run('aiSelectionCtx()'),/장르: 미선택/);
@@ -109,7 +109,7 @@ assert.doesNotMatch(run('genreLowEnd(0,"None")'),/\b808 bass/);
 run('st.genre=null;');
 assert.equal(validate(section.replace('8 Bars:','16 Bars:')).ok,true);
 assert.equal(validate(section,instrumentalStyle+'x'.repeat(950)).ok,false);
-assert.equal(validate(section,instrumentalStyle.replace('110 BPM','120 BPM')).ok,true);
+assert.equal(validate(section,instrumentalStyle.replace('110 BPM','120 BPM')).ok,false);
 // Supply Drake as reference since not every artist is in the producer list.
 assert.equal(validate(section,instrumentalStyle+' Drake-inspired.',{...spec,referenceSong:'Drake - Example'}).ok,true);
 const restricted={...spec,mutableHeaders:['[Instrumental Hook 2]'],prevSections:ctx.parseSections(section)};
@@ -158,12 +158,12 @@ assert.equal(ctx.hasSelectedDrum('Low-end impact under the hook.','Sub-bass punc
 assert.equal(ctx.hasSelectedDrum('Avoid punchy 808 hits.','Sub-bass punch'),false);
 assert.equal(ctx.hasSelectedDrum('Sustained soft bass.','Sub-bass punch'),false);
 
-// Only transport/display budgets and lossless lyrics remain blocking.
+// Transport/display budgets, explicit tempo and internal metadata are blocking.
 assert.equal(validate('',instrumentalStyle).ok,false);
 assert.equal(validate(section,'').ok,false);
 assert.equal(validate('[Intro]',instrumentalStyle).ok,false);
 assert.equal(validate('No section headers.',instrumentalStyle).ok,false);
-assert.equal(validate('[Intro]\nA soft motif.\n[Hook]\nKeep the same groove.', 'Instrumental only. A warm, sparse beat.', {...spec,structure:[{header:'[Intro]'},{header:'[Hook]'}],prevLength:1,producerSound:'unmatched phrase',brief:{styleTags:['unmatched tag']}}).ok,true);
+assert.equal(validate('[Intro]\nA soft motif.\n[Hook]\nKeep the same groove.', 'Instrumental only at 110 BPM. A warm, sparse beat.', {...spec,structure:[{header:'[Intro]'},{header:'[Hook]'}],prevLength:1,producerSound:'unmatched phrase',brief:{styleTags:['unmatched tag']}}).ok,true);
 assert.equal(checkEvents(eventLyrics.replace('[Chorus 2]','[Verse 2]')).ok,false);
 assert.equal(checkEvents(eventLyrics.replace('Here is where we go','x'.repeat(5000))).ok,false);
 assert.doesNotMatch(run('WRITE_STATIC'),/fixedStyleTags를 정확히|1800자 이하|최소 두 줄 유지|바꾸면 검사에서 실패/);
@@ -171,18 +171,20 @@ assert.doesNotMatch(run('WRITE_STATIC'),/fixedStyleTags를 정확히|1800자 이
 // Exercise real request assembly / XML extraction with a fake transport, never a real key.
 ctx.fixture={section,style:instrumentalStyle};
 run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}); getOpenAIKey=()=> 'fixture-only'; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
+// Isolate menu/application behavior from the independently tested V2 research transport.
+ctx.analyzeReferenceV2=async (_text,initial)=>({...initial,referenceVersion:2});
 (async()=>{
   ctx.nodes={'hh-brief':{value:'Artist - Reference Song'},'hh-brief-btn':{disabled:false,textContent:''},'hh-brief-status':{hidden:false,style:{},textContent:''}};
   run(`document.getElementById=id=>nodes[id]||null;
     getOpenAIKey=()=> 'fixture-only'; setInstrumentMenus=()=>{}; pickCompatibleTextures=x=>x; globalThis.HH_VOCAL_STYLE=[]; globalThis.HH_VOCAL_CHAR=[];
     Object.assign(st,{genre:null,mood:null,drums:[],melody:[],texture:[],density:null,b808Set:false});
-    callOpenAI=async()=>JSON.stringify({kind:'song',understood:'reference',genre:GENRES[0].en,mood:HH_MOODS[0].kr,drums:[],bass808:null,melodyLead:null,melodyBackground:null,texture:[],density:null,vocal:'Sung lead vocal',vocalStyle:null,vocalChar:null,styleTags:['short syncopated motif'],cues:{hook:'wider hook'}});
+    callOpenAI=async()=>JSON.stringify({kind:'song',referenceIdentity:{status:'identified'},instrumentalProfile:{groove:'syncopated'},understood:'reference',genre:GENRES[0].en,mood:HH_MOODS[0].kr,drums:[],bass808:null,melodyLead:null,melodyBackground:null,texture:[],density:null,vocal:'Sung lead vocal',vocalStyle:null,vocalChar:null,styleTags:['short syncopated motif'],cues:{hook:'wider hook'}});
     applyBrief=()=>{globalThis.autoApplyIds=_briefProposal.items.filter(x=>x.on).map(x=>x.id);_briefProposal=null;};`);
   assert.equal(await ctx.aiAnalyzeBrief({autoApply:true,expectedText:'Artist - Reference Song'}),true);
   assert.equal(run(`buildBriefProposal('reference',{genre:GENRES[8].en,bass808:'Heavy'}).v.bass808`),'Heavy');
   assert.equal(run(`buildBriefProposal('reference',{genre:GENRES[0].en,bass808:'None'}).v.bass808`),'None');
-  assert.deepEqual(Array.from(ctx.autoApplyIds),['mood','genre','sound']);
-  assert.equal(ctx.autoApplyIds.includes('vocal'),false);
+  assert.equal(ctx.autoApplyIds,undefined);
+  assert.equal(run('st.brief.kind'),'song');
   run(`document.getElementById=()=>null; callOpenAI=async(key,request)=>{globalThis.request=request; return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
 
   const wrapped=ctx.parseSections(section).map(s=>'<section>'+s.header+'\n'+s.body+'</section>').join('');
@@ -194,24 +196,26 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   const repeated=await ctx.writeOnce({mode:'create',spec});
   assert.equal(validate(repeated.section,repeated.style).ok,true);
   run(`callOpenAI=async(key,request)=>{globalThis.request=request;return '<section>'+fixture.section+'</section><style>'+fixture.style+'</style>';};`);
-  const fixedSpec={...spec,designMode:'reference-type-beat',brief:{instrumentalProfile:{balance:'Guitar supports the rhythm behind bass and drums',activity:'Sparse phrase endings',timbreSpace:'Short dry plucks',vocalSpace:'Open center'}}};
+  ctx.fixture.style=instrumentalStyle+' In A minor.';
+  const fixedSpec={...spec,key:'A minor',referenceSong:'Example - Track',designMode:'reference-type-beat',brief:{instrumentalProfile:{balance:'Guitar supports the rhythm behind bass and drums',activity:'Sparse phrase endings',timbreSpace:'Short dry plucks',vocalSpace:'Open center'}}};
   await ctx.writeOnce({mode:'create',spec:fixedSpec});
-  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC+MUSIC_PLAN_RENDER_GUIDE'));
+  assert.match(ctx.request.staticText,/Judge the musical choices yourself/);
   assert.doesNotMatch(ctx.request.staticText,/사용자가 준 예시에서 배울 설계|곡의 특징이 될 아이디어를 하나 정해/);
-  assert.match(ctx.request.dynamicText,/Sparse phrase endings/);
+  assert.doesNotMatch(ctx.request.dynamicText,/Sparse phrase endings/);
   await ctx.writeOnce({mode:'edit',spec:fixedSpec,prev:{section,style:instrumentalStyle}});
-  assert.equal(ctx.request.staticText,run('TYPE_BEAT_WRITE_STATIC+MUSIC_PLAN_RENDER_GUIDE'));
+  assert.match(ctx.request.staticText,/Judge the musical choices yourself/);
+  ctx.fixture.style=instrumentalStyle;
   const result=await ctx.writeOnce({mode:'create',spec});
   assert.equal(result.style,instrumentalStyle);
   assert.equal(result.section,section);
-  assert.match(ctx.request.staticText,/자연어 한 문단/);
+  assert.match(ctx.request.staticText,/one connected English paragraph/);
   assert.ok(ctx.request.staticText.includes(run('PROMPT_ROLE_GUIDE')));
-  assert.match(ctx.request.staticText,/역할을 채우려고 악기를 추가하지 마/);
-  assert.match(ctx.request.staticText,/구간별 maxChars는 간결성 권장값/);
-  assert.match(ctx.request.staticText,/라틴 팝/);
+  assert.match(ctx.request.staticText,/Choose roles and techniques for this song/);
+  assert.match(ctx.request.staticText,/구간별 maxChars는 간결하게 쓰기 위한 권장값/);
+  assert.match(ctx.request.staticText,/not a fixed genre recipe/);
   assert.match(ctx.request.staticText,/위스퍼/);
-  assert.match(ctx.request.staticText,/\[섹션 디렉팅\]/);
-  assert.match(ctx.request.staticText,/필요한 디테일만 간결한 영어 자연어/);
+  assert.match(ctx.request.staticText,/\[Section format\]/);
+  assert.match(ctx.request.staticText,/inheriting everything unchanged/);
   assert.doesNotMatch(ctx.request.staticText,/완결된 서술 문장은 금지|태그는 12개 이하|2,800~3,800/);
   assert.doesNotMatch(run('RUBRIC_TEXT()'),/서술 문장 없음|구당 8단어 이하/);
   assert.equal(validate(result.section,result.style).ok,true);
@@ -223,3 +227,6 @@ run(`aiSelectionCtx=()=>JSON.stringify({genre: "night-pop", bpm:110, vocal:null}
   assert.match(ctx.request.dynamicText,/FAILED_STYLE/);
   console.log('PASS: natural-language writing, intact feedback, constraints and request assembly (offline fixtures).');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+assert.equal(validate(section,instrumentalStyle.replace('110 BPM','midtempo')).ok,false);
+assert.equal(validate(section,instrumentalStyle+' Follow design.sections.').ok,false);

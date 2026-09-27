@@ -1,0 +1,336 @@
+[
+  {
+    "name": "bass-club",
+    "bpm": 124,
+    "mode": "reference-type-beat",
+    "input": "Controlled reference profile: bass-club",
+    "analysis": {
+      "kind": "song",
+      "understood": "Fixed musical reference fixture, not a recording analysis",
+      "instrumentalProfile": {
+        "genre": "Minimal electro club",
+        "groove": "Straight four-on-the-floor kick beneath an elastic syncopated bass pattern with conspicuous rests",
+        "bass": "The dry elastic synth bass is the memorable rhythmic hook, with clipped attacks and late offbeat bounces",
+        "instruments": "Metallic synth stabs answer only the bass gaps; kick and restrained hats anchor the pulse",
+        "energy": "Cold, cheeky and physical, tense but playful with controlled club energy",
+        "balance": "Bass carries the foreground identity; metallic stabs punctuate its gaps; drums stay steady without a separate melodic lead",
+        "activity": "Sparse interlocking hits with deliberate silence, not continuous melodies",
+        "arrangement": "Changes expose or vary the bass rhythm while retaining its recognizable pocket"
+      },
+      "analysisEvidence": {
+        "genre": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Minimal electro club"
+        },
+        "groove": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Straight four-on-the-floor kick beneath an elastic syncopated bass pattern with conspicuous rests"
+        },
+        "bass": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: The dry elastic synth bass is the memorable rhythmic hook, with clipped attacks and late offbeat bounces"
+        },
+        "instruments": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Metallic synth stabs answer only the bass gaps; kick and restrained hats anchor the pulse"
+        },
+        "energy": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Cold, cheeky and physical, tense but playful with controlled club energy"
+        },
+        "balance": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Bass carries the foreground identity; metallic stabs punctuate its gaps; drums stay steady without a separate melodic lead"
+        },
+        "activity": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Sparse interlocking hits with deliberate silence, not continuous melodies"
+        },
+        "arrangement": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Changes expose or vary the bass rhythm while retaining its recognizable pocket"
+        }
+      },
+      "referenceRelationships": [
+        {
+          "id": "core",
+          "part": "core arrangement",
+          "role": "Bass carries the foreground identity; metallic stabs punctuate its gaps; drums stay steady without a separate melodic lead",
+          "interaction": "Straight four-on-the-floor kick beneath an elastic syncopated bass pattern with conspicuous rests",
+          "evidence": [
+            {
+              "field": "balance",
+              "quote": "Bass carries the foreground identity; metallic stabs punctuate its gaps; drums stay steady without a separate melodic lead"
+            },
+            {
+              "field": "groove",
+              "quote": "Straight four-on-the-floor kick beneath an elastic syncopated bass pattern with conspicuous rests"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "dark-trap",
+    "bpm": 140,
+    "mode": "reference-type-beat",
+    "input": "Controlled reference profile: dark-trap",
+    "analysis": {
+      "kind": "song",
+      "understood": "Fixed musical reference fixture, not a recording analysis",
+      "instrumentalProfile": {
+        "genre": "Dark trap",
+        "groove": "Heavy half-time backbeat against restrained rolling hi-hats, with space between low-end hits",
+        "bass": "Deep 808 phrases with occasional short slides provide ominous weight and lock to the kick",
+        "instruments": "Low piano fragments and a thin eerie sustained texture support the drum and 808 pocket",
+        "energy": "Dark, menacing and contained; forceful low end without bright triumphant uplift",
+        "balance": "Drum and 808 groove are central; piano supplies a sparse recurring harmonic fragment, not a virtuoso solo; texture stays behind",
+        "activity": "Sparse piano attacks and selective hat rolls leave space for rap",
+        "arrangement": "Energy develops through rhythmic weight and contrast while keeping the ominous mood"
+      },
+      "analysisEvidence": {
+        "genre": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Dark trap"
+        },
+        "groove": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Heavy half-time backbeat against restrained rolling hi-hats, with space between low-end hits"
+        },
+        "bass": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Deep 808 phrases with occasional short slides provide ominous weight and lock to the kick"
+        },
+        "instruments": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Low piano fragments and a thin eerie sustained texture support the drum and 808 pocket"
+        },
+        "energy": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Dark, menacing and contained; forceful low end without bright triumphant uplift"
+        },
+        "balance": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Drum and 808 groove are central; piano supplies a sparse recurring harmonic fragment, not a virtuoso solo; texture stays behind"
+        },
+        "activity": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Sparse piano attacks and selective hat rolls leave space for rap"
+        },
+        "arrangement": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Energy develops through rhythmic weight and contrast while keeping the ominous mood"
+        }
+      },
+      "referenceRelationships": [
+        {
+          "id": "core",
+          "part": "core arrangement",
+          "role": "Drum and 808 groove are central; piano supplies a sparse recurring harmonic fragment, not a virtuoso solo; texture stays behind",
+          "interaction": "Heavy half-time backbeat against restrained rolling hi-hats, with space between low-end hits",
+          "evidence": [
+            {
+              "field": "balance",
+              "quote": "Drum and 808 groove are central; piano supplies a sparse recurring harmonic fragment, not a virtuoso solo; texture stays behind"
+            },
+            {
+              "field": "groove",
+              "quote": "Heavy half-time backbeat against restrained rolling hi-hats, with space between low-end hits"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "spacious-rnb",
+    "bpm": 82,
+    "mode": "reference-type-beat",
+    "input": "Controlled reference profile: spacious-rnb",
+    "analysis": {
+      "kind": "song",
+      "understood": "Fixed musical reference fixture, not a recording analysis",
+      "instrumentalProfile": {
+        "genre": "Intimate contemporary R&B",
+        "groove": "Relaxed behind-the-beat drum pocket with soft transients and unhurried pulse",
+        "bass": "Round legato bass connects chord roots with small passing tones",
+        "instruments": "Warm electric piano voicings, soft drums and bass with a few quiet guitar replies",
+        "energy": "Intimate, wistful and warm, subdued rather than ecstatic or gloomy",
+        "balance": "Electric piano is a harmonic bed; bass and drums hold a gentle pocket; guitar replies are occasional background accents, leaving the center open for a vocal",
+        "activity": "Sustained chords and short replies alternate with silence",
+        "arrangement": "Gentle harmonic color changes and temporary dropouts give contrast without a large climax"
+      },
+      "analysisEvidence": {
+        "genre": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Intimate contemporary R&B"
+        },
+        "groove": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Relaxed behind-the-beat drum pocket with soft transients and unhurried pulse"
+        },
+        "bass": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Round legato bass connects chord roots with small passing tones"
+        },
+        "instruments": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Warm electric piano voicings, soft drums and bass with a few quiet guitar replies"
+        },
+        "energy": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Intimate, wistful and warm, subdued rather than ecstatic or gloomy"
+        },
+        "balance": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Electric piano is a harmonic bed; bass and drums hold a gentle pocket; guitar replies are occasional background accents, leaving the center open for a vocal"
+        },
+        "activity": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Sustained chords and short replies alternate with silence"
+        },
+        "arrangement": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Gentle harmonic color changes and temporary dropouts give contrast without a large climax"
+        }
+      },
+      "referenceRelationships": [
+        {
+          "id": "core",
+          "part": "core arrangement",
+          "role": "Electric piano is a harmonic bed; bass and drums hold a gentle pocket; guitar replies are occasional background accents, leaving the center open for a vocal",
+          "interaction": "Relaxed behind-the-beat drum pocket with soft transients and unhurried pulse",
+          "evidence": [
+            {
+              "field": "balance",
+              "quote": "Electric piano is a harmonic bed; bass and drums hold a gentle pocket; guitar replies are occasional background accents, leaving the center open for a vocal"
+            },
+            {
+              "field": "groove",
+              "quote": "Relaxed behind-the-beat drum pocket with soft transients and unhurried pulse"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "melodic-pop",
+    "bpm": 118,
+    "mode": "reference-type-beat",
+    "input": "Controlled reference profile: melodic-pop",
+    "analysis": {
+      "kind": "song",
+      "understood": "Fixed musical reference fixture, not a recording analysis",
+      "instrumentalProfile": {
+        "genre": "Bittersweet melodic pop",
+        "groove": "Buoyant clean pop backbeat with lightly syncopated melodic bass",
+        "bass": "Melodic but supportive bass connects the hook harmony to the drums",
+        "instruments": "Expressive clean lead guitar carries long memorable phrases with bends and sustained notes, supported by warm electric keys and clear drums",
+        "energy": "Yearning yet hopeful and uplifting, with an expressive final return allowed",
+        "balance": "Lead guitar is the foreground instrumental melody; electric keys supply harmonic support and bass connects it to the pulse",
+        "activity": "Long guitar phrases breathe between answers; accompaniment avoids competing lead lines",
+        "arrangement": "Verses offer intimacy; a bridge changes the guitar articulation to shorter restrained phrases before an expressive final hook return"
+      },
+      "analysisEvidence": {
+        "genre": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Bittersweet melodic pop"
+        },
+        "groove": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Buoyant clean pop backbeat with lightly syncopated melodic bass"
+        },
+        "bass": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Melodic but supportive bass connects the hook harmony to the drums"
+        },
+        "instruments": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Expressive clean lead guitar carries long memorable phrases with bends and sustained notes, supported by warm electric keys and clear drums"
+        },
+        "energy": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Yearning yet hopeful and uplifting, with an expressive final return allowed"
+        },
+        "balance": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Lead guitar is the foreground instrumental melody; electric keys supply harmonic support and bass connects it to the pulse"
+        },
+        "activity": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Long guitar phrases breathe between answers; accompaniment avoids competing lead lines"
+        },
+        "arrangement": {
+          "basis": "user-description",
+          "scope": "track",
+          "reason": "Explicit controlled test input: Verses offer intimacy; a bridge changes the guitar articulation to shorter restrained phrases before an expressive final hook return"
+        }
+      },
+      "referenceRelationships": [
+        {
+          "id": "core",
+          "part": "core arrangement",
+          "role": "Lead guitar is the foreground instrumental melody; electric keys supply harmonic support and bass connects it to the pulse",
+          "interaction": "Buoyant clean pop backbeat with lightly syncopated melodic bass",
+          "evidence": [
+            {
+              "field": "balance",
+              "quote": "Lead guitar is the foreground instrumental melody; electric keys supply harmonic support and bass connects it to the pulse"
+            },
+            {
+              "field": "groove",
+              "quote": "Buoyant clean pop backbeat with lightly syncopated melodic bass"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "original-club",
+    "bpm": 126,
+    "mode": "original-song",
+    "input": "차갑고 장난스러운 클럽 비트. 선율보다 베이스의 탄력 있는 리듬이 기억에 남았으면 좋겠어. 무보컬.",
+    "analysis": null
+  },
+  {
+    "name": "original-pop",
+    "bpm": 112,
+    "mode": "original-song",
+    "input": "쓸쓸하지만 희망적인 선율 중심 팝. 기억에 남는 멜로디와 따뜻한 반주, 감정이 자연스럽게 발전하는 곡. 무보컬.",
+    "analysis": null
+  }
+]

@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const c=vm.createContext({console});for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8'),c);
+const input={genre:'club',mood:'cold',lead:'bright synth',background:'pad',drums:['four on floor'],genrePalette:{instruments:['guitar']},bass:'genre bass',bass808:null,selectionOrigins:{genre:'current-selection',mood:'current-selection',melody:'genre-default',drums:'current-selection'}};
+const out=c.musicalIntent(input);assert.equal(out.genre,'club');assert.equal(out.mood,'cold');assert.deepEqual(out.drums,input.drums);assert.equal(out.lead,undefined);assert.equal(out.genrePalette,undefined);assert.equal(out.bass,undefined);assert.equal(input.lead,'bright synth');
+vm.runInContext("const st={melody:['pad'],drums:['kick'],genreDefaults:{melody:['pad'],drums:['kick']},referenceSelections:{}}",c);
+assert.equal(c.referenceSelectionOrigins().melody,'genre-default');
+vm.runInContext("st.drums=['snare'];",c);
+assert.equal(c.referenceSelectionOrigins().drums,'current-selection');assert.equal(c.referenceSelectionOrigins().melody,'genre-default');
+console.log('PASS: automatic menu hints excluded, explicit choices retained independently.');
+vm.runInContext("st.brief={kind:'vibe'};st.referenceSelections={melody:['pad']};",c);
+assert.equal(c.referenceSelectionOrigins().melody,'ai-intent');
+assert.equal(c.musicalIntent({...input,selectionOrigins:{melody:'ai-intent'}}).lead,undefined);
+const failed=JSON.parse(fs.readFileSync('tests/fixtures/incomplete-reference.json','utf8'));
+assert.throws(()=>c.assertReferenceReady({designMode:'reference-type-beat',brief:failed.brief}),e=>e.code==='reference_incomplete');
+assert.doesNotThrow(()=>c.assertReferenceReady({designMode:'original-song'}));
+assert.doesNotThrow(()=>c.assertReferenceReady({designMode:'reference-type-beat',brief:{instrumentalProfile:{groove:'late syncopated bass against straight kick',energy:'cold playful',balance:'bass foreground, short metallic accents'}}}));

@@ -1,0 +1,23 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({console,AbortSignal});
+for(const f of ['hh-data.js','reference-v2.js','hh-ai.js'])vm.runInContext(fs.readFileSync('versions/v2/'+f,'utf8'),ctx);
+vm.runInContext("const st={narrAI:{},extraTags:[],removedPhrases:[]};getOpenAIKey=()=> 'test';",ctx);
+const analysis={referenceVersion:2,kind:'song',referenceIdentity:{status:'identified'},instrumentalProfile:{mood:'cold playful',groove:'elastic bass against a straight kick',balance:'clipped stabs in the gaps'},analysisEvidence:{mood:{basis:'model-knowledge',scope:'track',reason:'specific track recollection'},balance:{basis:'inference',scope:'track',reason:'interpretation of rhythmic interplay'}},uncertainFields:[]};
+const spec={designMode:'reference-type-beat',brief:analysis,bpm:124,key:null,vocal:null,structure:[{header:'[Intro]'},{header:'[Instrumental Hook 1]'}],selectionOrigins:{},limits:{style:1000,section:5000}};
+const plan={identity:'탄력적인 베이스와 정박 킥',identityCore:{anchors:[],relationship:'bass drives, stabs punctuate',openChoices:'new pitches',driftRisks:[]},roles:[{part:'elastic synth bass',function:'rhythmic focus',performance:'late short bounce',fitReason:'retains elastic groove'}],sections:[{header:'[Intro]',direction:'Expose the elastic bass gesture.',benefit:'identity first'},{header:'[Instrumental Hook 1]',direction:'Bring in the straight kick, keeping the bass pauses.',benefit:'contrast'}],style:'Instrumental club beat at 124 BPM. Elastic synth bass leads against a straight kick; cold clipped stabs occupy its gaps. No vocals.',lyrics:''};
+(async()=>{
+ let requests=[];ctx.callOpenAI=async(k,r)=>{requests.push(r);return JSON.stringify(plan);};
+ const out=await ctx.writeOnce({mode:'create',spec});
+ assert.equal(out.musicPlan.referenceVersion,2);assert.equal(requests.length,1);
+ assert.equal(out.style,plan.style);assert.match(out.section,/\(Bring in/);assert.equal(ctx.validateWritten(spec,out.section,out.style).ok,true);
+ assert.equal((await ctx.refineMusicPlan(spec,out.musicPlan)),out.musicPlan);
+ assert.equal((await ctx.checkTypeBeatAlignment(spec,out)).result,out);
+ assert.equal(ctx.filterReferenceUncertainty(analysis).instrumentalProfile.balance,analysis.instrumentalProfile.balance);
+ const unknown=structuredClone(analysis);unknown.analysisEvidence.balance.basis='unknown';assert.equal(ctx.filterReferenceUncertainty(unknown).instrumentalProfile.balance,undefined);
+ requests=[];await ctx.buildMusicPlan({mode:'edit',spec,prev:out,context:{narrAI:{hook1:'Delay only the last bass pickup'}}});
+ const req=JSON.parse(requests[0].dynamicText);assert.equal(req.mode,'edit');assert.match(req.feedback.narrAI.hook1,/Delay/);assert.equal(req.previous.style,plan.style);
+ const bad={...analysis,referenceIdentity:{status:'unknown',reason:'not known'}};await assert.rejects(()=>ctx.buildMusicPlan({mode:'create',spec:{...spec,brief:bad}}),/확인/);
+ const long={...out.musicPlan,style:'Long. '.repeat(200)};requests=[];const repaired=await ctx.writeReferenceV2({spec,musicPlan:long});assert.equal(repaired.style,plan.style);assert.equal(requests.length,1);
+ const manifest=JSON.parse(fs.readFileSync('versions/v1/manifest.json'));for(const [file,hash] of Object.entries(manifest.files))assert.equal(require('crypto').createHash('sha256').update(fs.readFileSync('versions/v1/'+file)).digest('hex'),hash);
+ console.log('V2: single-design rendering, edit handoff, uncertainty, limits, unknown identity, V1 snapshot OK');
+})().catch(e=>{console.error(e);process.exitCode=1;});

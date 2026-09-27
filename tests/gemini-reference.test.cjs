@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const {youtubeURL,parseResponse}=require('./run-gemini-reference.cjs');
+assert.equal(youtubeURL('https://youtu.be/huGd4efgdPA?t=10'),'https://www.youtube.com/watch?v=huGd4efgdPA');
+for(const url of ['https://youtube.com.evil.test/watch?v=huGd4efgdPA','http://youtube.com/watch?v=huGd4efgdPA','https://user@youtube.com/watch?v=huGd4efgdPA']) assert.throws(()=>youtubeURL(url));
+const wrap=(x,finishReason='STOP')=>({candidates:[{finishReason,content:{parts:[{text:JSON.stringify(x)}]}}]});
+const analysis={audioAccess:'available',observations:[{description:'bass answers kick',timeRange:'00:20-00:35',audibleCue:'bass strikes between kick hits'}],uncertainties:[]};
+assert.deepEqual(parseResponse(wrap(analysis)),analysis);
+assert.throws(()=>parseResponse(wrap(analysis,'MAX_TOKENS')));
+assert.throws(()=>parseResponse(wrap({...analysis,audioAccess:'unavailable'})));
+assert.throws(()=>parseResponse(wrap({...analysis,observations:[]})));
+assert.deepEqual(parseResponse(wrap({audioAccess:'unavailable',observations:[],uncertainties:['cannot access sound']})).observations,[]);
+console.log('Gemini experiment: URL validation, truncation and false audio-access checks passed (offline).');

@@ -2385,7 +2385,10 @@ function hhGenerate(source,opts){
   const keyStr=KEYS[st.key]||'A minor';
   const bpmVal=parseInt(document.getElementById('hh-bpm').value)||st.bpm;
   const refSong=(document.getElementById('hh-ref-song')?.value||'').trim();
-  // Reference inputs go directly to writing only on explicit Generate.
+  // 레퍼런스 곡만 고르고 장르를 고르지 않았다면, Generate 전에 곡명 GPT 분석을 끝내고 추천값을 채운 뒤 생성한다.
+  if(!isRefresh&&!opts?._afterRefAuto&&refSong&&st.brief?.text!==refSong&&getOpenAIKey()){
+    return autoAnalyzeReference(refSong).then(ok=>{if(ok&&(document.getElementById('hh-ref-song')?.value||'').trim()===refSong)return hhGenerate(source,{...(opts||{}),_afterRefAuto:true});});
+  }
   const moodIdx=HH_MOODS.findIndex(m=>m.kr===st.mood);
   const mood=moodIdx>=0?HH_MOODS[moodIdx]:null;
 
@@ -3169,6 +3172,11 @@ async function popAiWriteStyle(s,token){
   const spec=popWriteSpec(JSON.parse(JSON.stringify(s)));
   const context={narrAI:{},extraTags:[],removedPhrases:[]};
   try{
+    if(spec.referenceSong){
+      spec.brief=await analyzeSoundDesign(spec.referenceSong);
+      if(token!==popWriteToken)return;
+      record.attempts.push({stage:'reference-analysis',output:spec.brief});
+    }
     let musicPlan=await buildMusicPlan({mode:'create',spec,context,diagnostics:record.attempts});
     if(token!==popWriteToken)return;
     musicPlan=await refineMusicPlan(spec,musicPlan,record.attempts);
@@ -3201,8 +3209,8 @@ async function popAiWriteStyle(s,token){
     const finalErrors=[...validateWritten(spec,out.section,out.style).errors,...await checkMusicConditions(spec,{style:out.style,section:out.section})];
     if(token!==popWriteToken)return;
     if(finalErrors.length)throw new Error(finalErrors.join(' / '));
-    popMusicPlan=[2,3].includes(out.musicPlan?.referenceVersion)?out.musicPlan:musicPlan;
-    renderGeneratedDesign(popMusicPlan,'pop-style-ta');
+    popMusicPlan=musicPlan;
+    renderGeneratedDesign(musicPlan,'pop-style-ta');
     popBaseSection=out.section;record.result=out;
     document.getElementById('pop-sect-ta').value=out.section;
     document.getElementById('pop-style-ta').value=out.style;

@@ -5,15 +5,17 @@ for(const f of ['hh-data.js','hh-ai.js'])vm.runInContext(fs.readFileSync(f,'utf8
 const app=fs.readFileSync('app.js','utf8');
 vm.runInContext(app.slice(app.indexOf('const POP_VOCAL_GUIDE='),app.indexOf('// TOAST')),ctx);
 vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
+ctx.refineMusicPlan=async(_spec,plan)=>plan;
+ctx.checkTypeBeatAlignment=async(_spec,result)=>({result,note:''});
 (async()=>{
   let calls=0;
   const guide=vm.runInContext('STYLE_BUDGET_GUIDE',ctx);
   const roles=vm.runInContext('PROMPT_ROLE_GUIDE',ctx);
   const referenceGuide=vm.runInContext('REFERENCE_DEVELOPMENT_GUIDE',ctx);
-  for(const expression of ['PROMPT_ROLE_GUIDE','BRIEF_STATIC','RUBRIC_TEXT()']) assert.ok(vm.runInContext(expression,ctx).includes(referenceGuide));
+  for(const expression of ['BRIEF_STATIC','RUBRIC_TEXT()']) assert.ok(vm.runInContext(expression,ctx).includes(referenceGuide));
   assert.ok(vm.runInContext('WRITE_STATIC',ctx).includes(roles));
   assert.ok(vm.runInContext('WRITE_STATIC',ctx).includes(guide));
-  ctx.callOpenAI=async(key,request)=>{assert.equal(request.staticText,vm.runInContext('STYLE_COMPRESSION_GUIDE',ctx));assert.ok(request.staticText.length<roles.length);calls++;return '<style>Instrumental trap at 140 BPM. A short piano motif answers punchy bass. No vocals.</style>';};
+  ctx.callOpenAI=async(key,request)=>{assert.equal(request.staticText,vm.runInContext('STYLE_COMPRESSION_GUIDE',ctx));assert.ok(request.staticText.includes(vm.runInContext('MUSIC_DESIGN_CONTRACT',ctx)));calls++;return '<style>Instrumental trap at 140 BPM. A short piano motif answers punchy bass. No vocals.</style>';};
   const short='Instrumental only.';
   assert.equal(await ctx.fitAiStyle(short),short);assert.equal(calls,0);
   const fitted=await ctx.fitAiStyle('Long description. '.repeat(100));
@@ -21,9 +23,10 @@ vm.runInContext("const antiAI=false; getOpenAIKey=()=> 'fixture';",ctx);
   const section='[Intro]\nKeep a spare motif.\n[Chorus]\nWiden the same motif.';
   calls=0;
   ctx.callOpenAI=async(key,request)=>{if(calls===0){assert.ok(request.staticText.includes(guide));assert.ok(request.staticText.includes(roles));}else assert.equal(request.staticText,vm.runInContext('STYLE_COMPRESSION_GUIDE',ctx));return ++calls===1?`<section>${section}</section><style>${'Long description. '.repeat(100)}</style>`:'<style>Warm pop at 100 BPM. A piano motif supports intimate vocals.</style>';};
+  ctx.buildMusicPlan=async({spec})=>({identity:'fixture',roles:[],sections:spec.structure.map(x=>({...x,direction:'Maintain.'}))});
   await ctx.popAiWriteStyle({genre:'pop',bpm:100,key:7,mood:'warm',instruments:['piano'],vocalStyle:'pop',concept:'summer',refSong:'',structSegs:['intro','chorus'],narrSt:{}},0);
   assert.equal(calls,2);
-  assert.equal(nodes['pop-sect-ta'].value,section);
+  assert.equal(nodes['pop-sect-ta'].value,'[Intro]\n(Keep a spare motif.)\n[Chorus]\n(Widen the same motif.)');
   assert.ok(nodes['pop-style-ta'].value.length<=1000);
   assert.match(nodes['pop-ai-status'].textContent,/작성 완료/);
   // A permanently oversized response is bounded, never silently truncated.

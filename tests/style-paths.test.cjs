@@ -6,6 +6,7 @@ vm.runInContext("const st={melody:[],extraTags:[],narrAI:{},removedPhrases:[]};g
 ctx.buildMusicPlan=async({spec})=>({identity:'fixture identity',roles:[],sections:spec.structure.map(x=>({header:x.header,direction:'Maintain the established groove.'}))});
 const base=JSON.parse(fs.readFileSync('tests/fixtures/despacito-type-beat.json','utf8')).spec;
 const cases=[
+  {name:'melody-led pop',genre:'melodic pop',mood:'bittersweet hopeful',groove:'steady flowing pulse',balance:'expressive guitar foreground with supportive bass'},
   {name:'rhythm-led club',genre:'minimal club',mood:'cold, playful',groove:'straight kick with late elastic bass',balance:'bass foreground, sparse stabs'},
   {name:'dark trap',genre:'dark trap',mood:'dark, tense',groove:'half-time drums with rolling hats',balance:'heavy low end, restrained melodic layer'},
   {name:'sparse R&B',genre:'alternative R&B',mood:'intimate, subdued',groove:'laid-back pocket with rests',balance:'soft electric keys, open center'}
@@ -13,16 +14,16 @@ const cases=[
 (async()=>{
  for(const c of cases){
   for(const mode of ['reference-type-beat','original-song']){
-   const spec={...base,designMode:mode,genre:c.genre,mood:c.mood,referenceSong:mode==='reference-type-beat'?c.name:null,brief:mode==='reference-type-beat'?{instrumentalProfile:{genre:c.genre,groove:c.groove,balance:c.balance},uncertainFields:['instrumentalProfile.instruments'],cues:{hook:'unfounded guitar solo',verse:'retain the pocket'},cueBasis:{hook:['instruments'],verse:['groove']}}:null};
+   const spec={...base,designMode:mode,selectionOrigins:mode==='original-song'?{genre:'current-selection',mood:'current-selection'}:base.selectionOrigins,genre:c.genre,mood:c.mood,referenceSong:mode==='reference-type-beat'?c.name:null,brief:mode==='reference-type-beat'?{instrumentalProfile:{genre:c.genre,groove:c.groove,balance:c.balance},uncertainFields:['instrumentalProfile.instruments'],cues:{hook:'unfounded guitar solo',verse:'retain the pocket'},cueBasis:{hook:['instruments'],verse:['groove']}}:null};
    let request;
-   ctx.callOpenAI=async(_key,r)=>{request=r;return '<style>Instrumental '+c.genre+', '+c.mood+'. No vocals.</style><section>[Intro]\n(Enter sparsely.)\n[Outro]\n(Fade.)</section>';};
+   ctx.callOpenAI=async(_key,r)=>{request=r;return '<style>Instrumental '+c.genre+', '+c.mood+' at '+spec.bpm+' BPM in '+spec.key+'. No vocals.</style><section>[Intro]\n(Enter sparsely.)\n[Outro]\n(Fade.)</section>';};
    await ctx.writeOnce({mode:'create',spec});
-   assert.match(request.dynamicText,new RegExp(c.genre));
-   assert.match(request.staticText,/지시 개수는 고정하지 마/);
+   assert.match(request.dynamicText,new RegExp(mode==='reference-type-beat'?c.name:c.genre));
+   if(mode==='original-song')assert.match(request.staticText,/No fixed number of changes/);
    if(mode==='reference-type-beat'){
-    assert.ok(request.dynamicText.includes(c.balance));
+    assert.ok(!request.dynamicText.includes(c.balance));
     assert.ok(!request.dynamicText.includes('unfounded guitar solo'));
-    assert.ok(request.dynamicText.includes('retain the pocket'));
+    assert.ok(!request.dynamicText.includes('retain the pocket'));
    }else assert.ok(!request.dynamicText.includes(c.balance));
   }
  }
@@ -33,5 +34,5 @@ const cases=[
  assert.equal(ctx.filterReferenceUncertainty({...source,kind:'vibe'}).cues.hook,'guitar solo');
  const review=ctx.normalizeAiSuggestion({category:'총평',text:'근거',criteria:{reference:9,genre:8},evidence:{preserved:['steady groove'],risks:['too bright'],unknown:['original balance']}},[],[]);
  assert.equal(review.criteria.reference,undefined);assert.equal(review.evidence.unknown[0],'original balance');
- console.log('PASS: three fixed styles × both writing paths, uncertainty propagation and evidence-based review (mock transport).');
+ console.log('PASS: four fixed styles × both writing paths, uncertainty propagation and evidence-based review (mock transport).');
 })().catch(e=>{console.error(e);process.exitCode=1;});

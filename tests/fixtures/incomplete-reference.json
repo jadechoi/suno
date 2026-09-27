@@ -1,0 +1,92 @@
+{
+  "ok": true,
+  "brief": {
+    "text": "Charli xcx, Billie Eilish - Guess featuring billie eilish",
+    "kind": "song",
+    "understood": "User is pointing to the specific Charli xcx track “Guess” featuring Billie Eilish and wants its distinctive production identity captured, not a generic Charli/Billie description.",
+    "styleTags": [],
+    "cues": {},
+    "source": "ai",
+    "instrumentalProfile": {
+      "genre": "alt‑pop / experimental electro‑pop",
+      "vocalSpace": "hyper‑featured dual‑vocal space: intimate close‑miked leads in front; tight doubles and whispers used rhythmically; interplay between Charli’s and Billie’s tones is the main ‘lead instrument ’ with the beat leaving them plenty of room."
+    },
+    "analysisEvidence": {
+      "genre": {
+        "basis": "model-knowledge",
+        "reason": "Charli XCX x Billie Eilish collaboration implies a hybrid of Charli’s experimental pop and Billie’s moody alt‑pop; title‑level knowledge places it firmly in the modern alt‑pop/electro‑pop lane."
+      },
+      "groove": {
+        "basis": "inference",
+        "reason": "Both artists commonly favor mid‑tempo, groove‑driven tracks with understated bounce; a feature track is unlikely to be hyper‑fast EDM or a ballad and more likely a cool, head‑nod pace."
+      },
+      "bass": {
+        "basis": "inference",
+        "reason": "Charli’s recent work and Billie/Finneas productions both rely on expressive, often sub‑heavy synth bass as a structural element with occasional movement but not busy melodic runs."
+      },
+      "instruments": {
+        "basis": "inference",
+        "reason": "A Charli x Billie track will almost certainly be electronic and vocal‑forward, built on synths and programmed drums; guitars, pianos or live bands are less central in their shared aesthetic."
+      },
+      "arrangement": {
+        "basis": "inference",
+        "reason": "Both artists tend toward modern, sectional arrangements that use space and contrast instead of maximal pop layering; a feature track likely exploits that by giving each singer clear sections and interplay rather than a wall of sound."
+      },
+      "energy": {
+        "basis": "inference",
+        "reason": "Combining Charli’s avant‑pop with Billie’s intimate, dark aesthetic skews toward controlled, tension‑driven energy instead of festival‑EDM peaks; emotional intensity over sheer loudness."
+      },
+      "balance": {
+        "basis": "inference",
+        "reason": "Production in both catalogs is designed to showcase vocals and lyrics, with low‑end presence and tight high‑frequency detail; midrange clutter is usually avoided."
+      },
+      "activity": {
+        "basis": "inference",
+        "reason": "Their tracks often feel minimal at a distance but reveal fine transient and FX detail on close listening; fills and ear candy are purposeful, not constant."
+      },
+      "timbreSpace": {
+        "basis": "inference",
+        "reason": "Shared aesthetic: dark‑leaning, glossy digital timbres with some bass saturation and clean, modern top end; not analog‑retro or organic‑band focused."
+      },
+      "vocalSpace": {
+        "basis": "model-knowledge",
+        "reason": "A Charli x Billie feature centers on vocal character and interplay; both are known for close, intimate vocal production with creative doubles and harmonies, so the mix will leave them as the clear focal point."
+      }
+    },
+    "cueBasis": "inference",
+    "uncertainFields": [
+      "instrumentalProfile.groove",
+      "drums",
+      "instrumentalProfile.bass",
+      "bass808",
+      "instrumentalProfile.instruments",
+      "melodyLead",
+      "melodyBackground",
+      "instrumentalProfile.arrangement",
+      "instrumentalProfile.energy",
+      "instrumentalProfile.balance",
+      "instrumentalProfile.activity",
+      "instrumentalProfile.timbreSpace",
+      "texture",
+      "cues.intro",
+      "cues.hook",
+      "cues.verse",
+      "cues.bridge",
+      "cues.outro"
+    ]
+  },
+  "origins": {
+    "genre": "current-selection",
+    "mood": "ai-reference",
+    "drums": "current-selection",
+    "_808": "current-selection",
+    "melody": "current-selection",
+    "texture": "current-selection",
+    "density": "ai-reference",
+    "groove": "current-selection",
+    "transitionFx": "current-selection",
+    "melodyTone": "current-selection",
+    "structSegs": "current-selection",
+    "refs": "current-selection"
+  }
+}
